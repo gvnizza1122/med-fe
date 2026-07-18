@@ -1,0 +1,646 @@
+'use client';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { api } from '@/lib/api';
+
+interface ExtractedData {
+  [key: string]: string;
+}
+
+interface FieldError {
+  field: string;
+  message: string;
+  severity: string;
+  expected?: string;
+  actual?: string;
+  rule_id?: string;
+}
+
+// Live client-side format hints while the nurse edits
+const fieldValidation: Record<string, (v: string) => string | null> = {
+  NOKARTU: (v) => /^\d{13}$/.test((v || '').replace(/\D/g, '')) ? null : 'Must be 13 digits',
+  SEP: (v) => /^0170[A-Z0-9]{20}$/.test((v || '').toUpperCase()) ? null : 'Format: 0170... (24 characters)',
+  NAMA_PASIEN: (v) => (v || '').trim().length > 2 ? null : 'Minimum 3 characters',
+  BIRTH_DATE: (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '') || !v ? null : 'Format: YYYY-MM-DD',
+  ADMISSION_DATE: (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '') || !v ? null : 'Format: YYYY-MM-DD',
+  DISCHARGE_DATE: (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '') || !v ? null : 'Format: YYYY-MM-DD',
+  KELAS_RAWAT: (v) => ['1', '2', '3'].includes(v || '') || !v ? null : 'Only 1, 2, or 3',
+  DISCHARGE_STATUS: (v) => ['1', '2', '3', '4', '5'].includes(v || '') || !v ? null : 'Only 1-5',
+  SEX: (v) => ['L', 'P', '1', '2', 'Laki-laki', 'Perempuan'].includes(v || '') || !v ? null : '1 = Male, 2 = Female',
+};
+
+interface FieldDef {
+  key: string;
+  label: string;
+  required?: boolean;
+  autoFilled?: boolean; // filled by vClaim / INA-CBG grouper — blank is expected
+  type?: string;
+  placeholder?: string;
+  hint?: string; // expected format, shown as suggestion in validation results
+}
+
+// The actual vClaim column set — keys match backend pdfParser vclaimFormat exactly
+const VCLAIM_SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
+  {
+    id: 'patient',
+    title: '👤 Patient Data',
+    fields: [
+      { key: 'NAMA_PASIEN', label: 'Patient Name', required: true, hint: 'Full name as printed on the BPJS card (min. 3 characters)' },
+      { key: 'SEX', label: 'Gender', required: true, placeholder: '1 = Male, 2 = Female', hint: '1 = Male, 2 = Female (L/P also accepted)' },
+      { key: 'BIRTH_DATE', label: 'Date of Birth', required: true, type: 'date', hint: 'Format YYYY-MM-DD' },
+      { key: 'BIRTH_WEIGHT', label: 'Birth Weight (grams)', type: 'number', hint: 'Newborn patients only — leave blank otherwise' },
+      { key: 'NOKARTU', label: 'BPJS Card Number', required: true, hint: '13 digits, numbers only, no spaces or dashes' },
+      { key: 'MRN', label: 'Medical Record Number (MRN)', required: true, hint: 'Hospital medical record number' },
+      { key: 'ALAMAT', label: 'Address', type: 'textarea' },
+      { key: 'UMUR_TAHUN', label: 'Age (Years)', autoFilled: true, hint: 'Calculated from date of birth' },
+      { key: 'UMUR_HARI', label: 'Age (Days)', autoFilled: true, hint: 'Calculated from date of birth' },
+    ],
+  },
+  {
+    id: 'admission',
+    title: '🏥 Admission & Care',
+    fields: [
+      { key: 'KODE_RS', label: 'Hospital Code', required: true, hint: 'BPJS hospital code, e.g. 3371084' },
+      { key: 'KELAS_RS', label: 'Hospital Class', autoFilled: true, hint: 'Default: D' },
+      { key: 'KELAS_RAWAT', label: 'Care Class', required: true, placeholder: '1 / 2 / 3', hint: 'Only 1, 2, or 3' },
+      { key: 'ADMISSION_DATE', label: 'Admission Date', required: true, type: 'date', hint: 'Format YYYY-MM-DD' },
+      { key: 'DISCHARGE_DATE', label: 'Discharge Date', required: true, type: 'date', hint: 'Format YYYY-MM-DD, must be on/after admission date' },
+      { key: 'LOS', label: 'Length of Stay (LOS)', autoFilled: true, hint: 'Calculated by vClaim from admission/discharge dates' },
+      { key: 'DISCHARGE_STATUS', label: 'Discharge Status', required: true, placeholder: '1-5', hint: '1=Home, 2=Referred, 3=Self-discharge, 4=Died, 5=Other' },
+      { key: 'PTD', label: 'Care Type (PTD)', autoFilled: true, hint: '1 = Inpatient, 2 = Outpatient' },
+      { key: 'DPJP', label: 'Attending Physician (DPJP)', required: true, hint: 'Doctor in charge of the patient' },
+    ],
+  },
+  {
+    id: 'clinical',
+    title: '🔬 Clinical Data',
+    fields: [
+      { key: 'DIAGLIST', label: 'Diagnosis List (ICD-10)', required: true, type: 'textarea', hint: 'Separate multiple codes with ";" e.g. A09;E11.9' },
+      { key: 'PROCLIST', label: 'Procedure List (ICD-9-CM)', required: true, type: 'textarea', hint: 'Separate multiple codes with ";"' },
+      { key: 'ADL1', label: 'ADL Score (Sub-acute)', autoFilled: true },
+      { key: 'ADL2', label: 'ADL Score (Chronic)', autoFilled: true },
+      { key: 'ICU_INDIKATOR', label: 'ICU Indicator', autoFilled: true, hint: '1 if the patient was treated in ICU' },
+      { key: 'ICU_LOS', label: 'ICU Length of Stay', autoFilled: true },
+      { key: 'VENT_HOUR', label: 'Ventilator Hours', autoFilled: true },
+    ],
+  },
+  {
+    id: 'grouping',
+    title: '⚙️ INA-CBG Grouping',
+    fields: [
+      { key: 'INACBG', label: 'INA-CBG Code', autoFilled: true, hint: 'Generated by the INA-CBG grouper' },
+      { key: 'DESKRIPSI_INACBG', label: 'INA-CBG Description', autoFilled: true },
+      { key: 'TARIF_INACBG', label: 'INA-CBG Tariff', autoFilled: true },
+      { key: 'SUBACUTE', label: 'Sub-acute Code', autoFilled: true },
+      { key: 'TARIF_SUBACUTE', label: 'Sub-acute Tariff', autoFilled: true },
+      { key: 'CHRONIC', label: 'Chronic Code', autoFilled: true },
+      { key: 'TARIF_CHRONIC', label: 'Chronic Tariff', autoFilled: true },
+      { key: 'VERSI_INACBG', label: 'INA-CBG Version', autoFilled: true },
+      { key: 'VERSI_GROUPER', label: 'Grouper Version', autoFilled: true },
+    ],
+  },
+  {
+    id: 'special_cmg',
+    title: '💊 Special CMG (SP / SR / SI / SD)',
+    fields: [
+      { key: 'IN_SP', label: 'Input Special Procedure (IN_SP)', autoFilled: true },
+      { key: 'IN_SR', label: 'Input Special Prosthesis (IN_SR)', autoFilled: true },
+      { key: 'IN_SI', label: 'Input Special Investigation (IN_SI)', autoFilled: true },
+      { key: 'IN_SD', label: 'Input Special Drug (IN_SD)', autoFilled: true },
+      { key: 'SP', label: 'Special Procedure (SP)', autoFilled: true },
+      { key: 'DESKRIPSI_SP', label: 'SP Description', autoFilled: true },
+      { key: 'TARIF_SP', label: 'SP Tariff', autoFilled: true },
+      { key: 'SR', label: 'Special Prosthesis (SR)', autoFilled: true },
+      { key: 'DESKRIPSI_SR', label: 'SR Description', autoFilled: true },
+      { key: 'TARIF_SR', label: 'SR Tariff', autoFilled: true },
+      { key: 'SI', label: 'Special Investigation (SI)', autoFilled: true },
+      { key: 'DESKRIPSI_SI', label: 'SI Description', autoFilled: true },
+      { key: 'TARIF_SI', label: 'SI Tariff', autoFilled: true },
+      { key: 'SD', label: 'Special Drug (SD)', autoFilled: true },
+      { key: 'DESKRIPSI_SD', label: 'SD Description', autoFilled: true },
+      { key: 'TARIF_SD', label: 'SD Tariff', autoFilled: true },
+    ],
+  },
+  {
+    id: 'tariff',
+    title: '💰 Tariff & Claim',
+    fields: [
+      { key: 'SEP', label: 'SEP Number', required: true, hint: 'Uppercase, starts with 0170, 24 characters total' },
+      { key: 'KODE_TARIF', label: 'Tariff Code', autoFilled: true, hint: 'Default: DS' },
+      { key: 'TARIF_RS', label: 'Hospital Tariff', type: 'number', hint: 'Total hospital billing in Rupiah, numbers only' },
+      { key: 'TOTAL_TARIF', label: 'Total Tariff', autoFilled: true },
+      { key: 'TARIF_POLI_EKS', label: 'Executive Clinic Tariff', autoFilled: true },
+      { key: 'PAYOR_ID', label: 'Payor ID', autoFilled: true },
+      { key: 'CODER_ID', label: 'Coder ID', autoFilled: true },
+      { key: 'C1', label: 'C1', autoFilled: true },
+      { key: 'C2', label: 'C2', autoFilled: true },
+      { key: 'C3', label: 'C3', autoFilled: true },
+      { key: 'C4', label: 'C4', autoFilled: true },
+    ],
+  },
+];
+
+const ALL_FIELDS: FieldDef[] = VCLAIM_SECTIONS.flatMap(s => s.fields);
+const TOTAL_FIELDS = ALL_FIELDS.length;
+
+// ponytail self-check: no duplicate keys across sections
+if (process.env.NODE_ENV !== 'production') {
+  console.assert(new Set(ALL_FIELDS.map(f => f.key)).size === TOTAL_FIELDS, '[extract] duplicate vClaim field keys');
+}
+
+const requiredFields = ALL_FIELDS.filter(f => f.required).map(f => f.key);
+
+type FieldStatus = 'error' | 'valid' | 'auto' | 'empty';
+
+const STATUS_STYLE: Record<FieldStatus, { label: string; color: string; bg: string; icon: string }> = {
+  error: { label: 'NEEDS FIX', color: '#dc2626', bg: 'rgba(220, 38, 38, 0.08)', icon: '❌' },
+  valid: { label: 'VALID', color: '#16a34a', bg: 'rgba(22, 163, 74, 0.08)', icon: '✅' },
+  auto: { label: 'AUTO-FILLED', color: '#2563eb', bg: 'rgba(37, 99, 235, 0.08)', icon: '⚙️' },
+  empty: { label: 'NOT PROVIDED', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.08)', icon: '➖' },
+};
+
+export default function ExtractPage() {
+  const [step, setStep] = useState<'upload' | 'review' | 'validate'>('upload');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [data, setData] = useState<ExtractedData>({});
+  const [fileName, setFileName] = useState('');
+  const [validationErrors, setValidationErrors] = useState<FieldError[]>([]);
+  const [validationStatus, setValidationStatus] = useState<'valid' | 'error'>('valid');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [emptyFields, setEmptyFields] = useState<string[]>([]);
+  const [resultFilter, setResultFilter] = useState<'all' | 'error' | 'valid' | 'auto'>('all');
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    patient: true, admission: true, clinical: true, grouping: false, special_cmg: false, tariff: true,
+  });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const errorByField: Record<string, FieldError> = {};
+  validationErrors.forEach(e => { if (!errorByField[e.field]) errorByField[e.field] = e; });
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.uploadPdf(file);
+      const extracted = res.vclaimFormat || {};
+
+      // keys now match the parser output 1:1
+      const fullData: ExtractedData = {};
+      ALL_FIELDS.forEach(f => { fullData[f.key] = extracted[f.key] || ''; });
+      fullData.KODE_RS = fullData.KODE_RS || '3371084';
+
+      setData(fullData);
+      setFileName(file.name);
+      setValidationErrors([]);
+      sessionStorage.setItem('extractedFileId', res.file_id);
+      setStep('review');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFieldChange = (key: string, value: string) => {
+    setData(prev => ({ ...prev, [key]: value }));
+    const validator = fieldValidation[key];
+    if (validator) {
+      const err = validator(value);
+      setFieldErrors(prev => err ? { ...prev, [key]: err } : { ...prev, [key]: '' });
+    }
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+  };
+
+  const checkEmptyFields = () => requiredFields.filter(field => !data[field]?.trim());
+
+  const handleValidateClick = () => {
+    const emptyList = checkEmptyFields();
+    if (emptyList.length > 0) {
+      setEmptyFields(emptyList);
+      setShowConfirmModal(true);
+    } else {
+      performValidation();
+    }
+  };
+
+  const performValidation = async () => {
+    setShowConfirmModal(false);
+    const fileId = sessionStorage.getItem('extractedFileId');
+    if (!fileId) {
+      setError('File ID not found. Please re-upload the file.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const json = await api.validatePdf({ file_id: fileId, fields: data });
+      setValidationStatus(json.status === 'valid' ? 'valid' : 'error');
+      setValidationErrors((json.errors || []).map((e: Record<string, unknown>) => ({
+        field: String(e.field_name || e.field || ''),
+        message: String(e.error_message || e.message || 'Validation failed'),
+        severity: String(e.severity || 'major'),
+        expected: e.expected ? String(e.expected) : '',
+        actual: e.actual ? String(e.actual) : '',
+        rule_id: e.rule_id ? String(e.rule_id) : '',
+      })));
+      setResultFilter('all');
+      setStep('validate');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Validation request failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goFixErrors = () => {
+    // open every section that contains a field needing correction
+    const next = { ...openSections };
+    VCLAIM_SECTIONS.forEach(s => {
+      if (s.fields.some(f => errorByField[f.key])) next[s.id] = true;
+    });
+    setOpenSections(next);
+    setStep('review');
+  };
+
+  const getFieldLabel = (fieldKey: string): string =>
+    ALL_FIELDS.find(f => f.key === fieldKey)?.label || fieldKey;
+
+  const isFieldEmpty = (fieldKey: string) => !data[fieldKey]?.trim();
+  const isRequiredField = (fieldKey: string) => requiredFields.includes(fieldKey);
+  const shouldHighlight = (fieldKey: string) =>
+    (isRequiredField(fieldKey) && isFieldEmpty(fieldKey)) || !!errorByField[fieldKey];
+
+  const getFieldStatus = (f: FieldDef): FieldStatus => {
+    if (errorByField[f.key]) return 'error';
+    if (isRequiredField(f.key) && isFieldEmpty(f.key)) return 'error';
+    if (isFieldEmpty(f.key)) return f.autoFilled ? 'auto' : 'empty';
+    return 'valid';
+  };
+
+  const getFieldNote = (f: FieldDef, status: FieldStatus): string => {
+    const err = errorByField[f.key];
+    if (status === 'error') {
+      return err ? err.message : 'Required field is empty — please fill it in.';
+    }
+    if (status === 'auto') return 'Left blank — vClaim / INA-CBG grouper fills this automatically. No action needed.';
+    if (status === 'empty') return 'Optional field, not provided. Fill it in only if the data is available.';
+    return `Value looks correct.${f.hint ? ` Expected: ${f.hint}.` : ''}`;
+  };
+
+  const getFieldSuggestion = (f: FieldDef, status: FieldStatus): string => {
+    if (status !== 'error') return '';
+    const err = errorByField[f.key];
+    if (err?.expected) return `Suggestion: change the value to match "${err.expected}".`;
+    if (f.hint) return `Suggestion: ${f.hint}.`;
+    return 'Suggestion: go back to "Fix Data" and correct this field.';
+  };
+
+  const renderFieldInput = (field: FieldDef) => {
+    const hasError = fieldErrors[field.key];
+    const isHighlighted = shouldHighlight(field.key);
+    const baseStyle = {
+      fontSize: 13,
+      borderColor: hasError || isHighlighted ? 'var(--red)' : undefined,
+      background: isHighlighted ? 'rgba(255, 193, 7, 0.1)' : (hasError ? 'rgba(239, 68, 68, 0.05)' : undefined),
+      borderWidth: isHighlighted ? '2px' : undefined,
+    };
+
+    const inputProps = {
+      className: 'form-input',
+      value: data[field.key] || '',
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => handleFieldChange(field.key, e.target.value),
+      placeholder: field.required ? `Required: ${field.label}` : field.placeholder || (field.autoFilled ? 'Auto-filled by vClaim' : 'Optional'),
+      style: baseStyle,
+    };
+
+    if (field.type === 'textarea') {
+      return <textarea {...inputProps} rows={3} />;
+    }
+    return <input type={field.type || 'text'} {...inputProps} />;
+  };
+
+  // ─── STEP 1: Upload ─────────────────────────────────────────────────────────
+  if (step === 'upload') {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="page-header">
+          <h2>📄 Upload & Extract PDF</h2>
+          <p>Upload a SIMRS PDF file — the system extracts the data, you review and validate it</p>
+        </div>
+
+        <div className="card" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', padding: 48 }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>📁</div>
+          <h3>Upload PDF File</h3>
+          <p style={{ color: 'var(--body-mid)', marginBottom: 24 }}>
+            Data is extracted automatically into the {TOTAL_FIELDS}-column vClaim format
+          </p>
+          <label style={{ display: 'inline-block', padding: '12px 32px', background: 'var(--primary)', color: 'white', borderRadius: 8, cursor: loading ? 'wait' : 'pointer', fontWeight: 600 }}>
+            {loading ? '⏳ Processing...' : '📤 Choose PDF File'}
+            <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: 'none' }} disabled={loading} />
+          </label>
+          {error && <div style={{ color: 'var(--red)', marginTop: 16, fontSize: 14 }}>{error}</div>}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ─── STEP 2: Review & Edit ──────────────────────────────────────────────────
+  if (step === 'review') {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="page-header">
+          <h2>✏️ Review & Edit Data ({TOTAL_FIELDS} vClaim Columns)</h2>
+          <p>{fileName} — Fix any wrong or empty fields • 🟡 = required or flagged by validation</p>
+        </div>
+
+        <div className="card">
+          {VCLAIM_SECTIONS.map(section => (
+            <div key={section.id} style={{ marginBottom: 16, borderBottom: '1px solid var(--hairline)' }}>
+              <button
+                onClick={() => toggleSection(section.id)}
+                style={{
+                  width: '100%', padding: '16px', background: 'var(--bg-secondary)', border: 'none',
+                  borderRadius: 8, cursor: 'pointer', display: 'flex', justifyContent: 'space-between',
+                  alignItems: 'center', fontWeight: 600, fontSize: 14, marginBottom: 12, transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+              >
+                <span>
+                  {section.title}
+                  {section.fields.some(f => errorByField[f.key]) && (
+                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--red)', fontWeight: 700 }}>
+                      ⚠ {section.fields.filter(f => errorByField[f.key]).length} issue(s)
+                    </span>
+                  )}
+                </span>
+                <span style={{ transform: openSections[section.id] ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                  ▼
+                </span>
+              </button>
+
+              {openSections[section.id] && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, paddingLeft: 8 }}>
+                  {section.fields.map(field => (
+                    <div key={field.key}>
+                      <label
+                        style={{
+                          display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6,
+                          color: field.required ? 'var(--red)' : 'var(--body-mid)',
+                        }}
+                      >
+                        {shouldHighlight(field.key) ? '🟡 ' : ''}{field.label} {field.required && '*'}
+                      </label>
+                      {renderFieldInput(field)}
+                      {(fieldErrors[field.key] || errorByField[field.key]) && (
+                        <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>
+                          ⚠️ {fieldErrors[field.key] || errorByField[field.key].message}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: 12, paddingTop: 16, borderTop: '1px solid var(--hairline)' }}>
+            <button className="btn btn-secondary" onClick={() => setStep('upload')}>
+              ← Upload Again
+            </button>
+            <div style={{ flex: 1 }} />
+            {error && <div style={{ color: 'var(--red)', fontSize: 13, alignSelf: 'center' }}>{error}</div>}
+            <button className="btn btn-primary" onClick={handleValidateClick} disabled={loading}>
+              {loading ? 'Validating...' : '✓ Validate'}
+            </button>
+          </div>
+
+          {showConfirmModal && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+            }}>
+              <div style={{
+                background: 'var(--bg-primary)', padding: '32px', borderRadius: '12px',
+                maxWidth: '500px', boxShadow: '0 20px 25px rgba(0,0,0,0.15)',
+              }}>
+                <h3 style={{ marginBottom: 16, color: 'var(--red)' }}>⚠️ {emptyFields.length} Empty Required Field(s)</h3>
+                <p style={{ color: 'var(--body-mid)', marginBottom: 16 }}>
+                  The following required fields are still empty:
+                </p>
+                <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8, marginBottom: 24, maxHeight: 200, overflowY: 'auto' }}>
+                  {emptyFields.map(f => (
+                    <div key={f} style={{ fontSize: 13, color: 'var(--body-mid)', padding: '4px 0' }}>
+                      • {getFieldLabel(f)}
+                    </div>
+                  ))}
+                </div>
+                <p style={{ color: 'var(--body-mid)', marginBottom: 24, fontSize: 14 }}>
+                  Are you sure you want to continue validation without filling these fields?
+                </p>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button className="btn btn-secondary" onClick={() => setShowConfirmModal(false)} style={{ flex: 1 }}>
+                    ← Back to Form
+                  </button>
+                  <button className="btn btn-primary" onClick={performValidation} style={{ flex: 1, background: 'var(--red)' }}>
+                    Yes, Validate Anyway
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ─── STEP 3: Validation Results — full per-column breakdown ─────────────────
+  const statusOf: Record<string, FieldStatus> = {};
+  ALL_FIELDS.forEach(f => { statusOf[f.key] = getFieldStatus(f); });
+  const counts = {
+    error: ALL_FIELDS.filter(f => statusOf[f.key] === 'error').length,
+    valid: ALL_FIELDS.filter(f => statusOf[f.key] === 'valid').length,
+    auto: ALL_FIELDS.filter(f => statusOf[f.key] === 'auto').length,
+    empty: ALL_FIELDS.filter(f => statusOf[f.key] === 'empty').length,
+  };
+  const allValid = validationStatus === 'valid' && counts.error === 0;
+  const passPct = Math.round(((TOTAL_FIELDS - counts.error) / TOTAL_FIELDS) * 100);
+
+  const matchesFilter = (s: FieldStatus) =>
+    resultFilter === 'all' ? true :
+    resultFilter === 'error' ? s === 'error' :
+    resultFilter === 'valid' ? s === 'valid' :
+    s === 'auto' || s === 'empty';
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="page-header">
+        <h2>📋 Validation Results — All {TOTAL_FIELDS} vClaim Columns</h2>
+        <p>{fileName} — Every column is listed below with its status and a suggestion, so you know exactly what to fix.</p>
+      </div>
+
+      {/* Summary card */}
+      <div className="card" style={{
+        padding: 24, marginBottom: 20,
+        borderLeft: `4px solid ${allValid ? '#16a34a' : '#dc2626'}`,
+        background: allValid ? 'rgba(22, 163, 74, 0.04)' : 'rgba(220, 38, 38, 0.03)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 48 }}>{allValid ? '✅' : '❌'}</div>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: allValid ? '#16a34a' : '#dc2626' }}>
+              {allValid ? 'ALL DATA VALID' : `${counts.error} COLUMN(S) NEED FIXING`}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--body-mid)', marginTop: 4 }}>
+              {allValid
+                ? 'Every checked column passed validation. The data is ready to be sent to vClaim.'
+                : 'Scroll down — every column marked "NEEDS FIX" shows what is wrong and how to correct it.'}
+            </div>
+            {/* pass-rate bar */}
+            <div style={{ marginTop: 12, height: 8, borderRadius: 4, background: 'var(--bg-secondary)', overflow: 'hidden', maxWidth: 400 }}>
+              <div style={{ width: `${passPct}%`, height: '100%', background: allValid ? '#16a34a' : '#f59e0b', transition: 'width 0.6s' }} />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--body-mid)', marginTop: 4 }}>{passPct}% of columns passed</div>
+          </div>
+          {/* stat chips */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {([
+              ['error', counts.error, 'Needs Fix'],
+              ['valid', counts.valid, 'Valid'],
+              ['auto', counts.auto, 'Auto-filled'],
+              ['empty', counts.empty, 'Not Provided'],
+            ] as [FieldStatus, number, string][]).map(([s, n, lbl]) => (
+              <div key={s} style={{ textAlign: 'center', padding: '10px 16px', borderRadius: 8, background: STATUS_STYLE[s].bg, minWidth: 90 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: STATUS_STYLE[s].color }}>{n}</div>
+                <div style={{ fontSize: 10, color: 'var(--body-mid)', marginTop: 2 }}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Filter + actions */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        {([
+          ['all', `All (${TOTAL_FIELDS})`],
+          ['error', `Needs Fix (${counts.error})`],
+          ['valid', `Valid (${counts.valid})`],
+          ['auto', `Auto / Optional (${counts.auto + counts.empty})`],
+        ] as ['all' | 'error' | 'valid' | 'auto', string][]).map(([key, lbl]) => (
+          <button
+            key={key}
+            className={`btn ${resultFilter === key ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: 12, padding: '6px 14px' }}
+            onClick={() => setResultFilter(key)}
+          >
+            {lbl}
+          </button>
+        ))}
+        <div style={{ flex: 1 }} />
+        {!allValid && (
+          <button className="btn btn-primary" onClick={goFixErrors} style={{ background: 'var(--red)' }}>
+            🔧 Fix Data ({counts.error})
+          </button>
+        )}
+        <button className="btn btn-secondary" onClick={() => setStep('review')}>✏️ Edit Data</button>
+        <button className="btn btn-secondary" onClick={performValidation} disabled={loading}>
+          {loading ? 'Validating...' : '↻ Re-validate'}
+        </button>
+        <button className="btn btn-secondary" onClick={() => setStep('upload')}>📤 Upload New File</button>
+      </div>
+
+      {/* Per-section, per-column results */}
+      {VCLAIM_SECTIONS.map(section => {
+        const rows = section.fields.filter(f => matchesFilter(statusOf[f.key]));
+        if (rows.length === 0) return null;
+        const sectionErrors = section.fields.filter(f => statusOf[f.key] === 'error').length;
+        return (
+          <div key={section.id} className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden' }}>
+            <div style={{
+              padding: '14px 20px', borderBottom: '1px solid var(--hairline)', fontWeight: 700, fontSize: 14,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: sectionErrors > 0 ? 'rgba(220, 38, 38, 0.04)' : 'var(--bg-secondary)',
+            }}>
+              <span>{section.title}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: sectionErrors > 0 ? '#dc2626' : '#16a34a' }}>
+                {sectionErrors > 0 ? `⚠ ${sectionErrors} issue(s)` : '✓ no issues'}
+              </span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', color: 'var(--body-mid)', fontSize: 11, textTransform: 'uppercase' }}>
+                    <th style={{ padding: '10px 20px', width: '22%' }}>Column</th>
+                    <th style={{ padding: '10px 12px', width: '22%' }}>Value</th>
+                    <th style={{ padding: '10px 12px', width: 110 }}>Status</th>
+                    <th style={{ padding: '10px 20px 10px 12px' }}>Result & Suggestion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(f => {
+                    const s = statusOf[f.key];
+                    const st = STATUS_STYLE[s];
+                    const err = errorByField[f.key];
+                    return (
+                      <tr key={f.key} style={{ borderTop: '1px solid var(--hairline)', background: s === 'error' ? st.bg : undefined }}>
+                        <td style={{ padding: '10px 20px', verticalAlign: 'top' }}>
+                          <div style={{ fontWeight: 600 }}>{f.label}</div>
+                          <div style={{ fontSize: 10, color: 'var(--body-mid)', fontFamily: 'monospace' }}>{f.key}{f.required ? ' *' : ''}</div>
+                        </td>
+                        <td style={{ padding: '10px 12px', verticalAlign: 'top', fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>
+                          {data[f.key]?.trim() || <span style={{ color: 'var(--body-mid)' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>
+                          <span style={{
+                            display: 'inline-block', padding: '3px 8px', borderRadius: 6, fontSize: 10,
+                            fontWeight: 700, color: st.color, background: st.bg, whiteSpace: 'nowrap',
+                          }}>
+                            {st.icon} {st.label}
+                          </span>
+                          {s === 'error' && err?.severity && (
+                            <div style={{ fontSize: 9, color: st.color, marginTop: 4, fontWeight: 600 }}>
+                              {err.severity.toUpperCase()}{err.rule_id ? ` · ${err.rule_id}` : ''}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '10px 20px 10px 12px', verticalAlign: 'top', color: s === 'error' ? '#b91c1c' : 'var(--body-mid)' }}>
+                          <div>{getFieldNote(f, s)}</div>
+                          {s === 'error' && (
+                            <div style={{ marginTop: 4, fontWeight: 600, color: '#92400e' }}>
+                              💡 {getFieldSuggestion(f, s)}
+                            </div>
+                          )}
+                          {s === 'error' && err?.expected && (
+                            <div style={{ marginTop: 4, fontSize: 11, fontFamily: 'monospace' }}>
+                              expected: <span style={{ color: '#16a34a' }}>{err.expected}</span>
+                              {err.actual ? <> · actual: <span style={{ color: '#dc2626', textDecoration: 'line-through' }}>{err.actual}</span></> : null}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+
+      {allValid && (
+        <div className="card" style={{ textAlign: 'center', padding: 24, background: 'rgba(22, 163, 74, 0.04)', borderLeft: '4px solid #16a34a' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#16a34a', marginBottom: 8 }}>✨ Data saved and ready for vClaim</div>
+          <button className="btn btn-primary" onClick={() => setStep('upload')}>Upload New File</button>
+        </div>
+      )}
+    </motion.div>
+  );
+}
