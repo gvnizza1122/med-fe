@@ -45,7 +45,7 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
       onSuccess?.(result);
       setTimeout(() => onClose(), 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal import JSON');
+      setError(err instanceof Error ? err.message : 'Data gagal dimasukkan. Periksa kembali berkas Anda.');
     } finally {
       setLoading(false);
     }

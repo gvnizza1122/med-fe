@@ -199,7 +199,7 @@ export default function ExtractPage() {
       sessionStorage.setItem('extractedFileId', res.file_id);
       setStep('review');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      setError(err instanceof Error ? err.message : 'Berkas gagal diunggah. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -254,7 +254,7 @@ export default function ExtractPage() {
       setResultFilter('all');
       setStep('validate');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Validation request failed');
+      setError(err instanceof Error ? err.message : 'Pemeriksaan data belum berhasil. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }

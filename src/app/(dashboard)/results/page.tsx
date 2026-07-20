@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
@@ -24,7 +24,7 @@ interface FileRecord {
   error_summary?: Array<{ rule_id: string; rule_name: string; severity: string; count: number }>;
 }
 
-export default function ResultsPage() {
+function ResultsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fileId = searchParams.get('id');
@@ -245,5 +245,13 @@ export default function ResultsPage() {
         </button>
       </div>
     </motion.div>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 48, textAlign: 'center' }}><p>Loading...</p></div>}>
+      <ResultsPageInner />
+    </Suspense>
   );
 }

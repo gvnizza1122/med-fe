@@ -26,5 +26,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
 
-# Start Next.js server
-CMD ["npm", "run", "start"]
+# Start Next.js server (uses standalone if output: standalone in config)
+CMD ["npm", "start"]

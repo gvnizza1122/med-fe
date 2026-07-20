@@ -6,7 +6,14 @@ async function request(endpoint: string, options: RequestInit = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+  // Pesan untuk pengguna akhir (perawat/verifikator) — tanpa istilah teknis.
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+  } catch {
+    // Gagal menghubungi server (jaringan putus / server mati).
+    throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+  }
 
   if (res.status === 401) {
     if (typeof window !== 'undefined') {
@@ -14,12 +21,24 @@ async function request(endpoint: string, options: RequestInit = {}) {
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    throw new Error('Sesi berakhir');
+    throw new Error('Sesi Anda telah berakhir. Silakan masuk kembali.');
   }
 
   if (!res.ok) {
-    const data = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(data.error || `Error ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+    // Backend sudah mengirim pesan berbahasa awam; ini jaring pengaman bila tidak ada.
+    const cadangan: Record<number, string> = {
+      400: 'Data yang dikirim belum sesuai. Periksa kembali isian Anda.',
+      403: 'Anda tidak memiliki akses untuk tindakan ini.',
+      404: 'Data yang dicari tidak ditemukan.',
+      413: 'Ukuran berkas terlalu besar. Gunakan berkas yang lebih kecil.',
+      429: 'Permintaan terlalu sering. Mohon tunggu sebentar, lalu coba lagi.',
+    };
+    throw new Error(
+      data.error ||
+      cadangan[res.status] ||
+      'Terjadi gangguan pada sistem. Silakan coba lagi. Bila terus berulang, hubungi petugas IT rumah sakit.'
+    );
   }
 
   const contentType = res.headers.get('content-type');
