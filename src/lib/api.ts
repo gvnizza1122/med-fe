@@ -169,7 +169,10 @@ export const api = {
   uploadPdf: (file: File) => {
     const fd = new FormData();
     fd.append('file', file);
-    return request('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd });
+    // Ekstraksi AI biasanya 10-20 detik, tapi bisa lebih lama tergantung jumlah
+    // halaman & respons AI provider — default 30 detik terlalu mepet, sempat
+    // bikin request timeout padahal prosesnya masih berjalan di server.
+    return request('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 90000 });
   },
   validatePdf: (data: Record<string, unknown>) =>
     request('/api/v1/claim-files/validate-pdf', { method: 'POST', body: JSON.stringify(data) }),
