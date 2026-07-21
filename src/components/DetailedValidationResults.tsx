@@ -17,6 +17,9 @@ interface DetailedValidationResultsProps {
   recordData: Record<string, any>;
   validationErrors: Array<any>;
   vclaimColumns?: string[];
+  editMode?: boolean;
+  onEdit?: (colName: string, newValue: any) => void;
+  editedValues?: Record<string, any>;
 }
 
 const VCLAIM_COLUMNS = [
@@ -52,16 +55,17 @@ const FIELD_MAPPING: Record<string, string> = {
 };
 
 const VCLAIM_FILLED_COLUMNS = new Set([
-  'INACBG', 'DESKRIPSI_INACBG', 'TARIF_INACBG', 'DESKRIPSI_SP', 'TARIF_SP',
-  'DESKRIPSI_SR', 'TARIF_SR', 'DESKRIPSI_SI', 'TARIF_SI', 'DESKRIPSI_SD', 'TARIF_SD',
-  'C1', 'C2', 'C3', 'C4'
+  'TARIF_RS', 'CODER_ID', 'VERSI_INACBG', 'VERSI_GROUPER', 'C1', 'C2', 'C3', 'C4'
 ]);
 
 export default function DetailedValidationResults({
   recordId,
   recordData,
   validationErrors,
-  vclaimColumns = VCLAIM_COLUMNS
+  vclaimColumns = VCLAIM_COLUMNS,
+  editMode = false,
+  onEdit,
+  editedValues = {}
 }: DetailedValidationResultsProps) {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'valid'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -361,25 +365,45 @@ export default function DetailedValidationResults({
                 </div>
 
                 {/* Value Box */}
-                <div style={{
-                  background: 'var(--surface)',
-                  border: `1px solid ${getStatusColor(field.status)}30`,
-                  borderRadius: 'var(--radius-xs)',
-                  padding: '10px 12px',
-                  marginBottom: 10,
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  color: field.status === 'error' ? '#dc2626' : 'var(--text-primary)',
-                  wordBreak: 'break-word',
-                  minHeight: 28,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}>
-                  {field.value === null || field.value === undefined || field.value === ''
-                    ? <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>(kosong)</span>
-                    : String(field.value).substring(0, 50)
-                  }
-                </div>
+                {editMode && !VCLAIM_FILLED_COLUMNS.has(field.column_name) ? (
+                  <textarea
+                    value={String(editedValues[field.column_name] !== undefined ? editedValues[field.column_name] : field.value || '')}
+                    onChange={(e) => onEdit?.(field.column_name, e.target.value)}
+                    style={{
+                      width: '100%',
+                      minHeight: 50,
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-xs)',
+                      border: `1px solid ${editedValues[field.column_name] !== undefined ? '#3b82f6' : getStatusColor(field.status)}`,
+                      background: 'var(--surface)',
+                      color: 'var(--text-primary)',
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      resize: 'vertical',
+                      outline: 'none',
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    background: 'var(--surface)',
+                    border: `1px solid ${editedValues[field.column_name] !== undefined ? '#3b82f6' : getStatusColor(field.status)}30`,
+                    borderRadius: 'var(--radius-xs)',
+                    padding: '10px 12px',
+                    marginBottom: 10,
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: field.status === 'error' ? '#dc2626' : 'var(--text-primary)',
+                    wordBreak: 'break-word',
+                    minHeight: 28,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}>
+                    {field.value === null || field.value === undefined || field.value === ''
+                      ? <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>(kosong)</span>
+                      : String(field.value).substring(0, 50)
+                    }
+                  </div>
+                )}
 
                 {/* Error Details */}
                 {field.status === 'error' && field.error_message && (

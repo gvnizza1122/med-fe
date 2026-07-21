@@ -1,6 +1,38 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-async function request(endpoint: string, options: RequestInit = {}) {
+// Token akses cuma berlaku 1 jam. Tanpa ini, verifikator yang kerja lama akan
+// dilempar ke login mendadak dan kehilangan form yang belum disimpan. Cegah
+// beberapa request yang 401 bersamaan memicu beberapa refresh call sekaligus.
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefreshToken(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return false;
+
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        localStorage.setItem('access_token', data.access_token);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+async function request(endpoint: string, options: RequestInit & { timeout?: number } = {}, _isRetry = false): Promise<any> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   const headers: Record<string, string> = { ...options.headers as Record<string, string> };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -9,15 +41,39 @@ async function request(endpoint: string, options: RequestInit = {}) {
   // Pesan untuk pengguna akhir (perawat/verifikator) — tanpa istilah teknis.
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-  } catch {
+    const timeoutMs = options.timeout || 30000; // default 30 detik
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      res = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Permintaan memakan waktu terlalu lama. Silakan coba lagi.');
+    }
     // Gagal menghubungi server (jaringan putus / server mati).
     throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
   }
 
   if (res.status === 401) {
+    // Token akses kadaluarsa (bukan sesi yang benar-benar berakhir) — coba
+    // perpanjang otomatis sekali sebelum memaksa logout, supaya kerjaan yang
+    // sedang berjalan (form belum disimpan, dst) tidak hilang mendadak.
+    if (!_isRetry && endpoint !== '/api/v1/auth/refresh') {
+      const refreshed = await tryRefreshToken();
+      if (refreshed) return request(endpoint, options, true);
+    }
+
     if (typeof window !== 'undefined') {
       localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
@@ -143,4 +199,22 @@ export const api = {
     fd.append('file', file);
     return request('/api/v1/simrs/ingest', { method: 'POST', body: fd });
   },
+
+  // Record Verification (Phase 2)
+  updateRecordValues: (recordId: string, updates: Record<string, any>) =>
+    request(`/api/v1/claim-files/${recordId}/update-values`, {
+      method: 'POST',
+      body: JSON.stringify({ updates }),
+    }),
+
+  getRecordValidationErrors: (recordId: string) =>
+    request(`/api/v1/claim-files/${recordId}/validation-errors`),
+
+  // OCR Evidence (Phase 3)
+  getOcrPages: (recordId: string) =>
+    request(`/api/v1/claim-files/${recordId}/ocr-pages`, { timeout: 120000 }), // 120 detik untuk OCR processing
+
+  // Audit Suggestions (Phase 4 - AI semantic matching)
+  getAuditSuggestions: (recordId: string) =>
+    request(`/api/v1/claim-files/${recordId}/audit-suggestions`, { method: 'POST', timeout: 60000 }), // AI processing
 };

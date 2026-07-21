@@ -5,6 +5,9 @@ import { motion, AnimatePresence, useMotionValue, useTransform, animate } from '
 import { api } from '@/lib/api';
 import { io } from 'socket.io-client';
 import DetailedValidationResults from '@/components/DetailedValidationResults';
+import VerificationForm from '@/components/VerificationForm';
+import OcrViewer from '@/components/OcrViewer';
+import AuditSuggestions from '@/components/AuditSuggestions';
 import SimrsIngestionModal from '@/components/SimrsIngestionModal';
 import { ToastContainer, useToast } from '@/components/Toast';
 
@@ -475,7 +478,10 @@ export default function ResultsPage() {
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showDetailedValidation, setShowDetailedValidation] = useState(false);
-  const [viewMode, setViewMode] = useState<'summary' | 'detailed'>('summary');
+  const [viewMode, setViewMode] = useState<'summary' | 'detailed' | 'verification' | 'evidence' | 'audit'>('summary');
+  const [isSavingRecord, setIsSavingRecord] = useState(false);
+  const [ocrPages, setOcrPages] = useState<any[]>([]);
+  const [loadingOcr, setLoadingOcr] = useState(false);
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
   const [batchAuditStyle, setBatchAuditStyle] = useState<'ponytail' | 'caveman' | 'neutral'>('ponytail');
   const [isBatchAuditing, setIsBatchAuditing] = useState(false);
@@ -582,6 +588,35 @@ export default function ResultsPage() {
       await loadFileInfo();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Gagal menyetujui');
+    }
+  };
+
+  const handleSaveRecordValues = async (updates: Record<string, any>) => {
+    if (!selectedRecordId) return;
+    setIsSavingRecord(true);
+    try {
+      await api.updateRecordValues(selectedRecordId, updates);
+      addToast('✅ Perubahan berhasil disimpan!', 'success');
+      await loadRecords();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Gagal menyimpan perubahan', 'error');
+    } finally {
+      setIsSavingRecord(false);
+    }
+  };
+
+  const handleLoadOcrPages = async () => {
+    if (!selectedRecordId) return [];
+    setLoadingOcr(true);
+    try {
+      const pages = await api.getOcrPages(selectedRecordId);
+      setOcrPages(pages?.pages || []);
+      return pages?.pages || [];
+    } catch (err: unknown) {
+      console.error('Gagal memuat OCR pages:', err);
+      return [];
+    } finally {
+      setLoadingOcr(false);
     }
   };
 
@@ -941,7 +976,7 @@ SEP (lowercase) dan nomor kartu BPJS akan otomatis dikapitalisasi & dibersihkan.
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        {['summary', 'detailed'].map(mode => (
+        {['summary', 'detailed', 'verification', 'evidence', 'audit'].map(mode => (
           <motion.button
             key={mode}
             onClick={() => setViewMode(mode as any)}
@@ -961,6 +996,9 @@ SEP (lowercase) dan nomor kartu BPJS akan otomatis dikapitalisasi & dibersihkan.
           >
             {mode === 'summary' && '📊 Ringkasan Error'}
             {mode === 'detailed' && '📋 Validasi 60 Kolom'}
+            {mode === 'verification' && '📝 Verifikasi & Edit'}
+            {mode === 'evidence' && '📄 Bukti Pendukung'}
+            {mode === 'audit' && '🔍 Audit'}
           </motion.button>
         ))}
       </motion.div>
@@ -1589,6 +1627,230 @@ SEP (lowercase) dan nomor kartu BPJS akan otomatis dikapitalisasi & dibersihkan.
           </div>
           <div style={{ fontSize: 12 }}>
             Klik salah satu baris untuk melihat validasi lengkap 60 kolom vClaim
+          </div>
+        </motion.div>
+      )}
+
+      {/* ─── View Mode: Verification & Edit ────────────────────────────── */}
+      {viewMode === 'verification' && selectedRecordId && selectedRecord && (
+        <motion.div
+          className="card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          style={{ padding: 24 }}
+        >
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+              {selectedRecord.nama_pasien} (SEP: {selectedRecord.sep})
+            </h3>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              MRN: {selectedRecord.mrn} | Status: <span style={{
+                background: `${selectedRecord.validation_status === 'valid' ? '#10b981' : selectedRecord.validation_status === 'error' ? '#dc2626' : '#f59e0b'}15`,
+                color: `${selectedRecord.validation_status === 'valid' ? '#10b981' : selectedRecord.validation_status === 'error' ? '#dc2626' : '#f59e0b'}`,
+                padding: '2px 8px',
+                borderRadius: 4,
+                fontWeight: 600,
+                fontSize: 11,
+              }}>
+                {selectedRecord.validation_status.toUpperCase()}
+              </span>
+            </div>
+          </div>
+
+          <VerificationForm
+            recordId={selectedRecord.id}
+            recordData={selectedRecord}
+            validationErrors={selectedRecord.errors || []}
+            onSave={handleSaveRecordValues}
+            isSaving={isSavingRecord}
+          />
+
+          <motion.div
+            style={{
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              gap: 12,
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <motion.button
+              className="btn btn-secondary"
+              onClick={() => setViewMode('summary')}
+              whileHover={buttonHover}
+              whileTap={buttonTap}
+            >
+              ← Kembali ke Ringkasan
+            </motion.button>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {viewMode === 'verification' && !selectedRecordId && (
+        <motion.div
+          className="card"
+          style={{
+            padding: 40,
+            textAlign: 'center',
+            color: 'var(--text-muted)',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📝</div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>
+            Pilih data dari tabel kiri
+          </div>
+          <div style={{ fontSize: 12 }}>
+            Klik salah satu baris untuk verifikasi dan edit data klaim
+          </div>
+        </motion.div>
+      )}
+
+      {/* ─── View Mode: Evidence (OCR) ────────────────────────────────── */}
+      {viewMode === 'evidence' && selectedRecordId && selectedRecord && (
+        <motion.div
+          className="card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          style={{ padding: 24 }}
+        >
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+              {selectedRecord.nama_pasien} (SEP: {selectedRecord.sep})
+            </h3>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              MRN: {selectedRecord.mrn} | Lihat bukti dokumen scan untuk verifikasi diagnosis dan prosedur
+            </div>
+          </div>
+
+          <OcrViewer
+            recordId={selectedRecord.id}
+            pages={ocrPages}
+            isLoading={loadingOcr}
+            onLoadPages={handleLoadOcrPages}
+          />
+
+          <motion.div
+            style={{
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              gap: 12,
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <motion.button
+              className="btn btn-secondary"
+              onClick={() => setViewMode('summary')}
+              whileHover={buttonHover}
+              whileTap={buttonTap}
+            >
+              ← Kembali ke Ringkasan
+            </motion.button>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {viewMode === 'evidence' && !selectedRecordId && (
+        <motion.div
+          className="card"
+          style={{
+            padding: 40,
+            textAlign: 'center',
+            color: 'var(--text-muted)',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📄</div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>
+            Pilih data dari tabel kiri
+          </div>
+          <div style={{ fontSize: 12 }}>
+            Klik salah satu baris untuk melihat bukti dokumen scan
+          </div>
+        </motion.div>
+      )}
+
+      {/* ─── View Mode: Audit Logic ────────────────────────────────────── */}
+      {viewMode === 'audit' && selectedRecordId && selectedRecord && (
+        <motion.div
+          className="card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          style={{ padding: 24 }}
+        >
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+              {selectedRecord.nama_pasien} (SEP: {selectedRecord.sep})
+            </h3>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              MRN: {selectedRecord.mrn} | Audit kode diagnosis dan prosedur dengan bukti dari dokumen scan
+            </div>
+          </div>
+
+          <AuditSuggestions recordId={selectedRecord.id} />
+
+          <motion.div
+            style={{
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              gap: 12,
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <motion.button
+              className="btn btn-secondary"
+              onClick={() => setViewMode('summary')}
+              whileHover={buttonHover}
+              whileTap={buttonTap}
+            >
+              ← Kembali ke Ringkasan
+            </motion.button>
+            <motion.button
+              className="btn btn-primary"
+              onClick={() => setViewMode('evidence')}
+              whileHover={buttonHover}
+              whileTap={buttonTap}
+              style={{ marginLeft: 'auto' }}
+            >
+              📄 Lihat Bukti Pendukung →
+            </motion.button>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {viewMode === 'audit' && !selectedRecordId && (
+        <motion.div
+          className="card"
+          style={{
+            padding: 40,
+            textAlign: 'center',
+            color: 'var(--text-muted)',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>
+            Pilih data dari tabel kiri
+          </div>
+          <div style={{ fontSize: 12 }}>
+            Klik salah satu baris untuk audit kode diagnosis dan prosedur dengan bukti dokumen
           </div>
         </motion.div>
       )}
