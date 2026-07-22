@@ -20,6 +20,7 @@ function OcrViewer({ recordId, pages = [], isLoading = false, onLoadPages }: Ocr
   const [searchTerm, setSearchTerm] = useState('');
   const [ocrPages, setOcrPages] = useState<OcrPage[]>(pages);
   const [loading, setLoading] = useState(isLoading);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (pages.length > 0 && ocrPages.length === 0) {
@@ -30,23 +31,30 @@ function OcrViewer({ recordId, pages = [], isLoading = false, onLoadPages }: Ocr
     }
   }, [pages, ocrPages.length, selectedPage]);
 
-  useEffect(() => {
-    const loadOcr = async () => {
-      if (!onLoadPages || ocrPages.length > 0) return;
-      setLoading(true);
-      try {
-        const loaded = await onLoadPages();
-        setOcrPages(loaded);
-        if (loaded.length > 0 && selectedPage === null) {
-          setSelectedPage(loaded[0].page_number);
-        }
-      } catch (err) {
-        console.error('Gagal memuat OCR pages:', err);
-      } finally {
-        setLoading(false);
+  const loadOcr = async () => {
+    if (!onLoadPages || ocrPages.length > 0) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const loaded = await onLoadPages();
+      setOcrPages(loaded);
+      if (loaded.length > 0 && selectedPage === null) {
+        setSelectedPage(loaded[0].page_number);
       }
-    };
+    } catch (err) {
+      // Sebelumnya error di sini cuma di-console.error dan disembunyikan —
+      // tampilan jatuh ke state "tidak ada halaman bukti" seolah dokumennya
+      // memang tidak punya halaman scan, padahal OCR-nya gagal/timeout.
+      // Verifikator jadi salah kira sudah aman padahal belum sempat dicek.
+      setLoadError(err instanceof Error ? err.message : 'Gagal memuat hasil OCR.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadOcr();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onLoadPages, ocrPages.length, selectedPage]);
 
   const selectedPageData = useMemo(() => {
@@ -116,6 +124,33 @@ function OcrViewer({ recordId, pages = [], isLoading = false, onLoadPages }: Ocr
         <div style={{ fontSize: 11, color: 'var(--accent-blue)', marginTop: 8 }}>
           💡 Tip: Hasil OCR akan disimpan, jadi pemuatan berikutnya akan lebih cepat
         </div>
+      </motion.div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <motion.div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 60,
+          color: 'var(--text-muted)',
+          gap: 12,
+        }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#dc2626' }}>Gagal memuat hasil OCR</div>
+        <div style={{ fontSize: 12, textAlign: 'center', maxWidth: 400, lineHeight: 1.5 }}>
+          {loadError} Ini BUKAN berarti dokumennya tidak punya halaman bukti — sistem belum sempat selesai membacanya.
+        </div>
+        <button className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={loadOcr}>
+          Coba Lagi
+        </button>
       </motion.div>
     );
   }
