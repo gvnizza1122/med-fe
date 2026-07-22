@@ -646,9 +646,9 @@ export default function ResultsPage() {
                   background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.35)',
                   fontSize: 12, color: 'var(--text-primary)',
                 }}>
-                  <strong>Perlu dicek manual — bukan berarti aman:</strong> klaim ini berasal dari PDF, sehingga
-                  4 aturan berikut (sesuai BA Kesepakatan BPJS No. 1247/2024) tidak dapat divalidasi otomatis
-                  karena data riwayat kunjungan/episode tidak ada di PDF:
+                  <strong>Perlu dicek manual — bukan berarti aman:</strong> sumber data klaim ini tidak menyertakan
+                  riwayat kunjungan/episode (jumlah episode, riwayat obat kronis, dst), sehingga 4 aturan berikut
+                  (sesuai BA Kesepakatan BPJS No. 1247/2024) tidak dapat divalidasi otomatis:
                   {' '}
                   {UNVERIFIABLE_WITHOUT_EPISODE_DATA.map((r, i) => (
                     <span key={r.rule_id}>
