@@ -117,12 +117,20 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
   // numerik (mis. tarif_inacbg, los, vent_hour) punya DEFAULT 0 di skema —
   // kalau backend tidak menulisnya, nilainya 0 padahal AI berhasil mengekstrak
   // angka asli. Jadi utamakan raw_data, kolom DB hanya jadi fallback.
+  //
+  // Rekaman LAMA (diunggah sebelum fitur raw_data ada, atau via jalur yang tidak
+  // menyimpan raw_data) punya raw_data NULL/{} — jangan sampai tabel jadi kosong
+  // semua: kalau raw_data kosong, pakai kolom DB (yang ~15 kolom) sebagai sumber.
   const rawData = parseRawData(recordData);
+  const rawKeys = Object.keys(rawData);
+  const hasRawData = rawKeys.length > 0;
 
   Object.values(FIELD_CATEGORIES).flat().forEach(colName => {
     const dbField = FIELD_MAPPING[colName];
     const dbValue = dbField ? recordData[dbField] : null;
-    const rawValue = rawData[colName];
+    // Hanya pakai raw_data kalau JSON-nya benar-benar ada isinya. Kalau kosong,
+    // kolom DB adalah satu-satunya sumber kebenaran yang tersisa.
+    const rawValue = hasRawData ? rawData[colName] : undefined;
     const value = (rawValue === null || rawValue === undefined || rawValue === '')
       ? (dbValue ?? null)
       : rawValue;
@@ -173,6 +181,14 @@ function RecordFieldsTable({
 }) {
   const fieldMap = useMemo(() => buildFieldMap(recordData, validationErrors), [recordData, validationErrors]);
 
+  const categories = Object.entries(FIELD_CATEGORIES).map(([category, cols]) => ({
+    category,
+    rows: cols
+      .map(c => fieldMap[c])
+      .filter(f => !onlyIssues || f.status === 'error' || f.status === 'empty'),
+  }));
+  const totalRows = categories.reduce((n, c) => n + c.rows.length, 0);
+
   return (
     <div className="table-container" style={{ maxHeight: 560, overflowY: 'auto' }}>
       <table>
@@ -185,12 +201,15 @@ function RecordFieldsTable({
           </tr>
         </thead>
         <tbody>
-          {Object.entries(FIELD_CATEGORIES).map(([category, cols]) => {
-            const rows = cols
-              .map(c => fieldMap[c])
-              .filter(f => !onlyIssues || f.status === 'error' || f.status === 'empty');
-            if (rows.length === 0) return null;
-            return (
+          {totalRows === 0 && onlyIssues ? (
+            <tr>
+              <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>
+                <strong>✅ Tidak ada data bermasalah</strong> — semua kolom vClaim terisi &amp; valid.
+                Matikan &ldquo;Tampilkan hanya yang bermasalah&rdquo; untuk melihat seluruh data klaim.
+              </td>
+            </tr>
+          ) : (
+            categories.map(({ category, rows }) => (
               <Fragment key={category}>
                 <tr>
                   <td colSpan={4} style={{ background: 'var(--surface)', fontWeight: 700, fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
@@ -251,8 +270,8 @@ function RecordFieldsTable({
                   );
                 })}
               </Fragment>
-            );
-          })}
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -293,7 +312,7 @@ export default function ResultsPage() {
   const [showAudit, setShowAudit] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
-  const [onlyIssues, setOnlyIssues] = useState(true);
+  const [onlyIssues, setOnlyIssues] = useState(false);
 
   const loadRecords = useCallback(async () => {
     try {
@@ -646,9 +665,7 @@ export default function ResultsPage() {
                   background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.35)',
                   fontSize: 12, color: 'var(--text-primary)',
                 }}>
-                  <strong>Perlu dicek manual — bukan berarti aman:</strong> sumber data klaim ini tidak menyertakan
-                  riwayat kunjungan/episode (jumlah episode, riwayat obat kronis, dst), sehingga 4 aturan berikut
-                  (sesuai BA Kesepakatan BPJS No. 1247/2024) tidak dapat divalidasi otomatis:
+                  <strong>⚠️ Cek manual diperlukan</strong> — berkas ini tidak menyertakan data riwayat kunjungan/episode, sehingga beberapa aturan tidak bisa diperiksa otomatis. Harap pastikan secara manual.
                   {' '}
                   {UNVERIFIABLE_WITHOUT_EPISODE_DATA.map((r, i) => (
                     <span key={r.rule_id}>

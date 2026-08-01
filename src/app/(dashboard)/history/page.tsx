@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { api } from '@/lib/api';
@@ -52,15 +52,15 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadFiles(); }, [page]);
-
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
     try {
       setLoading(true);
       const d = await api.getFiles(page, 15);
       setFiles(d.files); setTotal(d.total);
     } catch (err) { console.error('[History] Gagal memuat file:', err); } finally { setLoading(false); }
-  };
+  }, [page]);
+
+  useEffect(() => { loadFiles(); }, [loadFiles]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Yakin ingin menghapus file ini?')) return;

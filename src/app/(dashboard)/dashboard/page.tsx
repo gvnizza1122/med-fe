@@ -1,5 +1,5 @@
 ﻿'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
@@ -248,11 +248,7 @@ export default function DashboardPage() {
   const [uploadPage, setUploadPage] = useState(1);
   const [contentKey, setContentKey] = useState(0);
 
-  useEffect(() => {
-    loadData();
-  }, [period]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const d = await api.getDashboard(period || undefined);
@@ -263,7 +259,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   if (loading) return <LoadingSkeleton />;
   if (!data) return <div className="empty-state"><h3>Gagal memuat data</h3></div>;

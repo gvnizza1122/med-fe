@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { api } from '@/lib/api';
 
@@ -50,8 +50,9 @@ export default function UsersPage() {
   const [form, setForm] = useState({ email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
   const [error, setError] = useState('');
 
-  useEffect(() => { loadUsers(); }, []);
-  const loadUsers = async () => { try { setLoading(true); const d = await api.getUsers(); setUsers(d.users); } catch (err) { console.error('[Users] Gagal memuat user:', err); } finally { setLoading(false); } };
+  const loadUsers = useCallback(async () => { try { setLoading(true); const d = await api.getUsers(); setUsers(d.users); } catch (err) { console.error('[Users] Gagal memuat user:', err); } finally { setLoading(false); } }, []);
+
+  useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('');

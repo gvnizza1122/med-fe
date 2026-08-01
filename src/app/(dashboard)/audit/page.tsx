@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { api } from '@/lib/api';
 
@@ -32,9 +32,7 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState('');
 
-  useEffect(() => { loadLogs(); }, [page, action]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       setLoading(true);
       const params: Record<string, string> = { page: String(page), limit: '30' };
@@ -42,7 +40,9 @@ export default function AuditPage() {
       const d = await api.getAuditLogs(params);
       setLogs(d.logs); setTotal(d.total);
     } catch (err) { console.error('[Audit] Gagal memuat log:', err); } finally { setLoading(false); }
-  };
+  }, [page, action]);
+
+  useEffect(() => { loadLogs(); }, [loadLogs]);
 
   const actionEmoji = (a: string) => {
     switch (a) { case 'login': return '🔐'; case 'upload_and_validate': return '📤'; case 'export': return '📥'; case 'approve': return '✅'; case 'create_user': return '👤'; case 'delete': return '🗑️'; default: return '📋'; }

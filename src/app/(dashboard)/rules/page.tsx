@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { api } from '@/lib/api';
 
@@ -40,18 +40,18 @@ export default function RulesPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editMsg, setEditMsg] = useState('');
 
-  useEffect(() => { loadRules(); }, []);
-  
-  const loadRules = async () => { 
-    try { 
-      const d = await api.getRules(); 
-      setRules(d.rules); 
-    } catch (err) { 
+  const loadRules = useCallback(async () => {
+    try {
+      const d = await api.getRules();
+      setRules(d.rules);
+    } catch (err) {
       console.error('[Rules] Gagal memuat aturan:', err);
-    } finally { 
-      setLoading(false); 
-    } 
-  };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadRules(); }, [loadRules]);
 
   const handleToggle = async (rule: Rule) => {
     try { 
