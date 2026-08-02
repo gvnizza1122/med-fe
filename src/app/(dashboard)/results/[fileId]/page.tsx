@@ -260,10 +260,25 @@ function RecordFieldsTable({
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         {field.status === 'error' && field.error_message ? (
-                          <>
-                            <strong style={{ color: '#dc2626' }}>{field.rule_id}:</strong> {field.error_message}
-                            {field.suggestion && <div><strong>Saran:</strong> {field.suggestion}</div>}
-                          </>
+                          <div>
+                            <div style={{ color: '#dc2626', marginBottom: 4 }}>
+                              <strong>{field.rule_id}:</strong> {field.error_message}
+                            </div>
+                            {field.suggestion && (
+                              <div style={{
+                                background: 'var(--surface-secondary, rgba(59,130,246,0.08))',
+                                borderLeft: '3px solid var(--accent-blue, #3b82f6)',
+                                padding: '6px 10px',
+                                borderRadius: '0 4px 4px 0',
+                                marginTop: 4,
+                              }}>
+                                <strong>Perbaiki menjadi:</strong>{' '}
+                                <code style={{ fontFamily: 'monospace', fontSize: 12 }}>{field.suggestion}</code>
+                              </div>
+                            )}
+                          </div>
+                        ) : field.status === 'empty' ? (
+                          <span style={{ color: '#f59e0b' }}>Data tidak ditemukan di dokumen PDF. Periksa dan isi manual.</span>
                         ) : isSystem ? 'Diisi otomatis saat kirim ke vClaim' : '—'}
                       </td>
                     </tr>
@@ -467,15 +482,6 @@ export default function ResultsPage() {
           <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fileInfo.file_name}</p>
         </div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          <button className="btn-glass" onClick={handleExport}>Export Excel</button>
-          <button className="btn-glass" onClick={handleDownloadFixed}>Download TXT vClaim</button>
-          <button
-            className="btn-glass"
-            disabled={isFixing || !records.some(r => r.errors?.some((e: any) => ['RV-01', 'RV-02'].includes(e.rule_id)))}
-            onClick={handleAutoFix}
-          >
-            {isFixing ? 'Memperbaiki...' : 'Auto-Fix Typo'}
-          </button>
           {canApprove && (
             <button className="btn btn-success" onClick={handleApprove}>Setujui</button>
           )}
