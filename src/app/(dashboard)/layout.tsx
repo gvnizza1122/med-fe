@@ -4,17 +4,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-};
-
-const pageTransition = {
-  duration: 0.3,
-  ease: [0.22, 1, 0.36, 1] as const,
-};
-
 const progressBarVariants = {
   initial: { scaleX: 0, opacity: 1 },
   animate: {
@@ -86,21 +75,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </AnimatePresence>
 
-        {/* ── Page content with fade/slide transitions ── */}
-        <AnimatePresence mode="wait">
-          <motion.main
-            key={pathname}
-            className="main-content"
-            variants={pageVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={pageTransition}
-            style={{ flex: 1 }}
-          >
-            {children}
-          </motion.main>
-        </AnimatePresence>
+        {/* ── Page content ──
+            Sebelumnya dibungkus AnimatePresence mode="wait" + key={pathname}
+            untuk transisi antar halaman — pola ini rawan bikin halaman jadi
+            blank total di Next.js App Router: exit animation halaman lama
+            kadang tidak pernah selesai/ke-interrupt saat navigasi cepat
+            (misal Extract PDF -> Upload File), dan mode="wait" menahan
+            konten baru sampai itu selesai, jadi macet di antara dua halaman
+            tanpa render apapun. Animasi masuk tiap halaman sudah ditangani
+            sendiri di masing-masing page (fade-in/motion.div internal),
+            jadi wrapper ini aman dihapus. */}
+        <main className="main-content" style={{ flex: 1 }}>
+          {children}
+        </main>
       </div>
     </div>
   );
