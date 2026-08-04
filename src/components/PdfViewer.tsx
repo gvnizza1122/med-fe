@@ -120,9 +120,12 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
 
   const scrollToPage = (n: number) => {
     const el = pageRefs.current[n];
-    if (el && scrollRef.current) {
-      const top = el.offsetTop - scrollRef.current.offsetTop;
-      scrollRef.current.scrollTo({ top, behavior: 'smooth' });
+    if (el) {
+      // scrollIntoView menemukan sendiri ancestor yang bisa di-scroll —
+      // aman dari perhitungan offsetTop manual yang gampang salah kalau ada
+      // ancestor position:sticky/relative di antara page-wrap dan scrollRef.
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setCurrentPage(n);
     }
   };
 
