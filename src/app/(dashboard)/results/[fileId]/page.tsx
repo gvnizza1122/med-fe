@@ -1,11 +1,18 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
 import { useParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { api } from '@/lib/api';
 import OcrViewer from '@/components/OcrViewer';
-import PdfViewer from '@/components/PdfViewer';
 import AuditSuggestions from '@/components/AuditSuggestions';
 import { ToastContainer, useToast } from '@/components/Toast';
+
+// react-pdf (pdfjs-dist) mengakses DOMMatrix di level modul — API browser
+// yang tidak ada saat Next.js SSR. Import statis biasa bikin server crash
+// (ReferenceError: DOMMatrix is not defined) setiap kali halaman ini diakses,
+// bukan hanya saat tombol "Lihat Dokumen PDF Asli" diklik. ssr:false memaksa
+// modul ini (dan seluruh dependensinya) cuma dievaluasi di browser.
+const PdfViewer = dynamic(() => import('@/components/PdfViewer'), { ssr: false });
 
 interface FileInfo {
   id: string; file_name: string; period: string; status: string;

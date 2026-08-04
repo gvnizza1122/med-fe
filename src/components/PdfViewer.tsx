@@ -129,27 +129,46 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
     }
   };
 
-  // Lacak halaman mana yang paling terlihat saat scroll, supaya indikator
-  // "X / Y" dan highlight thumbnail selalu sinkron dengan posisi baca.
+  // Lacak halaman mana yang paling dekat ke tengah viewport saat scroll,
+  // supaya indikator "X / Y" & highlight thumbnail sinkron dengan posisi baca.
+  // Pakai scroll listener + setTimeout throttle (bukan IntersectionObserver)
+  // karena lebih murah untuk dites/diverifikasi dan tidak butuh threshold tuning.
   useEffect(() => {
-    if (!scrollRef.current || numPages === 0) return;
     const container = scrollRef.current;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let bestPage = -1;
-        let bestRatio = 0;
-        entries.forEach(entry => {
-          if (entry.intersectionRatio > bestRatio) {
-            bestRatio = entry.intersectionRatio;
-            bestPage = Number((entry.target as HTMLElement).dataset.page);
-          }
-        });
-        if (bestPage > 0) setCurrentPage(bestPage);
-      },
-      { root: container, threshold: [0.15, 0.4, 0.6, 0.85] }
-    );
-    Object.values(pageRefs.current).forEach(el => { if (el) observer.observe(el); });
-    return () => observer.disconnect();
+    if (!container || numPages === 0) return;
+
+    let throttleTimer: ReturnType<typeof setTimeout> | null = null;
+    const computeCurrentPage = () => {
+      const containerRect = container.getBoundingClientRect();
+      const containerMid = containerRect.top + containerRect.height / 2;
+      let closestPage = 1;
+      let closestDist = Infinity;
+      Object.entries(pageRefs.current).forEach(([pageStr, el]) => {
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const mid = r.top + r.height / 2;
+        const dist = Math.abs(mid - containerMid);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestPage = Number(pageStr);
+        }
+      });
+      setCurrentPage(closestPage);
+    };
+
+    const handleScroll = () => {
+      if (throttleTimer) return;
+      throttleTimer = setTimeout(() => {
+        throttleTimer = null;
+        computeCurrentPage();
+      }, 100);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (throttleTimer) clearTimeout(throttleTimer);
+    };
   }, [numPages]);
 
   const zoomOut = () => setScale(s => Math.max(ZOOM_MIN, +(s - ZOOM_STEP).toFixed(2)));

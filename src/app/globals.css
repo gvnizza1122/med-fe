@@ -1305,6 +1305,18 @@ tr:hover .file-icon-modern {
   overflow: hidden;
   background: var(--surface-low);
 }
+/* react-pdf bungkus children <Document> dalam div.react-pdf__Document yang
+   defaultnya display:block — itu memutus rantai flex-column shell ini,
+   bikin .pdf-viewer-body tak pernah terbatasi tinggi & .pdf-main-scroll
+   tak pernah benar-benar scroll (isi cuma "terpotong" overflow:hidden shell,
+   halaman ke-2/3+ jadi tak terjangkau). Paksa wrapper ini ikut flex-column. */
+.pdf-viewer-shell .react-pdf__Document {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
 .pdf-viewer-message {
   flex: 1;
   display: flex;
