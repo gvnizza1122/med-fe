@@ -1269,7 +1269,7 @@ tr:hover .file-icon-modern {
 /* Split layout (results) */
 .split-layout {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 380px 1fr;
   gap: 22px;
   align-items: start;
 }

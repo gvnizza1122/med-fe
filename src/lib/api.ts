@@ -216,6 +216,11 @@ export const api = {
   // OCR Evidence (Phase 3)
   getOcrPages: (recordId: string) =>
     request(`/api/v1/claim-files/${recordId}/ocr-pages`, { timeout: 120000 }), // 120 detik untuk OCR processing
+  // PDF asli yang diunggah — via helper request supaya dapat timeout + refresh
+  // token otomatis; untuk konten non-JSON helper mengembalikan Response mentah
+  // yang bisa diubah jadi blob lalu ditampilkan via <iframe>.
+  getPdfFile: (fileId: string): Promise<Response> =>
+    request(`/api/v1/claim-files/${fileId}/file`),
 
   // Audit Suggestions (Phase 4 - AI semantic matching)
   getAuditSuggestions: (recordId: string) =>

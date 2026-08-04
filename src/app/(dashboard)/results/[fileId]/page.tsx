@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import OcrViewer from '@/components/OcrViewer';
+import PdfViewer from '@/components/PdfViewer';
 import AuditSuggestions from '@/components/AuditSuggestions';
 import { ToastContainer, useToast } from '@/components/Toast';
 
@@ -11,6 +12,7 @@ interface FileInfo {
   total_records: number; valid_count: number; error_count: number; pending_count: number;
   error_summary: { rule_id: string; rule_name: string; count: number; severity: string }[];
   uploaded_by_name: string; created_at: string; column_count: number;
+  has_pdf?: boolean;
 }
 interface ValidationError {
   rule_id: string; rule_name: string; field_name: string;
@@ -325,6 +327,7 @@ export default function ResultsPage() {
   const [loadingOcr, setLoadingOcr] = useState(false);
   const [showOcr, setShowOcr] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+  const [showPdf, setShowPdf] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [onlyIssues, setOnlyIssues] = useState(false);
@@ -377,6 +380,7 @@ export default function ResultsPage() {
     setEditedValues({});
     setShowOcr(false);
     setShowAudit(false);
+    setShowPdf(false);
     setOcrPages([]);
   }, [selectedRecordId]);
 
@@ -682,15 +686,42 @@ export default function ResultsPage() {
                 </div>
               )}
 
-              {/* ─── The single 60-column table ────────────────────────── */}
-              <RecordFieldsTable
-                recordData={selectedRecord}
-                validationErrors={selectedRecord.errors || []}
-                editing={isEditing}
-                editedValues={editedValues}
-                onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
-                onlyIssues={onlyIssues}
-              />
+              {/* ─── Bukti primer: dokumen PDF asli vs data klaim ───────── */}
+              {fileInfo.has_pdf && (
+                <div style={{ marginBottom: 16 }}>
+                  <button className="btn-glass" onClick={() => setShowPdf(v => !v)}>
+                    {showPdf ? 'Sembunyikan Dokumen PDF Asli' : 'Lihat Dokumen PDF Asli'}
+                  </button>
+                </div>
+              )}
+
+              {/* ─── The single 60-column table (side-by-side dengan PDF saat dibuka) ─── */}
+              {showPdf && fileInfo.has_pdf ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+                  <div style={{ flex: '1 1 420px', minWidth: 0 }}>
+                    <PdfViewer fileId={fileId} fileName={fileInfo.file_name} />
+                  </div>
+                  <div style={{ flex: '1 1 420px', minWidth: 0, maxHeight: 640, overflowY: 'auto' }}>
+                    <RecordFieldsTable
+                      recordData={selectedRecord}
+                      validationErrors={selectedRecord.errors || []}
+                      editing={isEditing}
+                      editedValues={editedValues}
+                      onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
+                      onlyIssues={onlyIssues}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <RecordFieldsTable
+                  recordData={selectedRecord}
+                  validationErrors={selectedRecord.errors || []}
+                  editing={isEditing}
+                  editedValues={editedValues}
+                  onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
+                  onlyIssues={onlyIssues}
+                />
+              )}
 
               {/* ─── Bukti Pendukung (OCR) ──────────────────────────────── */}
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-color)' }}>
