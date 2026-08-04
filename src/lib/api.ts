@@ -136,14 +136,6 @@ export const api = {
     fetch(`${API_BASE}/api/v1/claim-files/${id}/export?filter=${filter}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
     }),
-  autoFixFile: (id: string) =>
-    request(`/api/v1/claim-files/${id}/auto-fix`, { method: 'POST' }),
-  downloadFixedFile: (id: string) =>
-    fetch(`${API_BASE}/api/v1/claim-files/${id}/download-fixed`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-    }),
-  getComparison: (id: string) =>
-    request(`/api/v1/claim-files/${id}/comparison`),
   runAiAudit: (id: string) =>
     request(`/api/v1/claim-files/${id}/ai-audit`, { method: 'POST' }),
   auditRecordFields: (recordId: string, fields: string[] = [], style = 'ponytail') =>
@@ -213,16 +205,9 @@ export const api = {
   getRecordValidationErrors: (recordId: string) =>
     request(`/api/v1/claim-files/${recordId}/validation-errors`),
 
-  // OCR Evidence (Phase 3)
-  getOcrPages: (recordId: string) =>
-    request(`/api/v1/claim-files/${recordId}/ocr-pages`, { timeout: 120000 }), // 120 detik untuk OCR processing
   // PDF asli yang diunggah — via helper request supaya dapat timeout + refresh
   // token otomatis; untuk konten non-JSON helper mengembalikan Response mentah
   // yang bisa diubah jadi blob lalu ditampilkan via <iframe>.
   getPdfFile: (fileId: string): Promise<Response> =>
     request(`/api/v1/claim-files/${fileId}/file`),
-
-  // Audit Suggestions (Phase 4 - AI semantic matching)
-  getAuditSuggestions: (recordId: string) =>
-    request(`/api/v1/claim-files/${recordId}/audit-suggestions`, { method: 'POST', timeout: 60000 }), // AI processing
 };

@@ -3,8 +3,6 @@ import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { api } from '@/lib/api';
-import OcrViewer from '@/components/OcrViewer';
-import AuditSuggestions from '@/components/AuditSuggestions';
 import { ToastContainer, useToast } from '@/components/Toast';
 
 // react-pdf (pdfjs-dist) mengakses DOMMatrix di level modul — API browser
@@ -30,14 +28,6 @@ interface ClaimRecord {
   mrn: string; inacbg_code: string; deskripsi_inacbg: string;
   validation_status: string; error_count: number; errors: ValidationError[];
   [key: string]: any;
-}
-interface ComparisonChange {
-  row_number: number; nama_pasien: string; mrn: string;
-  field_name: string; before: string; after: string;
-}
-interface ComparisonData {
-  file_id: string; file_name: string; total_changes: number;
-  changes: ComparisonChange[];
 }
 
 // ─── vClaim 60-column mapping ──────────────────────────────────────────────
@@ -79,6 +69,20 @@ const FIELD_CATEGORIES: Record<string, string[]> = {
   'Sistem (Isi Otomatis oleh vClaim)': ['TARIF_RS', 'CODER_ID', 'VERSI_INACBG', 'VERSI_GROUPER', 'C1', 'C2', 'C3', 'C4'],
 };
 
+interface CodeEvidence {
+  code: string;
+  type: 'diagnosis' | 'procedure';
+  found: boolean;
+  page_number: number | null;
+  quotation: string | null;
+}
+interface SuggestedCode {
+  code: string;
+  type: 'diagnosis' | 'procedure';
+  page_number: number;
+  quotation: string;
+  reasoning: string;
+}
 interface FieldRow {
   column_name: string;
   value: string | number | null;
@@ -87,6 +91,12 @@ interface FieldRow {
   error_message?: string;
   suggestion?: string;
   severity?: 'critical' | 'major' | 'minor';
+  // Hasil AI review tahap kedua (alur AI ekstraksi -> rule engine -> AI review)
+  // — dulu tampil di panel "Lihat Saran Audit AI" terpisah, sekarang langsung
+  // di kolom Catatan/Saran tabel ini.
+  aiNote?: string;
+  codeEvidence?: CodeEvidence[];
+  suggestedCodes?: SuggestedCode[];
 }
 
 // RV-13/14/15/16 (BA Kesepakatan BPJS No. 1247/2024) butuh data riwayat kunjungan
@@ -115,6 +125,18 @@ function parseRawData(recordData: Record<string, any>): Record<string, any> {
   if (!recordData.raw_data) return {};
   try { return typeof recordData.raw_data === 'string' ? JSON.parse(recordData.raw_data) : recordData.raw_data; }
   catch { return {}; }
+}
+
+interface AiReview {
+  field_notes?: Record<string, string>;
+  code_evidence?: CodeEvidence[];
+  suggested_codes?: SuggestedCode[];
+}
+
+function parseAiReview(recordData: Record<string, any>): AiReview | null {
+  if (!recordData.ai_review) return null;
+  try { return typeof recordData.ai_review === 'string' ? JSON.parse(recordData.ai_review) : recordData.ai_review; }
+  catch { return null; }
 }
 
 function buildFieldMap(recordData: Record<string, any>, validationErrors: ValidationError[]): Record<string, FieldRow> {
@@ -160,6 +182,29 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
       map[colName].suggestion = err.expected_value;
     }
   });
+
+  // Hasil AI review tahap kedua — dulu panel "Lihat Saran Audit AI" terpisah,
+  // sekarang langsung digabung ke kolom Catatan/Saran field yang bersangkutan.
+  const aiReview = parseAiReview(recordData);
+  if (aiReview) {
+    if (aiReview.field_notes) {
+      Object.entries(aiReview.field_notes).forEach(([dbFieldName, note]) => {
+        const colName = Object.entries(FIELD_MAPPING).find(([, dbField]) => dbField === dbFieldName)?.[0];
+        if (colName && map[colName] && note) {
+          map[colName].aiNote = note;
+        }
+      });
+    }
+    if (aiReview.code_evidence && aiReview.code_evidence.length > 0) {
+      if (map['DIAGLIST']) map['DIAGLIST'].codeEvidence = aiReview.code_evidence.filter(e => e.type === 'diagnosis');
+      if (map['PROCLIST']) map['PROCLIST'].codeEvidence = aiReview.code_evidence.filter(e => e.type === 'procedure');
+    }
+    if (aiReview.suggested_codes && aiReview.suggested_codes.length > 0) {
+      if (map['DIAGLIST']) map['DIAGLIST'].suggestedCodes = aiReview.suggested_codes.filter(s => s.type === 'diagnosis');
+      if (map['PROCLIST']) map['PROCLIST'].suggestedCodes = aiReview.suggested_codes.filter(s => s.type === 'procedure');
+    }
+  }
+
   return map;
 }
 
@@ -268,7 +313,7 @@ function RecordFieldsTable({
                         </span>
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                        {field.status === 'error' && field.error_message ? (
+                        {field.status === 'error' && field.error_message && (
                           <div>
                             <div style={{ color: '#dc2626', marginBottom: 4 }}>
                               <strong>{field.rule_id}:</strong> {field.error_message}
@@ -286,9 +331,48 @@ function RecordFieldsTable({
                               </div>
                             )}
                           </div>
-                        ) : field.status === 'empty' ? (
+                        )}
+                        {field.status === 'empty' && !field.codeEvidence && (
                           <span style={{ color: '#f59e0b' }}>Data tidak ditemukan di dokumen PDF. Periksa dan isi manual.</span>
-                        ) : isSystem ? 'Diisi otomatis saat kirim ke vClaim' : '—'}
+                        )}
+                        {field.aiNote && (
+                          <div style={{
+                            marginTop: field.status === 'error' ? 6 : 0,
+                            background: 'var(--surface-secondary, rgba(124,58,237,0.06))',
+                            borderLeft: '3px solid #7c3aed',
+                            padding: '6px 10px',
+                            borderRadius: '0 4px 4px 0',
+                          }}>
+                            <strong>🤖 AI:</strong> {field.aiNote}
+                          </div>
+                        )}
+                        {field.codeEvidence && field.codeEvidence.length > 0 && (
+                          <div style={{ marginTop: (field.status === 'error' || field.aiNote) ? 6 : 0, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {field.codeEvidence.map(ev => (
+                              <span
+                                key={ev.code}
+                                className={`badge ${ev.found ? 'badge-valid' : 'badge-error'}`}
+                                style={{ fontSize: 10, fontFamily: 'monospace', cursor: ev.quotation ? 'help' : 'default' }}
+                                title={ev.found && ev.quotation ? `Hal. ${ev.page_number}: "${ev.quotation}"` : !ev.found ? 'Tidak ada bukti dokumen — periksa manual' : undefined}
+                              >
+                                {ev.found ? '✅' : '⚠️'} {ev.code}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {field.suggestedCodes && field.suggestedCodes.length > 0 && (
+                          <div style={{ marginTop: 4, color: '#2563eb' }}>
+                            💡 Kode tambahan terdeteksi di dokumen:{' '}
+                            {field.suggestedCodes.map((s, i) => (
+                              <span key={s.code} title={`Hal. ${s.page_number}: "${s.quotation}"${s.reasoning ? ` — ${s.reasoning}` : ''}`} style={{ cursor: 'help', fontFamily: 'monospace' }}>
+                                {i > 0 && ', '}{s.code}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {field.status !== 'error' && field.status !== 'empty' && !field.aiNote && !field.codeEvidence?.length && !field.suggestedCodes?.length && (
+                          isSystem ? 'Diisi otomatis saat kirim ke vClaim' : '—'
+                        )}
                       </td>
                     </tr>
                   );
@@ -325,15 +409,8 @@ export default function ResultsPage() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [isFixing, setIsFixing] = useState(false);
-  const [comparison, setComparison] = useState<ComparisonData | null>(null);
-  const [showComparison, setShowComparison] = useState(false);
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [isSavingRecord, setIsSavingRecord] = useState(false);
-  const [ocrPages, setOcrPages] = useState<any[]>([]);
-  const [loadingOcr, setLoadingOcr] = useState(false);
-  const [showOcr, setShowOcr] = useState(false);
-  const [showAudit, setShowAudit] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
   const [maximizeData, setMaximizeData] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -364,21 +441,13 @@ export default function ResultsPage() {
     } catch (err) { console.error('[Results] Gagal memuat info file:', err); }
   }, [fileId]);
 
-  const loadComparison = useCallback(async () => {
-    try {
-      const c = await api.getComparison(fileId);
-      setComparison(c);
-    } catch (err) { console.error('[Results] Gagal memuat perbandingan:', err); }
-  }, [fileId]);
-
   useEffect(() => {
     (async () => {
       setLoading(true);
       await loadFileInfo();
-      await loadComparison();
       setLoading(false);
     })();
-  }, [fileId, loadFileInfo, loadComparison]);
+  }, [fileId, loadFileInfo]);
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
 
@@ -386,11 +455,8 @@ export default function ResultsPage() {
   useEffect(() => {
     setIsEditing(false);
     setEditedValues({});
-    setShowOcr(false);
-    setShowAudit(false);
     setShowPdf(false);
     setMaximizeData(false);
-    setOcrPages([]);
   }, [selectedRecordId]);
 
   const handleExport = async () => {
@@ -428,49 +494,6 @@ export default function ResultsPage() {
     } finally {
       setIsSavingRecord(false);
     }
-  };
-
-  const handleLoadOcrPages = async () => {
-    if (!selectedRecordId) return [];
-    setLoadingOcr(true);
-    try {
-      const pages = await api.getOcrPages(selectedRecordId);
-      setOcrPages(pages?.pages || []);
-      return pages?.pages || [];
-    } catch (err: unknown) {
-      console.error('Gagal memuat OCR pages:', err);
-      return [];
-    } finally {
-      setLoadingOcr(false);
-    }
-  };
-
-  const handleAutoFix = async () => {
-    if (!confirm(`Sistem HANYA akan memperbaiki berkas "${fileInfo?.file_name}" ini saja.\nSEP (lowercase) dan nomor kartu BPJS akan otomatis dikapitalisasi & dibersihkan. Lanjutkan?`)) return;
-    setIsFixing(true);
-    try {
-      const res = await api.autoFixFile(fileId);
-      addToast(res.message || 'Auto-fix selesai', 'success');
-      await loadFileInfo();
-      await loadRecords();
-      await loadComparison();
-      setShowComparison(true);
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Gagal memperbaiki file');
-    } finally {
-      setIsFixing(false);
-    }
-  };
-
-  const handleDownloadFixed = async () => {
-    try {
-      const res = await api.downloadFixedFile(fileId);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url;
-      a.download = `PERBAIKAN_${fileInfo?.file_name.replace(/\.[^/.]+$/, "")}.TXT`;
-      a.click(); URL.revokeObjectURL(url);
-    } catch { alert('Download file gagal'); }
   };
 
   if (loading) return <LoadingSpinner />;
@@ -529,39 +552,6 @@ export default function ResultsPage() {
           </div>
         )}
       </div>
-
-      {/* ─── Comparison table (after auto-fix) ───────────────────────── */}
-      {showComparison && comparison && comparison.changes.length > 0 && (
-        <div className="card" style={{ marginBottom: 16, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-green)' }}>
-              Perubahan Auto-Fix (Asli vs Hasil Perbaikan)
-            </h3>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowComparison(false)}>Tutup</button>
-          </div>
-          <div className="table-container" style={{ maxHeight: 220, overflowY: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Baris #</th><th>Nama Pasien</th><th>MRN</th><th>Kolom</th><th>Sebelum</th><th>Sesudah</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comparison.changes.map((chg, idx) => (
-                  <tr key={idx}>
-                    <td><strong>{chg.row_number}</strong></td>
-                    <td>{chg.nama_pasien}</td>
-                    <td>{chg.mrn || '-'}</td>
-                    <td><span className="badge badge-info">{chg.field_name}</span></td>
-                    <td style={{ color: '#ef4444', textDecoration: 'line-through', fontFamily: 'monospace', fontSize: 11 }}>{chg.before}</td>
-                    <td style={{ color: '#10b981', fontWeight: 700, fontFamily: 'monospace', fontSize: 11 }}>{chg.after}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* ─── Toolbar: search / filter (only relevant when there's more than 1 record) ─── */}
       {(total > 1 || search || filter !== 'all') && (
@@ -760,34 +750,6 @@ export default function ResultsPage() {
                 />
               )}
 
-              {/* ─── Bukti Pendukung (OCR) ──────────────────────────────── */}
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-color)' }}>
-                <button className="btn-glass" onClick={() => setShowOcr(v => !v)}>
-                  {showOcr ? 'Sembunyikan Bukti Pendukung (OCR)' : 'Lihat Bukti Pendukung (OCR)'}
-                </button>
-                {showOcr && (
-                  <div style={{ marginTop: 12 }}>
-                    <OcrViewer
-                      recordId={selectedRecord.id}
-                      pages={ocrPages}
-                      isLoading={loadingOcr}
-                      onLoadPages={handleLoadOcrPages}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* ─── Saran Audit AI (anti-upcoding) ─────────────────────── */}
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-color)' }}>
-                <button className="btn-glass" onClick={() => setShowAudit(v => !v)}>
-                  {showAudit ? 'Sembunyikan Saran Audit AI' : 'Lihat Saran Audit AI'}
-                </button>
-                {showAudit && (
-                  <div style={{ marginTop: 12 }}>
-                    <AuditSuggestions recordId={selectedRecord.id} />
-                  </div>
-                )}
-              </div>
             </div>
           ) : (
             <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
