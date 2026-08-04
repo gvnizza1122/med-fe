@@ -121,8 +121,11 @@ export const api = {
     if (fileId) fd.append('fileId', fileId);
     return request('/api/v1/claim-files/upload', { method: 'POST', body: fd });
   },
-  getFiles: (page = 1, limit = 20) =>
-    request(`/api/v1/claim-files?page=${page}&limit=${limit}`),
+  getFiles: (page = 1, limit = 20, jenisKlaim?: string) => {
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (jenisKlaim) qs.set('jenis_klaim', jenisKlaim);
+    return request(`/api/v1/claim-files?${qs.toString()}`);
+  },
   getFile: (id: string) => request(`/api/v1/claim-files/${id}`),
   getRecords: (fileId: string, params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
@@ -158,9 +161,10 @@ export const api = {
     request(`/api/v1/users/${id}`, { method: 'DELETE' }),
 
   // PDF Upload
-  uploadPdf: (file: File) => {
+  uploadPdf: (file: File, jenisKlaim: string) => {
     const fd = new FormData();
     fd.append('file', file);
+    fd.append('jenis_klaim', jenisKlaim);
     // Ekstraksi AI biasanya 10-20 detik, tapi bisa lebih lama tergantung jumlah
     // halaman & respons AI provider — default 30 detik terlalu mepet, sempat
     // bikin request timeout padahal prosesnya masih berjalan di server.

@@ -7,8 +7,15 @@ import { api } from '@/lib/api';
 interface ClaimFile {
   id: string; file_name: string; period: string; status: string;
   total_records: number; valid_count: number; error_count: number; pending_count: number;
-  created_at: string; uploaded_by_name: string;
+  created_at: string; uploaded_by_name: string; jenis_klaim?: string | null;
 }
+
+const JENIS_KLAIM_LABELS: Record<string, string> = {
+  RAWAT_JALAN: 'Rawat Jalan',
+  RAWAT_INAP: 'Rawat Inap',
+  GAWAT_DARURAT: 'IGD / Gawat Darurat',
+};
+const jenisKlaimLabel = (v?: string | null) => (v && JENIS_KLAIM_LABELS[v]) || '-';
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -51,14 +58,15 @@ export default function HistoryPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [jenisKlaimFilter, setJenisKlaimFilter] = useState('');
 
   const loadFiles = useCallback(async () => {
     try {
       setLoading(true);
-      const d = await api.getFiles(page, 15);
+      const d = await api.getFiles(page, 15, jenisKlaimFilter || undefined);
       setFiles(d.files); setTotal(d.total);
     } catch (err) { console.error('[History] Gagal memuat file:', err); } finally { setLoading(false); }
-  }, [page]);
+  }, [page, jenisKlaimFilter]);
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
@@ -67,7 +75,6 @@ export default function HistoryPage() {
     try { await api.deleteFile(id); loadFiles(); } catch (err) { console.error('[History] Gagal hapus file:', err); }
   };
 
-  if (loading) return <div className="loading"><div className="spinner" /></div>;
   const totalPages = Math.ceil(total / 15);
 
   return (
@@ -89,6 +96,23 @@ export default function HistoryPage() {
         </motion.button>
       </div>
 
+      <div className="filter-group" style={{ marginBottom: 16 }}>
+        <span className="filter-label">Kategori:</span>
+        <select
+          className="filter-select"
+          value={jenisKlaimFilter}
+          onChange={e => { setJenisKlaimFilter(e.target.value); setPage(1); }}
+        >
+          <option value="">Semua Kategori</option>
+          {Object.entries(JENIS_KLAIM_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="loading"><div className="spinner" /></div>
+      ) : (
       <AnimatePresence mode="wait">
         {files.length === 0 ? (
           <motion.div
@@ -128,7 +152,7 @@ export default function HistoryPage() {
             exit={{ opacity: 0, transition: { duration: 0.2 } }}
           >
             <table>
-              <thead><tr><th>File</th><th>Periode</th><th>Total</th><th>Valid</th><th>Error</th><th>Status</th><th>Diunggah</th><th>Aksi</th></tr></thead>
+              <thead><tr><th>File</th><th>Kategori</th><th>Periode</th><th>Total</th><th>Valid</th><th>Error</th><th>Status</th><th>Diunggah</th><th>Aksi</th></tr></thead>
               <motion.tbody
                 variants={containerVariants}
                 initial="hidden"
@@ -150,6 +174,11 @@ export default function HistoryPage() {
                       style={{ cursor: 'default' }}
                     >
                       <td style={{ fontWeight: 600 }}>{f.file_name}</td>
+                      <td>
+                        {f.jenis_klaim ? (
+                          <span className="badge badge-secondary" style={{ fontSize: 10 }}>{jenisKlaimLabel(f.jenis_klaim)}</span>
+                        ) : '-'}
+                      </td>
                       <td>{f.period || '-'}</td>
                       <td>{f.total_records}</td>
                       <td style={{ color: 'var(--accent-green)' }}>{f.valid_count}</td>
@@ -194,6 +223,7 @@ export default function HistoryPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      )}
 
       <AnimatePresence>
         {totalPages > 1 && (

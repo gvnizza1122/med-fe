@@ -4,10 +4,17 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 
+const JENIS_KLAIM_OPTIONS = [
+  { value: 'RAWAT_JALAN', label: 'Rawat Jalan' },
+  { value: 'RAWAT_INAP', label: 'Rawat Inap' },
+  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat' },
+];
+
 export default function ExtractPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [jenisKlaim, setJenisKlaim] = useState('');
   const [dragover, setDragover] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -28,10 +35,14 @@ export default function ExtractPage() {
 
   const handleUpload = async () => {
     if (!file) return;
+    if (!jenisKlaim) {
+      setError('Pilih kategori pelayanan (Rawat Jalan/Rawat Inap/IGD) terlebih dahulu.');
+      return;
+    }
     setUploading(true);
     setError('');
     try {
-      const res = await api.uploadPdf(file);
+      const res = await api.uploadPdf(file, jenisKlaim);
       // Langsung ke halaman hasil lengkap (rule engine + OCR bukti + audit AI +
       // edit field) — satu alur yang sama untuk semua PDF, sudah teruji.
       router.push(`/results/${res.file_id}`);
@@ -62,6 +73,23 @@ export default function ExtractPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">Kategori Pelayanan</label>
+          <select
+            className="form-select"
+            value={jenisKlaim}
+            onChange={e => { setJenisKlaim(e.target.value); setError(''); }}
+          >
+            <option value="">Pilih kategori...</option>
+            {JENIS_KLAIM_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '6px 0 0' }}>
+            Dipakai supaya AI tidak salah memberi saran (mis. saran ruangan rawat inap untuk klaim rawat jalan) dan untuk memudahkan pencarian di Riwayat Upload.
+          </p>
+        </div>
+
         <div
           className={`upload-zone ${dragover ? 'dragover' : ''}`}
           onClick={() => fileInputRef.current?.click()}
@@ -128,7 +156,7 @@ export default function ExtractPage() {
             className="btn btn-primary btn-lg"
             style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex' }}
             onClick={handleUpload}
-            disabled={!file || uploading}
+            disabled={!file || !jenisKlaim || uploading}
           >
             {uploading ? (
               <>
