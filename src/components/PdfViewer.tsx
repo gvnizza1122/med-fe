@@ -97,7 +97,6 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
   if (pdfState.status === 'loading') {
     return (
       <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-        <div style={{ marginBottom: 8, fontSize: 18 }}>📄</div>
         Memuat dokumen PDF...
       </div>
     );

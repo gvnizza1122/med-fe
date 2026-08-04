@@ -328,6 +328,7 @@ export default function ResultsPage() {
   const [showOcr, setShowOcr] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
+  const [maximizeData, setMaximizeData] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [onlyIssues, setOnlyIssues] = useState(false);
@@ -381,6 +382,7 @@ export default function ResultsPage() {
     setShowOcr(false);
     setShowAudit(false);
     setShowPdf(false);
+    setMaximizeData(false);
     setOcrPages([]);
   }, [selectedRecordId]);
 
@@ -633,7 +635,17 @@ export default function ResultsPage() {
         )}
 
         {/* ─── Right: selected record detail ───────────────────────────── */}
-        <div className={total > 1 || records.length > 1 ? 'panel-right' : ''} style={{ position: 'static', width: '100%' }}>
+        {/* Saat panel-left tidak dirender (cuma 1 record), div ini tetap jadi
+            grid item di dalam .split-layout — tanpa gridColumn: 1/-1 dia akan
+            terjebak di kolom pertama (380px) dan kolom kanan (1fr) kosong. */}
+        <div
+          className={total > 1 || records.length > 1 ? 'panel-right' : ''}
+          style={{
+            position: 'static',
+            width: '100%',
+            gridColumn: (total > 1 || records.length > 1) ? undefined : '1 / -1',
+          }}
+        >
           {selectedRecord ? (
             <div className="card" style={{ padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
@@ -687,7 +699,10 @@ export default function ResultsPage() {
               )}
 
               {/* ─── Bukti primer: dokumen PDF asli vs data klaim ───────── */}
-              {fileInfo.has_pdf && (
+              {/* Tampil jika berkas aslinya PDF (via nama file, tidak bergantung
+                  flag has_pdf dari backend) — kalau file ternyata hilang di disk,
+                  PdfViewer menampilkan pesan yang jelas. */}
+              {String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') && (
                 <div style={{ marginBottom: 16 }}>
                   <button className="btn-glass" onClick={() => setShowPdf(v => !v)}>
                     {showPdf ? 'Sembunyikan Dokumen PDF Asli' : 'Lihat Dokumen PDF Asli'}
@@ -696,20 +711,35 @@ export default function ResultsPage() {
               )}
 
               {/* ─── The single 60-column table (side-by-side dengan PDF saat dibuka) ─── */}
-              {showPdf && fileInfo.has_pdf ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
-                  <div style={{ flex: '1 1 420px', minWidth: 0 }}>
-                    <PdfViewer fileId={fileId} fileName={fileInfo.file_name} />
+              {showPdf ? (
+                <div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setMaximizeData(v => !v)}>
+                      {maximizeData ? 'Kembali' : 'Perbesar Data'}
+                    </button>
                   </div>
-                  <div style={{ flex: '1 1 420px', minWidth: 0, maxHeight: 640, overflowY: 'auto' }}>
-                    <RecordFieldsTable
-                      recordData={selectedRecord}
-                      validationErrors={selectedRecord.errors || []}
-                      editing={isEditing}
-                      editedValues={editedValues}
-                      onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
-                      onlyIssues={onlyIssues}
-                    />
+                  <div className={`pdf-compare-grid${maximizeData ? ' maximized' : ''}`}>
+                    <div style={{
+                      minWidth: 0,
+                      order: maximizeData ? 1 : 0,  // data first when maximized
+                      maxHeight: maximizeData ? 'none' : 640,
+                      overflowY: maximizeData ? 'visible' : 'auto',
+                    }}>
+                      <RecordFieldsTable
+                        recordData={selectedRecord}
+                        validationErrors={selectedRecord.errors || []}
+                        editing={isEditing}
+                        editedValues={editedValues}
+                        onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
+                        onlyIssues={onlyIssues}
+                      />
+                    </div>
+                    <div style={{
+                      minWidth: 0,
+                      order: maximizeData ? 2 : 0,
+                    }}>
+                      <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 300 : 640} />
+                    </div>
                   </div>
                 </div>
               ) : (

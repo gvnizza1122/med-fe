@@ -1281,6 +1281,21 @@ tr:hover .file-icon-modern {
 }
 .panel-right.collapsed { display: none; }
 
+/* PDF vs data compare (results detail, "Lihat Dokumen PDF Asli") */
+.pdf-compare-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.pdf-compare-grid.maximized {
+  grid-template-columns: 1fr;
+}
+@media (max-width: 1100px) {
+  .pdf-compare-grid { grid-template-columns: 1fr; }
+}
+
 /* Error details panel */
 .error-details-panel {
   background: var(--surface);
