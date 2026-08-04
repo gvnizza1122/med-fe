@@ -487,13 +487,18 @@ export default function UploadPage() {
             <motion.div style={{ display: 'flex', gap: 12, marginTop: 20 }} variants={staggerItem}>
               <motion.button
                 className="btn btn-primary btn-lg"
-                style={{ flex: 1, justifyContent: 'center' }}
+                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex' }}
                 onClick={handleUpload}
                 disabled={!file || uploading}
                 whileHover={!(!file || uploading) ? buttonHover : {}}
                 whileTap={!(!file || uploading) ? buttonTap : {}}
               >
-                {uploading ? '⏳ Memproses...' : '🚀 Upload & Validasi'}
+                {uploading ? (
+                  <>
+                    <span className="btn-spinner" />
+                    Memproses...
+                  </>
+                ) : '🚀 Upload & Validasi'}
               </motion.button>
               <AnimatePresence>
                 {file && !uploading && (

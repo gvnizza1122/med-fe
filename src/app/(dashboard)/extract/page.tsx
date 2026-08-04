@@ -126,11 +126,16 @@ export default function ExtractPage() {
         <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
           <button
             className="btn btn-primary btn-lg"
-            style={{ flex: 1, justifyContent: 'center' }}
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex' }}
             onClick={handleUpload}
             disabled={!file || uploading}
           >
-            {uploading ? '⏳ Memproses...' : '🚀 Upload & Ekstrak'}
+            {uploading ? (
+              <>
+                <span className="btn-spinner" />
+                Memproses...
+              </>
+            ) : '🚀 Upload & Ekstrak'}
           </button>
           {file && !uploading && (
             <button className="btn btn-secondary" onClick={() => { setFile(null); setError(''); }}>

@@ -1664,6 +1664,20 @@ tr:hover .file-icon-modern {
   animation: spin 0.7s linear infinite;
 }
 
+/* Spinner kecil untuk dipakai di dalam tombol (state "Memproses...") */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
 .skeleton {
   background: var(--surface-mid);
   border-radius: 8px;
