@@ -722,7 +722,7 @@ export default function ResultsPage() {
                     <div style={{
                       minWidth: 0,
                       order: maximizeData ? 1 : 0,  // data first when maximized
-                      maxHeight: maximizeData ? 'none' : 640,
+                      maxHeight: maximizeData ? 'none' : 780,
                       overflowY: maximizeData ? 'visible' : 'auto',
                     }}>
                       <RecordFieldsTable
@@ -738,7 +738,7 @@ export default function ResultsPage() {
                       minWidth: 0,
                       order: maximizeData ? 2 : 0,
                     }}>
-                      <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 300 : 640} />
+                      <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 420 : 780} />
                     </div>
                   </div>
                 </div>
