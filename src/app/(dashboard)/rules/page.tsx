@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { api } from '@/lib/api';
+import { useRequireRole } from '@/lib/useRequireRole';
 
 interface Rule { 
   id: string; 
@@ -35,6 +36,7 @@ const priorityGlow = (p: number) =>
   '0 0 12px rgba(59,130,246,0.25)';
 
 export default function RulesPage() {
+  const { checking, allowed } = useRequireRole(['admin']);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function RulesPage() {
     }
   }, []);
 
-  useEffect(() => { loadRules(); }, [loadRules]);
+  useEffect(() => { if (allowed) loadRules(); }, [allowed, loadRules]);
 
   const handleToggle = async (rule: Rule) => {
     try { 
@@ -75,6 +77,7 @@ export default function RulesPage() {
   const priorityLabel = (p: number) => p === 1 ? 'Kritis' : p === 2 ? 'Mayor' : 'Minor';
   const priorityClass = (p: number) => p === 1 ? 'critical' : p === 2 ? 'major' : 'minor';
 
+  if (checking || !allowed) return <div className="loading"><div className="spinner" /></div>;
   if (loading) return <div className="loading"><div className="spinner" /></div>;
 
   return (

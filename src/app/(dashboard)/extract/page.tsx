@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 
 const JENIS_KLAIM_OPTIONS = [
-  { value: 'RAWAT_JALAN', label: 'Rawat Jalan' },
-  { value: 'RAWAT_INAP', label: 'Rawat Inap' },
-  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat' },
+  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: '🚶', desc: 'Pasien tidak menginap' },
+  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: '🛏️', desc: 'Pasien menginap di ruangan' },
+  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: '🚨', desc: 'Pelayanan gawat darurat' },
 ];
 
 export default function ExtractPage() {
@@ -73,19 +73,43 @@ export default function ExtractPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <div className="form-group" style={{ marginBottom: 16 }}>
+        <div className="form-group" style={{ marginBottom: 20 }}>
           <label className="form-label">Kategori Pelayanan</label>
-          <select
-            className="form-select"
-            value={jenisKlaim}
-            onChange={e => { setJenisKlaim(e.target.value); setError(''); }}
-          >
-            <option value="">Pilih kategori...</option>
-            {JENIS_KLAIM_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '6px 0 0' }}>
+          <div className="category-picker" role="radiogroup" aria-label="Kategori Pelayanan">
+            {JENIS_KLAIM_OPTIONS.map(opt => {
+              const isSelected = jenisKlaim === opt.value;
+              return (
+                <motion.button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  className={`category-card ${isSelected ? 'selected' : ''}`}
+                  onClick={() => { setJenisKlaim(opt.value); setError(''); }}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <span className="category-card-icon">{opt.icon}</span>
+                  <span className="category-card-label">{opt.label}</span>
+                  <span className="category-card-desc">{opt.desc}</span>
+                  <AnimatePresence>
+                    {isSelected && (
+                      <motion.span
+                        className="category-card-check"
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      >
+                        ✓
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '8px 0 0' }}>
             Dipakai supaya AI tidak salah memberi saran (mis. saran ruangan rawat inap untuk klaim rawat jalan) dan untuk memudahkan pencarian di Riwayat Upload.
           </p>
         </div>

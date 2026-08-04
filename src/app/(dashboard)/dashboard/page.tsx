@@ -155,7 +155,7 @@ function LoadingSkeleton() {
         <div className="skeleton" style={{ width: 200, height: 28, borderRadius: 6 }} />
         <div className="skeleton" style={{ width: 300, height: 14, borderRadius: 6, marginTop: 8 }} />
       </div>
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+      <div className="stats-grid" style={{ marginBottom: 20 }}>
         {[1, 2, 3, 4].map(i => (
           <motion.div
             key={i}
@@ -171,7 +171,7 @@ function LoadingSkeleton() {
           </motion.div>
         ))}
       </div>
-      <div className="dashboard-split-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="dashboard-split-layout">
         {[1, 2].map(i => (
           <motion.div
             key={i}
@@ -317,7 +317,7 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       <motion.div
         className="stats-grid"
-        style={{ marginBottom: 24, gridTemplateColumns: 'repeat(4, 1fr)' }}
+        style={{ marginBottom: 24 }}
         variants={staggerContainer}
         initial="hidden"
         animate="visible"

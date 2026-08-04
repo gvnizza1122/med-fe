@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { api } from '@/lib/api';
+import { useRequireRole } from '@/lib/useRequireRole';
 
 interface User { id: string; email: string; full_name: string; nik: string; role: string; is_active: number; last_login: string; created_at: string; }
 
@@ -43,6 +44,7 @@ const fieldVariants: Variants = {
 };
 
 export default function UsersPage() {
+  const { checking, allowed } = useRequireRole(['admin']);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -52,7 +54,7 @@ export default function UsersPage() {
 
   const loadUsers = useCallback(async () => { try { setLoading(true); const d = await api.getUsers(); setUsers(d.users); } catch (err) { console.error('[Users] Gagal memuat user:', err); } finally { setLoading(false); } }, []);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => { if (allowed) loadUsers(); }, [allowed, loadUsers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('');
@@ -80,6 +82,7 @@ export default function UsersPage() {
     try { await api.updateUser(u.id, { is_active: !u.is_active }); loadUsers(); } catch (err) { console.error('[Users] Gagal toggle user:', err); }
   };
 
+  if (checking || !allowed) return <div className="loading"><div className="spinner" /></div>;
   if (loading) return <div className="loading"><div className="spinner" /></div>;
 
   return (

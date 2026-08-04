@@ -22,12 +22,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isNavigating, setIsNavigating] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Auth guard — redirect to /login if no token
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token) router.replace('/login');
   }, [router]);
+
+  // Sidebar collapse (desktop-only "minimize") — dipertahankan antar sesi.
+  useEffect(() => {
+    setIsCollapsed(localStorage.getItem('sidebarCollapsed') === '1');
+  }, []);
+
+  const toggleCollapsed = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebarCollapsed', next ? '1' : '0');
+      return next;
+    });
+  };
 
   // Trigger progress bar on every route change
   useEffect(() => {
@@ -38,7 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-layout">
-      <Sidebar />
+      <Sidebar isCollapsed={isCollapsed} onToggleCollapsed={toggleCollapsed} />
 
       <div
         style={{
@@ -85,7 +99,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             tanpa render apapun. Animasi masuk tiap halaman sudah ditangani
             sendiri di masing-masing page (fade-in/motion.div internal),
             jadi wrapper ini aman dihapus. */}
-        <main className="main-content" style={{ flex: 1 }}>
+        <main className={`main-content ${isCollapsed ? 'content-collapsed' : ''}`} style={{ flex: 1 }}>
           {children}
         </main>
       </div>

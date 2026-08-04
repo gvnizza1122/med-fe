@@ -54,16 +54,6 @@ const IconRules = () => (
   </svg>
 );
 
-const IconAudit = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="16" y1="13" x2="8" y2="13" />
-    <line x1="16" y1="17" x2="8" y2="17" />
-    <polyline points="10 9 9 9 8 9" />
-  </svg>
-);
-
 const IconSun = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="5" />
@@ -89,6 +79,12 @@ const IconLogout = () => (
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
     <polyline points="16 17 21 12 16 7" />
     <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+
+const IconChevronLeft = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
   </svg>
 );
 
@@ -122,7 +118,6 @@ const NAV_ITEMS: NavSection[] = [
     items: [
       { path: '/users', icon: <IconUsers />, label: 'Manajemen User', roles: ['admin'] },
       { path: '/rules', icon: <IconRules />, label: 'Aturan Validasi', roles: ['admin'] },
-      { path: '/audit', icon: <IconAudit />, label: 'Audit Log', roles: ['admin', 'supervisor'] },
     ],
   },
 ];
@@ -153,7 +148,12 @@ const overlayVariants = {
 /* ────────────────────────────────────────────
    Sidebar Component
    ──────────────────────────────────────────── */
-export default function Sidebar() {
+interface SidebarProps {
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
+}
+
+export default function Sidebar({ isCollapsed = false, onToggleCollapsed }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -213,7 +213,7 @@ export default function Sidebar() {
 
       {/* ── Sidebar ── */}
       <motion.aside
-        className={`sidebar ${isOpen ? 'open' : ''}`}
+        className={`sidebar ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
         variants={sidebarVariants}
         initial="hidden"
         animate="visible"
@@ -222,10 +222,28 @@ export default function Sidebar() {
           WebkitBackdropFilter: 'blur(16px) saturate(180%)',
         }}
       >
+        {/* ── Collapse/expand toggle (desktop only) ── */}
+        {onToggleCollapsed && (
+          <button
+            className="sidebar-collapse-toggle"
+            onClick={onToggleCollapsed}
+            aria-label={isCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
+            title={isCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
+          >
+            <motion.span
+              style={{ display: 'flex' }}
+              animate={{ rotate: isCollapsed ? 180 : 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              <IconChevronLeft />
+            </motion.span>
+          </button>
+        )}
+
         {/* ── Brand ── */}
         <div className="sidebar-brand">
           <img src="/logo.png" alt="RS Lestari Raharja" />
-          <div>
+          <div className="sidebar-brand-text">
             <div className="sidebar-brand-name">RS Lestari Raharja</div>
             <div className="sidebar-brand-sub">Sistem Validasi BPJS</div>
           </div>
@@ -274,11 +292,12 @@ export default function Sidebar() {
                       <motion.button
                         className={`nav-item ${active ? 'active' : ''}`}
                         onClick={() => router.push(item.path)}
+                        title={isCollapsed ? item.label : undefined}
                         whileHover={{ x: 4, transition: { duration: 0.15 } }}
                         whileTap={{ scale: 0.98 }}
                       >
                         <span className="nav-item-icon">{item.icon}</span>
-                        {item.label}
+                        <span className="nav-label">{item.label}</span>
                       </motion.button>
                     </motion.div>
                   );
@@ -323,6 +342,7 @@ export default function Sidebar() {
             className="nav-item"
             onClick={toggleTheme}
             style={{ marginTop: 4 }}
+            title={isCollapsed ? (theme === 'dark' ? 'Mode Terang' : 'Mode Gelap') : undefined}
             whileHover={{ x: 4, transition: { duration: 0.15 } }}
             whileTap={{ scale: 0.98 }}
           >
@@ -340,7 +360,7 @@ export default function Sidebar() {
                 </motion.span>
               </AnimatePresence>
             </span>
-            {theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+            <span className="nav-label">{theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}</span>
           </motion.button>
 
           {/* Logout */}
@@ -348,11 +368,12 @@ export default function Sidebar() {
             className="nav-item"
             style={{ marginTop: 4, color: 'var(--red)' }}
             onClick={handleLogout}
+            title={isCollapsed ? 'Keluar' : undefined}
             whileHover={{ x: 4, transition: { duration: 0.15 } }}
             whileTap={{ scale: 0.98 }}
           >
             <span className="nav-item-icon"><IconLogout /></span>
-            Keluar
+            <span className="nav-label">Keluar</span>
           </motion.button>
         </div>
       </motion.aside>

@@ -170,14 +170,6 @@ export const api = {
     // bikin request timeout padahal prosesnya masih berjalan di server.
     return request('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 90000 });
   },
-  validatePdf: (data: Record<string, unknown>) =>
-    request('/api/v1/claim-files/validate-pdf', { method: 'POST', body: JSON.stringify(data) }),
-
-  // Audit Logs
-  getAuditLogs: (params: Record<string, string> = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return request(`/api/v1/audit-logs?${qs}`);
-  },
 
   // Batch Audit (Phase 2)
   batchAuditRecords: (recordIds: string[], style: 'ponytail' | 'caveman' | 'neutral') =>
