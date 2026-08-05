@@ -115,9 +115,9 @@ export default function RulesPage() {
               }}
               exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <motion.span
                       className="badge badge-error"
                       style={{ fontSize: 12 }}
@@ -150,7 +150,7 @@ export default function RulesPage() {
                     {editId === rule.id ? (
                       <motion.div
                         key="edit"
-                        style={{ marginTop: 12, display: 'flex', gap: 8 }}
+                        style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}
                         initial={{ opacity: 0, height: 0, y: -8 }}
                         animate={{ opacity: 1, height: 'auto', y: 0 }}
                         exit={{ opacity: 0, height: 0, y: -8 }}
@@ -160,7 +160,7 @@ export default function RulesPage() {
                           className="form-input"
                           value={editMsg}
                           onChange={e => setEditMsg(e.target.value)}
-                          style={{ flex: 1 }}
+                          style={{ flex: 1, minWidth: 160 }}
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.1 }}

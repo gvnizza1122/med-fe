@@ -512,7 +512,7 @@ export default function ResultsPage() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* ─── Header ──────────────────────────────────────────────────── */}
-      <div className="page-header" style={{ marginBottom: 16, alignItems: 'center' }}>
+      <div className="page-header" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>Hasil Validasi</h2>
           <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fileInfo.file_name}</p>

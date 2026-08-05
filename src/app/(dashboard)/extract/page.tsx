@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 
 const JENIS_KLAIM_OPTIONS = [
-  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: '🚶', desc: 'Pasien tidak menginap' },
-  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: '🛏️', desc: 'Pasien menginap di ruangan' },
-  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: '🚨', desc: 'Pelayanan gawat darurat' },
+  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: '🚶', desc: 'Pasien tidak menginap', accent: '#2563eb' },
+  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: '🛏️', desc: 'Pasien menginap di ruangan', accent: '#6366f1' },
+  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: '🚨', desc: 'Pelayanan gawat darurat', accent: '#dc2626' },
 ];
 
 export default function ExtractPage() {
@@ -85,6 +85,7 @@ export default function ExtractPage() {
                   role="radio"
                   aria-checked={isSelected}
                   className={`category-card ${isSelected ? 'selected' : ''}`}
+                  style={{ ['--category-accent' as string]: opt.accent }}
                   onClick={() => { setJenisKlaim(opt.value); setError(''); }}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.97 }}

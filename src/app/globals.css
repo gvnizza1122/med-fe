@@ -820,14 +820,16 @@ code {
 .form-input.has-suffix { padding-right: 44px; }
 
 /* Kategori pelayanan (Rawat Jalan/Inap/IGD) — segmented card picker,
-   pengganti <select> polos supaya lebih jelas & enak dipilih. */
+   pengganti <select> polos supaya lebih jelas & enak dipilih. Tiap kategori
+   punya warna aksen sendiri (data-accent) supaya gampang dibedakan sekilas:
+   biru = rawat jalan, indigo = rawat inap, merah = gawat darurat. */
 .category-picker {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 14px;
 }
 @media (max-width: 560px) {
-  .category-picker { grid-template-columns: 1fr; }
+  .category-picker { grid-template-columns: 1fr; gap: 10px; }
 }
 .category-card {
   position: relative;
@@ -835,42 +837,77 @@ code {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 4px;
-  padding: 16px 12px;
+  gap: 6px;
+  padding: 22px 16px 18px;
   background: var(--surface);
   border: 1.5px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   font-family: inherit;
+  overflow: hidden;
   transition: var(--transition-fast);
+}
+.category-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--category-accent, var(--primary)) 0%, transparent 65%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
 }
 .category-card:hover {
   border-color: var(--mute-soft);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
+.category-card:hover::before { opacity: 0.05; }
 .category-card.selected {
-  border-color: var(--primary);
-  background: rgba(37, 99, 235, 0.06);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--category-accent, var(--primary));
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--category-accent, var(--primary)) 16%, transparent),
+              var(--shadow-md);
 }
-.category-card-icon { font-size: 26px; line-height: 1; margin-bottom: 4px; }
-.category-card-label { font-size: 13px; font-weight: 600; color: var(--ink); }
-.category-card-desc { font-size: 11px; color: var(--mute); }
-.category-card.selected .category-card-label { color: var(--primary); }
+.category-card.selected::before { opacity: 0.08; }
+.category-card-icon {
+  position: relative;
+  z-index: 1;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--category-accent, var(--primary)) 14%, var(--surface-low));
+  margin-bottom: 2px;
+  transition: var(--transition-fast);
+}
+.category-card:hover .category-card-icon,
+.category-card.selected .category-card-icon {
+  transform: scale(1.08);
+  background: color-mix(in srgb, var(--category-accent, var(--primary)) 22%, var(--surface-low));
+}
+.category-card-label { position: relative; z-index: 1; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.category-card-desc { position: relative; z-index: 1; font-size: 11px; color: var(--mute); line-height: 1.4; }
+.category-card.selected .category-card-label { color: var(--category-accent, var(--primary)); }
 .category-card-check {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 18px;
-  height: 18px;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: var(--primary);
-  color: var(--on-primary);
+  background: var(--category-accent, var(--primary));
+  color: #fff;
   font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--category-accent, var(--primary)) 40%, transparent);
 }
 
 .form-input-wrap { position: relative; }
@@ -2544,14 +2581,47 @@ tr:hover .file-icon-modern {
   .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-xl); }
   .main-content { margin-left: 0; padding: 16px; padding-top: 64px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
-  .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  /* .page-header pakai flex-direction:column di mobile, tapi beberapa
+     halaman set alignItems:'center' via inline style (spesifisitas lebih
+     tinggi dari class) — override paksa di sini supaya konsisten rata kiri
+     dan tombol aksi ikut melebar penuh, bukan numpuk kecil di kanan. */
+  .page-header { flex-direction: column !important; align-items: stretch !important; gap: 12px; }
+  .page-header > div:last-child { margin-left: 0 !important; flex-wrap: wrap; }
+  .page-header .btn { flex: 1; }
   .results-toolbar { flex-direction: column; align-items: stretch; }
   .search-container { max-width: 100%; }
   .data-box-container { grid-template-columns: 1fr; }
+  .filter-group { width: 100%; }
+  .filter-group .filter-select,
+  .filter-group .select-glass { flex: 1; min-width: 0; }
+
+  /* Card & modal padding lebih ringkas supaya konten tak mepet tepi layar */
+  .card { padding: 16px; }
+  .modal-header { padding: 18px 18px 0; }
+  .modal-body { padding: 18px; }
+  .modal-footer { padding: 14px 18px; flex-direction: column-reverse; }
+  .modal-footer .btn { width: 100%; }
+
+  /* Tabel: padding & font dipadatkan, tetap scroll horizontal via
+     .table-container { overflow-x:auto } yang sudah ada */
+  th { padding: 10px 12px; font-size: 10px; }
+  td { padding: 10px 12px; font-size: 12px; }
+
+  /* Pagination: bungkus kalau nggak muat, teks "Halaman X dari Y" jangan
+     bikin tombol prev/next terpotong di layar sempit */
+  .pagination { flex-wrap: wrap; row-gap: 8px; }
+  .pagination button { padding: 8px 12px; font-size: 12px; }
+
+  .dashboard-table-card .card-header,
+  .card-header { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
 }
 
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr; }
   .main-content { padding: 12px; padding-top: 60px; }
   .modal { margin: 12px; border-radius: var(--radius-md); }
+  .card { padding: 14px; }
+  .page-header h2 { font-size: 19px; }
+  .category-card { padding: 12px 10px; }
+  .category-card-icon { font-size: 22px; }
 }
