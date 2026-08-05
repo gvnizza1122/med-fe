@@ -171,6 +171,18 @@ export const api = {
     return request('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 90000 });
   },
 
+  // PDF Upload — batch (banyak file, 1 kategori pelayanan untuk semua file).
+  // Diproses server-side dengan concurrency terbatas (~3 file bersamaan), jadi
+  // makin banyak file makin lama — timeout digenerosikan (15 menit) supaya
+  // batch berukuran wajar (puluhan file) tidak keburu di-abort padahal masih
+  // diproses. Progress real-time dikirim lewat socket event 'pdf-batch:*'.
+  uploadPdfBatch: (files: File[], jenisKlaim: string) => {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    fd.append('jenis_klaim', jenisKlaim);
+    return request('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 900000 });
+  },
+
   // Batch Audit (Phase 2)
   batchAuditRecords: (recordIds: string[], style: 'ponytail' | 'caveman' | 'neutral') =>
     request('/api/v1/records/batch-audit', {

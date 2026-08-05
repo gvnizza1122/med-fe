@@ -910,6 +910,84 @@ code {
   box-shadow: 0 2px 6px color-mix(in srgb, var(--category-accent, var(--primary)) 40%, transparent);
 }
 
+/* Toggle mode upload (Satu File / Batch) — halaman Extract PDF */
+.upload-mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-low);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+}
+.upload-mode-tab {
+  flex: 1;
+  padding: 9px 14px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mute);
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition-fast);
+}
+.upload-mode-tab:hover:not(:disabled):not(.active) { color: var(--body); background: var(--surface); }
+.upload-mode-tab.active { background: var(--surface); color: var(--primary); box-shadow: var(--shadow-sm); }
+.upload-mode-tab:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Daftar file terpilih — mode batch upload */
+.batch-file-list {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  background: var(--surface);
+}
+.batch-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.batch-file-row:hover { background: var(--surface-low); }
+.batch-file-icon { flex-shrink: 0; font-size: 15px; }
+.batch-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--ink);
+}
+.batch-file-size { flex-shrink: 0; color: var(--mute); font-size: 11px; }
+.batch-file-status-badge { flex-shrink: 0; font-size: 9px !important; }
+.batch-file-remove {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--mute);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+.batch-file-remove:hover { background: var(--red-light); color: var(--red); }
+
+@media (max-width: 480px) {
+  .upload-mode-tab { font-size: 12px; padding: 8px 8px; }
+  .batch-file-name { font-size: 11px; }
+}
+
 .form-input-wrap { position: relative; }
 
 .form-icon-left {
