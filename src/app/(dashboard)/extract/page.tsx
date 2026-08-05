@@ -8,7 +8,6 @@ import { api } from '@/lib/api';
 const JENIS_KLAIM_OPTIONS = [
   { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: '🚶', desc: 'Pasien tidak menginap', accent: '#2563eb' },
   { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: '🛏️', desc: 'Pasien menginap di ruangan', accent: '#6366f1' },
-  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: '🚨', desc: 'Pelayanan gawat darurat', accent: '#dc2626' },
 ];
 
 const MAX_BATCH_FILES = 30; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)

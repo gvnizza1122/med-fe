@@ -165,10 +165,13 @@ export const api = {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('jenis_klaim', jenisKlaim);
-    // Ekstraksi AI biasanya 10-20 detik, tapi bisa lebih lama tergantung jumlah
-    // halaman & respons AI provider — default 30 detik terlalu mepet, sempat
-    // bikin request timeout padahal prosesnya masih berjalan di server.
-    return request('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 90000 });
+    // Ekstraksi AI biasanya 10-20 detik, tapi berkas RAWAT_INAP (banyak
+    // halaman/catatan multi-hari -> OCR + AI review lebih lama) bisa jauh
+    // melebihi itu. 90 detik sebelumnya sering keburu timeout padahal
+    // prosesnya tetap lanjut & berhasil di server (browser bilang gagal,
+    // tapi file tetap muncul di Riwayat Upload) — samakan dengan timeout
+    // upload batch (10 menit) supaya cukup untuk berkas terberat sekalipun.
+    return request('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 600000 });
   },
 
   // PDF Upload — batch (banyak file, 1 kategori pelayanan untuk semua file).

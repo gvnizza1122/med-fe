@@ -12,12 +12,21 @@ import { ToastContainer, useToast } from '@/components/Toast';
 // modul ini (dan seluruh dependensinya) cuma dievaluasi di browser.
 const PdfViewer = dynamic(() => import('@/components/PdfViewer'), { ssr: false });
 
+// GAWAT_DARURAT dipertahankan di sini (walau sudah dihapus dari picker upload)
+// supaya file lama berkategori itu tetap tampil labelnya dengan benar.
+const JENIS_KLAIM_OPTIONS = [
+  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: '🚶', accent: '#2563eb' },
+  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: '🛏️', accent: '#6366f1' },
+  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: '🚨', accent: '#dc2626' },
+];
+
 interface FileInfo {
   id: string; file_name: string; period: string; status: string;
   total_records: number; valid_count: number; error_count: number; pending_count: number;
   error_summary: { rule_id: string; rule_name: string; count: number; severity: string }[];
   uploaded_by_name: string; created_at: string; column_count: number;
   has_pdf?: boolean;
+  jenis_klaim?: string | null;
 }
 interface ValidationError {
   rule_id: string; rule_name: string; field_name: string;
@@ -223,8 +232,13 @@ function statusLabel(status: FieldRow['status']) {
 
 // ─── Unified 60-column table (replaces old "Validasi 60 Kolom" + "Verifikasi & Edit" tabs) ───
 
+// Kategori field yang cuma relevan untuk pasien menginap — disembunyikan
+// total untuk RAWAT_JALAN (bukan cuma dikosongkan) supaya tidak membingungkan
+// verifikator ("kenapa ada data ICU untuk pasien rawat jalan?").
+const INPATIENT_ONLY_CATEGORIES = new Set(['ICU & Ventilasi']);
+
 function RecordFieldsTable({
-  recordData, validationErrors, editing, editedValues, onEdit, onlyIssues,
+  recordData, validationErrors, editing, editedValues, onEdit, onlyIssues, jenisKlaim,
 }: {
   recordData: Record<string, any>;
   validationErrors: ValidationError[];
@@ -232,15 +246,18 @@ function RecordFieldsTable({
   editedValues: Record<string, any>;
   onEdit: (col: string, val: string) => void;
   onlyIssues: boolean;
+  jenisKlaim?: string | null;
 }) {
   const fieldMap = useMemo(() => buildFieldMap(recordData, validationErrors), [recordData, validationErrors]);
 
-  const categories = Object.entries(FIELD_CATEGORIES).map(([category, cols]) => ({
-    category,
-    rows: cols
-      .map(c => fieldMap[c])
-      .filter(f => !onlyIssues || f.status === 'error' || f.status === 'empty'),
-  }));
+  const categories = Object.entries(FIELD_CATEGORIES)
+    .filter(([category]) => !(jenisKlaim === 'RAWAT_JALAN' && INPATIENT_ONLY_CATEGORIES.has(category)))
+    .map(([category, cols]) => ({
+      category,
+      rows: cols
+        .map(c => fieldMap[c])
+        .filter(f => !onlyIssues || f.status === 'error' || f.status === 'empty'),
+    }));
   const totalRows = categories.reduce((n, c) => n + c.rows.length, 0);
 
   return (
@@ -514,7 +531,24 @@ export default function ResultsPage() {
       {/* ─── Header ──────────────────────────────────────────────────── */}
       <div className="page-header" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700 }}>Hasil Validasi</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
+            Hasil Validasi
+            {(() => {
+              const kategori = JENIS_KLAIM_OPTIONS.find(o => o.value === fileInfo.jenis_klaim);
+              return kategori ? (
+                <span
+                  className="badge"
+                  style={{
+                    background: `color-mix(in srgb, ${kategori.accent} 14%, transparent)`,
+                    color: kategori.accent,
+                    fontSize: 11,
+                  }}
+                >
+                  {kategori.icon} {kategori.label}
+                </span>
+              ) : null;
+            })()}
+          </h2>
           <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fileInfo.file_name}</p>
         </div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
@@ -729,6 +763,7 @@ export default function ResultsPage() {
                         editedValues={editedValues}
                         onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
                         onlyIssues={onlyIssues}
+                        jenisKlaim={fileInfo.jenis_klaim}
                       />
                     </div>
                     <div style={{
@@ -747,6 +782,7 @@ export default function ResultsPage() {
                   editedValues={editedValues}
                   onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
                   onlyIssues={onlyIssues}
+                  jenisKlaim={fileInfo.jenis_klaim}
                 />
               )}
 
