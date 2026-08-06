@@ -143,6 +143,12 @@ export default function ExtractPage() {
 
   return (
     <motion.div className="fade-in" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+      {/* Header + card dibungkus 1 kolom lebar sama (maxWidth 700, center) —
+          sebelumnya header lebar penuh tapi card sendiri yang dibatasi &
+          di-center, jadi keduanya kelihatan tidak sejajar/nyambung. Sekalian
+          kasih margin-top supaya ruang kosong di halaman ini (form pendek,
+          tidak ada konten lain) tidak semuanya numpuk di bawah. */}
+      <div style={{ maxWidth: 700, margin: '0 auto' }}>
       <div className="page-header">
         <div>
           <h2>Ekstrak PDF Klaim</h2>
@@ -152,7 +158,7 @@ export default function ExtractPage() {
 
       <motion.div
         className="card"
-        style={{ maxWidth: 700, margin: '0 auto' }}
+        style={{ marginTop: 28 }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -388,6 +394,7 @@ export default function ExtractPage() {
           )}
         </div>
       </motion.div>
+      </div>
     </motion.div>
   );
 }
