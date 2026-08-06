@@ -1,13 +1,49 @@
 'use client';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io, type Socket } from 'socket.io-client';
 import { api } from '@/lib/api';
 
-const JENIS_KLAIM_OPTIONS = [
-  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: '🚶', desc: 'Pasien tidak menginap', accent: '#2563eb' },
-  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: '🛏️', desc: 'Pasien menginap di ruangan', accent: '#6366f1' },
+// Ikon garis (24x24, stroke 2px) — gaya sama persis dengan ikon di Sidebar,
+// mengganti emoji (🚶🛏️📄📚📁🚀) supaya konsisten dengan bahasa visual
+// aplikasi, bukan campur emoji generik.
+const IconWalk = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="6" r="3" />
+    <path d="M5.5 21a6.5 6.5 0 0 1 13 0" />
+  </svg>
+);
+const IconBed = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 20v-6a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v6" />
+    <path d="M2 20h20" />
+    <path d="M6 11V8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3" />
+  </svg>
+);
+const IconFile = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+  </svg>
+);
+const IconStack = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 4h9a2 2 0 0 1 2 2v11" />
+    <path d="M4 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" />
+  </svg>
+);
+const IconUploadArrow = ({ size = 22 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+);
+
+const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc: string; accent: string }[] = [
+  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: <IconWalk />, desc: 'Pasien tidak menginap', accent: '#2563eb' },
+  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: <IconBed />, desc: 'Pasien menginap di ruangan', accent: '#6366f1' },
 ];
 
 const MAX_BATCH_FILES = 30; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
@@ -172,7 +208,7 @@ export default function ExtractPage() {
             onClick={() => switchMode('single')}
             disabled={uploading}
           >
-            📄 Satu File
+            <IconFile /> Satu File
           </button>
           <button
             type="button"
@@ -182,7 +218,7 @@ export default function ExtractPage() {
             onClick={() => switchMode('batch')}
             disabled={uploading}
           >
-            📚 Banyak File (Batch)
+            <IconStack /> Banyak File (Batch)
           </button>
         </div>
 
@@ -254,7 +290,7 @@ export default function ExtractPage() {
                       background: 'var(--bg-card, rgba(59,130,246,0.05))', borderRadius: 12,
                       border: '1px solid rgba(59,130,246,0.2)',
                     }}>
-                      <div style={{ fontSize: 40 }}>📄</div>
+                      <div style={{ color: 'var(--primary)' }}><IconFile size={34} /></div>
                       <div style={{ textAlign: 'left' }}>
                         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, wordBreak: 'break-all' }}>{file.name}</h3>
                         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{formatFileSize(file.size)}</p>
@@ -270,7 +306,7 @@ export default function ExtractPage() {
                     exit={{ opacity: 0 }}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
                   >
-                    <div className="upload-zone-icon" style={{ fontSize: 48 }}>📁</div>
+                    <div className="upload-zone-icon"><IconUploadArrow size={40} /></div>
                     <h3 style={{ margin: 0 }}>Klik atau drag berkas PDF ke sini</h3>
                     <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Mendukung file .PDF (maks 20MB)</p>
                   </motion.div>
@@ -290,7 +326,7 @@ export default function ExtractPage() {
               style={{ cursor: uploading ? 'default' : 'pointer' }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <div className="upload-zone-icon" style={{ fontSize: 48 }}>📚</div>
+                <div className="upload-zone-icon"><IconUploadArrow size={40} /></div>
                 <h3 style={{ margin: 0 }}>Klik atau drag beberapa berkas PDF ke sini</h3>
                 <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Maks {MAX_BATCH_FILES} file, masing-masing maks 20MB — 1 kategori pelayanan untuk semua file</p>
               </div>
@@ -316,7 +352,7 @@ export default function ExtractPage() {
                         exit={{ opacity: 0, x: 10 }}
                         className="batch-file-row"
                       >
-                        <span className="batch-file-icon">📄</span>
+                        <span className="batch-file-icon"><IconFile size={14} /></span>
                         <span className="batch-file-name" title={f.name}>{f.name}</span>
                         <span className="batch-file-size">{formatFileSize(f.size)}</span>
                         {status && (
@@ -367,11 +403,11 @@ export default function ExtractPage() {
             <>
               <button
                 className="btn btn-primary btn-lg"
-                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex' }}
+                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex', gap: 8 }}
                 onClick={handleUploadSingle}
                 disabled={!file || !jenisKlaim || uploading}
               >
-                {uploading ? (<><span className="btn-spinner" />Memproses...</>) : '🚀 Upload & Ekstrak'}
+                {uploading ? (<><span className="btn-spinner" />Memproses...</>) : (<><IconUploadArrow size={16} /> Upload & Ekstrak</>)}
               </button>
               {file && !uploading && (
                 <button className="btn btn-secondary" onClick={() => { setFile(null); setError(''); }}>Batal</button>
@@ -381,11 +417,11 @@ export default function ExtractPage() {
             <>
               <button
                 className="btn btn-primary btn-lg"
-                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex' }}
+                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex', gap: 8 }}
                 onClick={handleUploadBatch}
                 disabled={files.length === 0 || !jenisKlaim || uploading}
               >
-                {uploading ? (<><span className="btn-spinner" />Memproses {batchStatuses.filter(s => s.status === 'done' || s.status === 'failed').length}/{files.length}...</>) : `🚀 Upload & Ekstrak Semua (${files.length} file)`}
+                {uploading ? (<><span className="btn-spinner" />Memproses {batchStatuses.filter(s => s.status === 'done' || s.status === 'failed').length}/{files.length}...</>) : (<><IconUploadArrow size={16} /> Upload & Ekstrak Semua ({files.length} file)</>)}
               </button>
               {files.length > 0 && !uploading && (
                 <button className="btn btn-secondary" onClick={() => { setFiles([]); setBatchStatuses([]); setBatchDone(null); setError(''); }}>Kosongkan</button>
