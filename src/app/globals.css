@@ -819,13 +819,16 @@ code {
 .form-input.has-prefix { padding-left: 44px; }
 .form-input.has-suffix { padding-right: 44px; }
 
-/* Kategori pelayanan (Rawat Jalan/Inap/IGD) — segmented card picker,
+/* Kategori pelayanan (Rawat Jalan/Rawat Inap) — segmented card picker,
    pengganti <select> polos supaya lebih jelas & enak dipilih. Tiap kategori
    punya warna aksen sendiri (data-accent) supaya gampang dibedakan sekilas:
-   biru = rawat jalan, indigo = rawat inap, merah = gawat darurat. */
+   biru = rawat jalan, indigo = rawat inap. (IGD/gawat darurat sudah dihapus
+   dari pilihan upload — kolom disamakan ke jumlah kategori yang tersisa
+   supaya tidak ada slot kosong; kalau nanti kategori baru ditambah lagi,
+   ganti angkanya di sini juga.) */
 .category-picker {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
 @media (max-width: 560px) {
