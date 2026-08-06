@@ -880,6 +880,9 @@ code {
   font-size: 22px;
   line-height: 1;
   border-radius: 50%;
+  /* 14% dipilih dulu berdasar mode gelap (--surface-low gelap, jadi tetap
+     kelihatan) — di mode terang (--surface-low nyaris putih) hasilnya pucat
+     nyaris tak kelihatan. Naikkan proporsinya khusus mode terang di bawah. */
   background: color-mix(in srgb, var(--category-accent, var(--primary)) 14%, var(--surface-low));
   margin-bottom: 2px;
   transition: var(--transition-fast);
@@ -888,6 +891,13 @@ code {
 .category-card.selected .category-card-icon {
   transform: scale(1.08);
   background: color-mix(in srgb, var(--category-accent, var(--primary)) 22%, var(--surface-low));
+}
+[data-theme="light"] .category-card-icon {
+  background: color-mix(in srgb, var(--category-accent, var(--primary)) 20%, var(--surface-low));
+}
+[data-theme="light"] .category-card:hover .category-card-icon,
+[data-theme="light"] .category-card.selected .category-card-icon {
+  background: color-mix(in srgb, var(--category-accent, var(--primary)) 32%, var(--surface-low));
 }
 .category-card-label { position: relative; z-index: 1; font-size: 13.5px; font-weight: 700; color: var(--ink); }
 .category-card-desc { position: relative; z-index: 1; font-size: 11px; color: var(--mute); line-height: 1.4; }
@@ -1082,6 +1092,32 @@ code {
 }
 .filter-select:hover { border-color: var(--mute-soft); }
 .filter-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Input tanggal filter — mirip .filter-select tapi TANPA panah SVG custom
+   (itu didesain untuk <select>, akan tabrakan dengan ikon kalender bawaan
+   browser di <input type="date">). */
+.filter-date-input {
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+  outline: none;
+}
+[data-theme="dark"] .filter-date-input {
+  background-color: var(--surface);
+  border-color: var(--hairline);
+  color-scheme: dark;
+}
+.filter-date-input:hover { border-color: var(--mute-soft); }
+.filter-date-input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
@@ -2671,7 +2707,8 @@ tr:hover .file-icon-modern {
   .data-box-container { grid-template-columns: 1fr; }
   .filter-group { width: 100%; }
   .filter-group .filter-select,
-  .filter-group .select-glass { flex: 1; min-width: 0; }
+  .filter-group .select-glass,
+  .filter-group .filter-date-input { flex: 1; min-width: 0; }
 
   /* Card & modal padding lebih ringkas supaya konten tak mepet tepi layar */
   .card { padding: 16px; }

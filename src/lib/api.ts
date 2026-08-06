@@ -121,9 +121,11 @@ export const api = {
     if (fileId) fd.append('fileId', fileId);
     return request('/api/v1/claim-files/upload', { method: 'POST', body: fd });
   },
-  getFiles: (page = 1, limit = 20, jenisKlaim?: string) => {
+  getFiles: (page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string) => {
     const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (jenisKlaim) qs.set('jenis_klaim', jenisKlaim);
+    if (fromDate) qs.set('from_date', fromDate);
+    if (toDate) qs.set('to_date', toDate);
     return request(`/api/v1/claim-files?${qs.toString()}`);
   },
   getFile: (id: string) => request(`/api/v1/claim-files/${id}`),

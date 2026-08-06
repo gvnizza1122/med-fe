@@ -59,14 +59,16 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [jenisKlaimFilter, setJenisKlaimFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const loadFiles = useCallback(async () => {
     try {
       setLoading(true);
-      const d = await api.getFiles(page, 15, jenisKlaimFilter || undefined);
+      const d = await api.getFiles(page, 15, jenisKlaimFilter || undefined, fromDate || undefined, toDate || undefined);
       setFiles(d.files); setTotal(d.total);
     } catch (err) { console.error('[History] Gagal memuat file:', err); } finally { setLoading(false); }
-  }, [page, jenisKlaimFilter]);
+  }, [page, jenisKlaimFilter, fromDate, toDate]);
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
@@ -96,7 +98,7 @@ export default function HistoryPage() {
         </motion.button>
       </div>
 
-      <div className="filter-group" style={{ marginBottom: 16 }}>
+      <div className="filter-group" style={{ marginBottom: 16, flexWrap: 'wrap', rowGap: 10 }}>
         <span className="filter-label">Kategori:</span>
         <select
           className="filter-select"
@@ -108,6 +110,34 @@ export default function HistoryPage() {
             <option key={value} value={value}>{label}</option>
           ))}
         </select>
+
+        <span className="filter-label" style={{ marginLeft: 8 }}>Dari:</span>
+        <input
+          type="date"
+          className="filter-date-input"
+          value={fromDate}
+          max={toDate || undefined}
+          onChange={e => { setFromDate(e.target.value); setPage(1); }}
+        />
+
+        <span className="filter-label">Sampai:</span>
+        <input
+          type="date"
+          className="filter-date-input"
+          value={toDate}
+          min={fromDate || undefined}
+          onChange={e => { setToDate(e.target.value); setPage(1); }}
+        />
+
+        {(jenisKlaimFilter || fromDate || toDate) && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => { setJenisKlaimFilter(''); setFromDate(''); setToDate(''); setPage(1); }}
+          >
+            ✕ Reset Filter
+          </button>
+        )}
       </div>
 
       {loading ? (
