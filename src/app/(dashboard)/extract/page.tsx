@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Footprints,
   BedDouble,
+  Siren,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ import { Progress } from '@/components/ui/progress';
 const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc: string }[] = [
   { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: <Footprints className="size-5" />, desc: 'Pasien tidak menginap' },
   { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: <BedDouble className="size-5" />, desc: 'Pasien menginap di ruangan' },
+  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: <Siren className="size-5" />, desc: 'Kunjungan IGD, tidak lanjut rawat inap' },
 ];
 
 const MAX_BATCH_FILES = 30; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
@@ -211,7 +213,7 @@ export default function ExtractPage() {
             {/* ── Kategori pelayanan ── */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Kategori Pelayanan</label>
-              <div role="radiogroup" aria-label="Kategori Pelayanan" className="grid grid-cols-2 gap-3">
+              <div role="radiogroup" aria-label="Kategori Pelayanan" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {JENIS_KLAIM_OPTIONS.map(opt => {
                   const isSelected = jenisKlaim === opt.value;
                   return (
