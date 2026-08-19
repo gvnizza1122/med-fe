@@ -25,7 +25,6 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc: string }[] = [
   { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: <Footprints className="size-5" />, desc: 'Pasien tidak menginap' },
@@ -35,10 +34,20 @@ const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc
 
 const MAX_BATCH_FILES = 30; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
 
+interface JenisKlaimDetection {
+  value: string;
+  source: 'auto' | 'single-allowed' | 'detected-not-in-allowed-list' | 'undetected';
+  confident: boolean;
+}
+
 interface BatchFileStatus {
   fileName: string;
   status: 'waiting' | 'processing' | 'done' | 'failed';
   error?: string | null;
+  // Diisi backend SETELAH proses selesai — kategori dideteksi otomatis dari
+  // isi dokumen, verifikator tidak perlu pilih manual per file lagi.
+  jenisKlaim?: string | null;
+  detection?: JenisKlaimDetection | null;
 }
 
 function formatFileSize(bytes: number): string {
@@ -59,16 +68,21 @@ export default function ExtractPage() {
   // Mode single
   const [file, setFile] = useState<File | null>(null);
 
-  // Mode batch — kategori BISA BEDA per file (dulu 1 kategori dipaksa untuk
-  // seluruh batch, verifikator harus upload 3x terpisah kalau berkasnya
-  // campur RJ/RI/IGD). Dikunci per file (bukan per index) pakai fileKey()
-  // supaya urutan tetap benar walau file dihapus/ditambah di tengah.
+  // Mode batch — verifikator TIDAK pilih kategori per file manual. Sebelum
+  // drag file, toggle kategori mana saja yang MUNGKIN ada di batch ini (bisa
+  // 1, 2, atau ke-3nya kalau berkasnya campur RJ/RI/IGD). Backend yang
+  // mendeteksi kategori tiap file dari isi dokumennya (dibatasi ke daftar
+  // yang ditoggle di sini), hasilnya baru muncul sebagai status per file
+  // SETELAH proses/audit selesai.
   const [files, setFiles] = useState<File[]>([]);
-  const [fileCategories, setFileCategories] = useState<Record<string, string>>({});
+  const [allowedCategories, setAllowedCategories] = useState<string[]>([]);
   const [batchStatuses, setBatchStatuses] = useState<BatchFileStatus[]>([]);
   const [batchDone, setBatchDone] = useState<{ successful: number; failed: number } | null>(null);
 
-  const fileKey = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
+  const toggleAllowedCategory = (value: string) => {
+    setAllowedCategories(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+    setError('');
+  };
 
   const validateFile = (f: File): string | null => {
     const ext = f.name.toLowerCase().split('.').pop();
@@ -106,30 +120,7 @@ export default function ExtractPage() {
   };
 
   const removeBatchFile = (index: number) => {
-    setFiles(prev => {
-      const removed = prev[index];
-      if (removed) {
-        setFileCategories(cats => {
-          const next = { ...cats };
-          delete next[fileKey(removed)];
-          return next;
-        });
-      }
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
-  // Set kategori 1 file, atau semua file sekaligus ("samakan semua kategori").
-  const setCategoryFor = (target: File | 'all', value: string) => {
-    setFileCategories(prev => {
-      if (target === 'all') {
-        const next = { ...prev };
-        files.forEach(f => { next[fileKey(f)] = value; });
-        return next;
-      }
-      return { ...prev, [fileKey(target)]: value };
-    });
-    setError('');
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const switchMode = (next: 'single' | 'batch') => {
@@ -137,7 +128,7 @@ export default function ExtractPage() {
     setMode(next);
     setFile(null);
     setFiles([]);
-    setFileCategories({});
+    setAllowedCategories([]);
     setBatchStatuses([]);
     setBatchDone(null);
     setError('');
@@ -168,10 +159,8 @@ export default function ExtractPage() {
 
   const handleUploadBatch = useCallback(async () => {
     if (files.length === 0) return;
-    const categories = files.map(f => fileCategories[fileKey(f)] || '');
-    const missing = categories.filter(c => !c).length;
-    if (missing > 0) {
-      setError(`${missing} file belum diberi kategori pelayanan. Pilih kategori untuk tiap file (atau pakai tombol "samakan semua") sebelum upload.`);
+    if (allowedCategories.length === 0) {
+      setError('Toggle minimal satu kategori pelayanan yang mungkin ada di batch ini sebelum upload.');
       return;
     }
     setUploading(true);
@@ -181,17 +170,23 @@ export default function ExtractPage() {
 
     const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000');
     batchSocketRef.current = socket;
-    socket.on('pdf-batch:file-done', (data: { fileName: string; success: boolean; error?: string | null }) => {
+    socket.on('pdf-batch:file-done', (data: {
+      fileName: string; success: boolean; error?: string | null;
+      jenis_klaim?: string | null; jenis_klaim_detection?: JenisKlaimDetection | null;
+    }) => {
       setBatchStatuses(prev => prev.map(s =>
-        s.fileName === data.fileName ? { ...s, status: data.success ? 'done' : 'failed', error: data.error } : s
+        s.fileName === data.fileName
+          ? { ...s, status: data.success ? 'done' : 'failed', error: data.error, jenisKlaim: data.jenis_klaim, detection: data.jenis_klaim_detection }
+          : s
       ));
     });
 
     try {
-      // Kategori dikirim per file (array, urutan sama dengan `files`) — bukan
-      // 1 nilai untuk seluruh batch lagi, lihat api.uploadPdfBatch & endpoint
-      // backend /upload-pdf-batch (jenis_klaim_list).
-      const res = await api.uploadPdfBatch(files, categories);
+      // Kategori TIDAK dipilih per file lagi — kirim daftar kategori yang
+      // ditoggle di awal ("mungkin ada di batch ini"), backend yang deteksi
+      // otomatis per file dari isi dokumennya (lihat allowed_jenis_klaim di
+      // endpoint /upload-pdf-batch).
+      const res = await api.uploadPdfBatch(files, allowedCategories);
       setBatchDone({ successful: res.successful, failed: res.failed });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Batch gagal diunggah. Silakan coba lagi.');
@@ -200,7 +195,7 @@ export default function ExtractPage() {
       batchSocketRef.current = null;
       setUploading(false);
     }
-  }, [files, fileCategories]);
+  }, [files, allowedCategories]);
 
   const batchProgressDone = batchStatuses.filter(s => s.status === 'done' || s.status === 'failed').length;
   const batchProgressPct = files.length > 0 ? Math.round((batchProgressDone / files.length) * 100) : 0;
@@ -250,29 +245,31 @@ export default function ExtractPage() {
             </div>
 
             {/* ── Kategori pelayanan ──
-                Mode single: 1 kategori untuk file itu (radio, seperti biasa).
-                Mode batch: kategori BISA BEDA per file — tombol di sini cuma
-                "terapkan ke semua file sekaligus" (shortcut kalau semua file
-                dalam batch memang 1 kategori yang sama), kategori tiap file
-                tetap bisa diubah individual di daftar file di bawah. */}
+                Mode single: 1 kategori pasti untuk file itu (radio).
+                Mode batch: BUKAN pilih kategori per file — toggle kategori
+                mana saja yang MUNGKIN ada di batch ini (bisa 1, 2, atau
+                ke-3nya) SEBELUM drag file. Backend yang deteksi otomatis
+                kategori tiap file dari isi dokumennya sendiri, dibatasi ke
+                daftar yang ditoggle di sini — hasilnya tampil sebagai status
+                per file setelah proses/audit selesai. */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                {mode === 'batch' ? 'Terapkan Kategori ke Semua File' : 'Kategori Pelayanan'}
+                {mode === 'batch' ? 'Kategori yang Mungkin Ada di Batch Ini' : 'Kategori Pelayanan'}
               </label>
-              <div role={mode === 'single' ? 'radiogroup' : undefined} aria-label="Kategori Pelayanan" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div role="group" aria-label="Kategori Pelayanan" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {JENIS_KLAIM_OPTIONS.map(opt => {
-                  const isSelected = mode === 'single' && jenisKlaim === opt.value;
+                  const isSelected = mode === 'single' ? jenisKlaim === opt.value : allowedCategories.includes(opt.value);
                   return (
                     <motion.button
                       key={opt.value}
                       type="button"
-                      role={mode === 'single' ? 'radio' : undefined}
-                      aria-checked={mode === 'single' ? isSelected : undefined}
+                      role={mode === 'single' ? 'radio' : 'checkbox'}
+                      aria-checked={isSelected}
                       onClick={() => {
                         if (mode === 'single') { setJenisKlaim(opt.value); setError(''); }
-                        else setCategoryFor('all', opt.value);
+                        else toggleAllowedCategory(opt.value);
                       }}
-                      disabled={mode === 'batch' && files.length === 0}
+                      disabled={uploading}
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.97 }}
                       className={cn(
@@ -304,7 +301,7 @@ export default function ExtractPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {mode === 'batch'
-                  ? 'Klik salah satu untuk menerapkan kategori itu ke SEMUA file yang sudah ditambahkan. Tiap file tetap bisa diberi kategori berbeda satu per satu di daftar file di bawah — jadi berkas RJ/RI/IGD yang bercampur bisa diupload sekaligus, tidak perlu dipisah 3x upload lagi.'
+                  ? 'Pilih 1, 2, atau ke-3nya sesuai kategori yang mungkin ada di berkas yang mau diupload — boleh campur RJ/RI/IGD dalam 1 batch. Sistem akan mendeteksi kategori tiap file otomatis dari isi dokumennya, tidak perlu dipilih satu-satu.'
                   : 'Dipakai supaya AI tidak salah memberi saran (mis. saran ruangan rawat inap untuk klaim rawat jalan) dan untuk memudahkan pencarian di Riwayat Upload.'}
               </p>
             </div>
@@ -373,7 +370,7 @@ export default function ExtractPage() {
                   <div className="flex flex-col items-center gap-2">
                     <UploadCloud className="size-10 text-muted-foreground" />
                     <h3 className="m-0 text-sm font-semibold text-foreground">Klik atau drag beberapa berkas PDF ke sini</h3>
-                    <p className="m-0 text-xs text-muted-foreground">Maks {MAX_BATCH_FILES} file, masing-masing maks 20MB — kategori bisa diatur per file, boleh campur RJ/RI/IGD</p>
+                    <p className="m-0 text-xs text-muted-foreground">Maks {MAX_BATCH_FILES} file, masing-masing maks 20MB — kategori terdeteksi otomatis per file</p>
                   </div>
                 </div>
                 <input
@@ -403,23 +400,22 @@ export default function ExtractPage() {
                               <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                               <span className="flex-1 truncate" title={f.name}>{f.name}</span>
                               <span className="shrink-0 text-xs text-muted-foreground">{formatFileSize(f.size)}</span>
-                              {/* Kategori per file — boleh beda-beda dalam 1 batch */}
-                              <Select
-                                value={fileCategories[fileKey(f)] || ''}
-                                onValueChange={v => setCategoryFor(f, v)}
-                                disabled={uploading}
-                              >
-                                <SelectTrigger className="h-7 w-[132px] shrink-0 text-xs" size="sm">
-                                  <SelectValue placeholder="Pilih kategori" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {JENIS_KLAIM_OPTIONS.map(opt => (
-                                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                      {opt.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              {/* Kategori TIDAK dipilih manual — badge di bawah baru
+                                  muncul SETELAH proses selesai, menampilkan kategori
+                                  yang berhasil dideteksi otomatis dari isi dokumen. */}
+                              {status?.status === 'done' && status.jenisKlaim && (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    'shrink-0 text-xs',
+                                    status.detection?.confident === false && 'border-amber-500/50 text-amber-700 dark:text-amber-400',
+                                  )}
+                                  title={status.detection?.confident === false ? 'Kategori tidak yakin terdeteksi — mohon cek manual di Riwayat Upload.' : undefined}
+                                >
+                                  {JENIS_KLAIM_OPTIONS.find(o => o.value === status.jenisKlaim)?.label || status.jenisKlaim}
+                                  {status.detection?.confident === false && ' ⚠️'}
+                                </Badge>
+                              )}
                               {status && (
                                 <Badge
                                   variant={
