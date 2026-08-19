@@ -1,6 +1,13 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type ReactElement } from 'react';
+import { CheckCircle2, XCircle, AlertTriangle, CircleDot, ClipboardCheck, Lightbulb, Pencil, Save, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface FieldData {
   column_name: string;
@@ -145,132 +152,88 @@ function VerificationForm({
     setIsEditing(false);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'error': return '#dc2626';
-      case 'warning': return '#f59e0b';
-      case 'valid': return '#10b981';
-      case 'not_validated': return '#3b82f6';
-      case 'empty': return '#f59e0b';
-      default: return '#6b7280';
-    }
+  const statusMeta: Record<string, { className: string; ring: string; icon: ReactElement }> = {
+    error: {
+      className: 'border-l-4 border-destructive bg-destructive/5',
+      ring: 'text-destructive',
+      icon: <XCircle className="h-4 w-4 text-destructive" />,
+    },
+    warning: {
+      className: 'border-l-4 border-amber-500 bg-amber-500/5',
+      ring: 'text-amber-600 dark:text-amber-400',
+      icon: <AlertTriangle className="h-4 w-4 text-amber-500" />,
+    },
+    valid: {
+      className: 'border-l-4 border-primary bg-primary/5',
+      ring: 'text-primary',
+      icon: <CheckCircle2 className="h-4 w-4 text-primary" />,
+    },
+    not_validated: {
+      className: 'border-l-4 border-blue-500 bg-blue-500/5',
+      ring: 'text-blue-600 dark:text-blue-400',
+      icon: <CircleDot className="h-4 w-4 text-blue-500" />,
+    },
+    empty: {
+      className: 'border-l-4 border-amber-500 bg-amber-500/5',
+      ring: 'text-amber-600 dark:text-amber-400',
+      icon: <CircleDot className="h-4 w-4 text-amber-500" />,
+    },
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'error': return '❌';
-      case 'warning': return '⚠️';
-      case 'valid': return '✅';
-      case 'not_validated': return '🔷';
-      case 'empty': return '⚪';
-      default: return '•';
-    }
+  const getStatusMeta = (status: string) => statusMeta[status] ?? {
+    className: 'border-l-4 border-border bg-muted/30',
+    ring: 'text-muted-foreground',
+    icon: <CircleDot className="h-4 w-4 text-muted-foreground" />,
   };
 
   const hasChanges = Object.keys(editedValues).length > 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="flex flex-col gap-5">
       {/* Header & Controls */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingBottom: 16,
-          borderBottom: '1px solid var(--border-color)',
-        }}
+        className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4"
       >
         <div>
-          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, marginBottom: 4 }}>
-            📝 Verifikasi Data Klaim
+          <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
+            <ClipboardCheck className="h-4 w-4 text-primary" />
+            Verifikasi Data Klaim
           </h3>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+          <p className="mt-1 text-xs text-muted-foreground">
             {redFields.length} field memerlukan perhatian
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            fontSize: 13,
-            cursor: 'pointer',
-            padding: '8px 12px',
-            borderRadius: 'var(--radius-sm)',
-            background: showAll ? 'var(--primary)' : 'var(--surface)',
-            color: showAll ? 'white' : 'var(--text-primary)',
-            border: '1px solid' + (showAll ? 'var(--primary)' : 'var(--border-color)'),
-            transition: 'all 0.2s',
-          }}>
-            <input
-              type="checkbox"
+        <div className="flex items-center gap-3">
+          <Label
+            htmlFor="show-all-columns"
+            className="flex cursor-pointer items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground"
+          >
+            <Switch
+              id="show-all-columns"
               checked={showAll}
-              onChange={(e) => setShowAll(e.target.checked)}
-              style={{ cursor: 'pointer' }}
+              onCheckedChange={setShowAll}
             />
             Tampilkan Semua 60 Kolom
-          </label>
+          </Label>
 
           {!isEditing ? (
-            <motion.button
-              onClick={() => setIsEditing(true)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                color: 'white',
-              }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              ✏️ Edit Mode
-            </motion.button>
+            <Button size="sm" onClick={() => setIsEditing(true)}>
+              <Pencil className="h-3.5 w-3.5" />
+              Edit Mode
+            </Button>
           ) : (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <motion.button
-                onClick={handleCancel}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: 'var(--surface)',
-                  color: 'var(--text-primary)',
-                }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={handleCancel}>
+                <X className="h-3.5 w-3.5" />
                 Batalkan
-              </motion.button>
-              <motion.button
-                onClick={handleSave}
-                disabled={!hasChanges || isSaving}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: hasChanges && !isSaving ? 'pointer' : 'not-allowed',
-                  background: hasChanges && !isSaving ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#d1d5db',
-                  color: 'white',
-                  opacity: hasChanges && !isSaving ? 1 : 0.6,
-                }}
-                whileHover={hasChanges && !isSaving ? { scale: 1.02 } : {}}
-                whileTap={hasChanges && !isSaving ? { scale: 0.98 } : {}}
-              >
-                {isSaving ? '💾 Menyimpan...' : `💾 Simpan (${Object.keys(editedValues).length} perubahan)`}
-              </motion.button>
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={!hasChanges || isSaving}>
+                <Save className="h-3.5 w-3.5" />
+                {isSaving ? 'Menyimpan...' : `Simpan (${Object.keys(editedValues).length} perubahan)`}
+              </Button>
             </div>
           )}
         </div>
@@ -283,52 +246,34 @@ function VerificationForm({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            style={{
-              padding: 12,
-              borderRadius: 'var(--radius-sm)',
-              background: 'rgba(59, 130, 246, 0.1)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              fontSize: 12,
-              color: 'var(--accent-blue)',
-              fontWeight: 600,
-            }}
+            className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-300"
           >
-            📝 {Object.keys(editedValues).length} field telah diubah
+            {Object.keys(editedValues).length} field telah diubah
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Categories & Fields */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div className="flex flex-col gap-6">
         {Object.entries(fieldsByCategory).map(([category, fields]) => (
           <motion.div
             key={category}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h4 style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: 'var(--text-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              marginBottom: 12,
-            }}>
+            <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
               {category}
             </h4>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: 12,
-            }}>
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
               <AnimatePresence mode="popLayout">
-                {fields.map((field, idx) => {
+                {fields.map((field) => {
                   const currentValue = editedValues[field.column_name] !== undefined
                     ? editedValues[field.column_name]
                     : field.value;
                   const isSystemField = VCLAIM_FILLED_COLUMNS.has(field.column_name);
                   const isChanged = editedValues[field.column_name] !== undefined;
+                  const meta = getStatusMeta(field.status);
 
                   return (
                     <motion.div
@@ -337,75 +282,39 @@ function VerificationForm({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.2 }}
-                      style={{
-                        padding: 16,
-                        borderRadius: 'var(--radius-sm)',
-                        border: `1px solid ${isChanged ? '#3b82f6' : getStatusColor(field.status)}40`,
-                        background: isChanged ? 'rgba(59, 130, 246, 0.08)' : `${getStatusColor(field.status)}08`,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 10,
-                        transition: 'all 0.2s',
-                      }}
-                      whileHover={!isSystemField ? { borderColor: getStatusColor(field.status), boxShadow: `0 4px 12px ${getStatusColor(field.status)}20` } : {}}
+                      className={cn(
+                        'flex flex-col gap-2.5 rounded-xl border border-border/60 p-4 shadow-sm',
+                        isChanged ? 'border-l-4 border-blue-500 bg-blue-500/5' : meta.className,
+                      )}
                     >
                       {/* Field Header */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                          <span style={{ fontSize: 18 }}>{getStatusIcon(field.status)}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-1 items-center gap-2">
+                          {meta.icon}
                           <div>
-                            <div style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: getStatusColor(field.status),
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px',
-                            }}>
+                            <div className={cn('text-[11px] font-bold uppercase tracking-wide', meta.ring)}>
                               {field.column_name}
                             </div>
                             {isSystemField && (
-                              <div style={{
-                                fontSize: 9,
-                                color: 'var(--text-muted)',
-                                fontStyle: 'italic',
-                              }}>
-                                Isi otomatis saat submit
-                              </div>
+                              <Badge variant="secondary" className="mt-0.5 h-4 px-1.5 text-[9px] font-normal italic">
+                                Diisi sistem saat submit
+                              </Badge>
                             )}
                           </div>
                         </div>
                         {isChanged && (
-                          <span style={{
-                            fontSize: 10,
-                            background: '#3b82f6',
-                            color: 'white',
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            fontWeight: 600,
-                          }}>
+                          <Badge className="bg-blue-500 text-[10px] text-white hover:bg-blue-500">
                             DIUBAH
-                          </span>
+                          </Badge>
                         )}
                       </div>
 
                       {/* Error Message */}
                       {field.status === 'error' && field.error_message && (
                         <motion.div
-                          style={{
-                            background: '#fef2f2',
-                            border: '1px solid #fecaca',
-                            borderRadius: 'var(--radius-xs)',
-                            padding: '8px 10px',
-                            fontSize: 11,
-                            color: '#7f1d1d',
-                            lineHeight: '1.4',
-                          }}
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
+                          className="rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-[11px] leading-snug text-destructive"
                         >
                           <strong>{field.severity?.toUpperCase()}:</strong> {field.error_message}
                         </motion.div>
@@ -413,48 +322,18 @@ function VerificationForm({
 
                       {/* Field Input */}
                       {!isSystemField && isEditing ? (
-                        <textarea
+                        <Textarea
                           value={String(currentValue || '')}
                           onChange={(e) => handleFieldChange(field.column_name, e.target.value)}
-                          style={{
-                            width: '100%',
-                            minHeight: 60,
-                            padding: '8px 10px',
-                            borderRadius: 'var(--radius-xs)',
-                            border: `1px solid ${isChanged ? '#3b82f6' : 'var(--border-color)'}`,
-                            background: 'var(--surface)',
-                            color: 'var(--text-primary)',
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            resize: 'vertical',
-                            outline: 'none',
-                            transition: 'all 0.2s',
-                          }}
-                          onFocus={(e) => {
-                            e.currentTarget.style.borderColor = '#3b82f6';
-                            e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-                          }}
-                          onBlur={(e) => {
-                            e.currentTarget.style.borderColor = isChanged ? '#3b82f6' : 'var(--border-color)';
-                            e.currentTarget.style.boxShadow = 'none';
-                          }}
+                          className={cn(
+                            'min-h-[60px] resize-y font-mono text-xs',
+                            isChanged && 'border-blue-500 focus-visible:ring-blue-500/30',
+                          )}
                         />
                       ) : (
-                        <div style={{
-                          background: 'var(--surface)',
-                          border: `1px solid ${getStatusColor(field.status)}30`,
-                          borderRadius: 'var(--radius-xs)',
-                          padding: '10px 12px',
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          color: field.status === 'error' ? '#dc2626' : 'var(--text-primary)',
-                          wordBreak: 'break-word',
-                          minHeight: 32,
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}>
+                        <div className="flex min-h-[32px] items-center break-words rounded-lg border border-border bg-muted/40 px-3 py-2 font-mono text-xs text-foreground">
                           {currentValue === null || currentValue === undefined || currentValue === ''
-                            ? <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>(kosong)</span>
+                            ? <span className="italic text-muted-foreground">(kosong)</span>
                             : String(currentValue).substring(0, 100)
                           }
                         </div>
@@ -462,15 +341,9 @@ function VerificationForm({
 
                       {/* Suggestion */}
                       {field.suggestion && isEditing && (
-                        <div style={{
-                          padding: '6px 8px',
-                          background: '#fef3c7',
-                          borderRadius: 'var(--radius-xs)',
-                          fontSize: 11,
-                          color: '#78350f',
-                          borderLeft: '2px solid #f59e0b',
-                        }}>
-                          <strong>💡 Saran:</strong> {field.suggestion}
+                        <div className="flex items-start gap-1.5 rounded-lg border-l-2 border-amber-500 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-800 dark:text-amber-300">
+                          <Lightbulb className="mt-0.5 h-3 w-3 shrink-0" />
+                          <span><strong>Saran:</strong> {field.suggestion}</span>
                         </div>
                       )}
                     </motion.div>
@@ -487,15 +360,11 @@ function VerificationForm({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          style={{
-            textAlign: 'center',
-            padding: 40,
-            color: 'var(--text-muted)',
-          }}
+          className="flex flex-col items-center gap-1 py-10 text-center text-muted-foreground"
         >
-          <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Semua Field Valid</div>
-          <div style={{ fontSize: 12 }}>Tidak ada field yang memerlukan perhatian</div>
+          <CheckCircle2 className="mb-1 h-8 w-8 text-primary" />
+          <div className="text-sm font-semibold text-foreground">Semua Field Valid</div>
+          <div className="text-xs">Tidak ada field yang memerlukan perhatian</div>
         </motion.div>
       )}
     </div>

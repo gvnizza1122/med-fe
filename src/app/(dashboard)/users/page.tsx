@@ -1,15 +1,42 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { Pencil, Ban, CheckCircle2, Users as UsersIcon } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useRequireRole } from '@/lib/useRequireRole';
+import { Header } from '@/components/dashboard/header';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 interface User { id: string; email: string; full_name: string; nik: string; role: string; is_active: number; last_login: string; created_at: string; }
-
-const pageVariants: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const } },
-};
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -21,27 +48,39 @@ const rowVariants: Variants = {
   visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } },
 };
 
-const overlayVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.25 } },
-  exit: { opacity: 0, transition: { duration: 0.2 } },
-};
-
-const modalVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.9, y: 20 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 28, staggerChildren: 0.06, delayChildren: 0.1 },
-  },
-  exit: { opacity: 0, scale: 0.92, y: 10, transition: { duration: 0.2 } },
-};
-
 const fieldVariants: Variants = {
   hidden: { opacity: 0, x: -12 },
   visible: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } },
 };
+
+function initialsOf(name: string) {
+  return (name || 'U')
+    .split(' ')
+    .map((p) => p.charAt(0))
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
+
+function roleBadgeVariant(role: string): 'default' | 'secondary' | 'outline' {
+  if (role === 'admin') return 'default';
+  if (role === 'supervisor') return 'secondary';
+  return 'outline';
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4 md:space-y-5">
+      <div>
+        <Skeleton className="h-7 w-48 rounded-md" />
+        <Skeleton className="mt-2 h-4 w-72 rounded-md" />
+      </div>
+      <Card className="p-4 md:p-5">
+        <Skeleton className="h-64 w-full rounded-md" />
+      </Card>
+    </div>
+  );
+}
 
 export default function UsersPage() {
   const { checking, allowed } = useRequireRole(['admin']);
@@ -82,221 +121,222 @@ export default function UsersPage() {
     try { await api.updateUser(u.id, { is_active: !u.is_active }); loadUsers(); } catch (err) { console.error('[Users] Gagal toggle user:', err); }
   };
 
-  if (checking || !allowed) return <div className="loading"><div className="spinner" /></div>;
-  if (loading) return <div className="loading"><div className="spinner" /></div>;
+  const openCreateModal = () => {
+    setEditUser(null);
+    setForm({ email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
+    setShowModal(true);
+  };
+
+  if (checking || !allowed) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Skeleton className="h-8 w-8 rounded-full" />
+      </div>
+    );
+  }
+  if (loading) return <LoadingSkeleton />;
 
   return (
     <motion.div
-      className="fade-in"
-      variants={pageVariants}
-      initial="hidden"
-      animate="visible"
+      className="space-y-4 md:space-y-5"
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
     >
-      <div className="page-header">
-        <div><h2>👥 Manajemen User</h2><p>{users.length} user terdaftar</p></div>
-        <motion.button
-          className="btn btn-primary"
-          onClick={() => { setEditUser(null); setForm({ email: '', password: '', full_name: '', nik: '', role: 'verifikator' }); setShowModal(true); }}
-          whileHover={{ scale: 1.04, boxShadow: '0 4px 16px rgba(59,130,246,0.3)' }}
-          whileTap={{ scale: 0.96 }}
-        >
-          ➕ Tambah User
-        </motion.button>
-      </div>
+      <Header
+        title="Manajemen User"
+        description={`${users.length} user terdaftar`}
+        actions={
+          <Button onClick={openCreateModal}>
+            + Tambah User
+          </Button>
+        }
+      />
 
-      <motion.div
-        className="table-container"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { duration: 0.3, delay: 0.1 } }}
-      >
-        <table>
-          <thead><tr><th>Nama</th><th>Email</th><th>NIK</th><th>Role</th><th>Status</th><th>Login Terakhir</th><th>Aksi</th></tr></thead>
-          <motion.tbody
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
+      <Card className="p-0 overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nama</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>NIK</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Login Terakhir</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
             <AnimatePresence>
-              {users.map(u => (
+              {users.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2">
+                      <UsersIcon className="h-8 w-8 text-muted-foreground/50" />
+                      Belum ada user terdaftar
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {users.map((u) => (
                 <motion.tr
                   key={u.id}
                   variants={rowVariants}
                   layout
-                  whileHover={{
-                    backgroundColor: 'rgba(59,130,246,0.04)',
-                    y: -1,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                    transition: { duration: 0.15 },
-                  }}
                   exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+                  className="hover:bg-muted/50 border-b transition-colors last:border-0"
                 >
-                  <td style={{ fontWeight: 600 }}>{u.full_name}</td>
-                  <td>{u.email}</td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{u.nik || '-'}</td>
-                  <td>
-                    <motion.span
-                      className={`badge badge-${u.role === 'admin' ? 'approved' : u.role === 'supervisor' ? 'completed' : 'valid'}`}
-                      whileHover={{ scale: 1.08 }}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    >
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                          {initialsOf(u.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-foreground">{u.full_name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{u.nik || '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={roleBadgeVariant(u.role)} className="capitalize">
                       {u.role}
-                    </motion.span>
-                  </td>
-                  <td>
-                    <motion.span
-                      className={`badge ${u.is_active ? 'badge-valid' : 'badge-error'}`}
-                      key={u.is_active ? 'active' : 'inactive'}
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={u.is_active ? 'default' : 'destructive'}
+                      className={cn(!u.is_active && 'bg-destructive/10 text-destructive border-destructive/20')}
                     >
                       {u.is_active ? 'Aktif' : 'Nonaktif'}
-                    </motion.span>
-                  </td>
-                  <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u.last_login ? new Date(u.last_login).toLocaleString('id-ID') : '-'}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <motion.button
-                        className="btn btn-secondary btn-sm"
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {u.last_login ? new Date(u.last_login).toLocaleString('id-ID') : '-'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
                         onClick={() => handleEdit(u)}
-                        whileHover={{ scale: 1.1, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                        whileTap={{ scale: 0.9 }}
+                        title="Edit user"
                       >
-                        ✏️
-                      </motion.button>
-                      <motion.button
-                        className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-success'}`}
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
                         onClick={() => handleToggle(u)}
-                        whileHover={{ scale: 1.1, boxShadow: u.is_active ? '0 2px 8px rgba(239,68,68,0.3)' : '0 2px 8px rgba(34,197,94,0.3)' }}
-                        whileTap={{ scale: 0.9 }}
-                        layout
+                        title={u.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                        className={u.is_active ? 'hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30' : 'hover:bg-primary/10 hover:text-primary hover:border-primary/30'}
                       >
-                        <motion.span
-                          key={u.is_active ? 'on' : 'off'}
-                          initial={{ opacity: 0, rotate: -90 }}
-                          animate={{ opacity: 1, rotate: 0 }}
-                          transition={{ duration: 0.2 }}
-                          style={{ display: 'inline-block' }}
-                        >
-                          {u.is_active ? '🚫' : '✅'}
-                        </motion.span>
-                      </motion.button>
+                        {u.is_active ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                      </Button>
                     </div>
-                  </td>
+                  </TableCell>
                 </motion.tr>
               ))}
             </AnimatePresence>
           </motion.tbody>
-        </table>
-      </motion.div>
+        </Table>
+      </Card>
 
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            className="modal-overlay"
-            onClick={() => setShowModal(false)}
-            variants={overlayVariants}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editUser ? 'Edit User' : 'Tambah User Baru'}</DialogTitle>
+          </DialogHeader>
+
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, y: -8 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <motion.form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+            variants={{ visible: { transition: { staggerChildren: 0.06 } } }}
             initial="hidden"
             animate="visible"
-            exit="exit"
           >
-            <motion.div
-              className="modal"
-              onClick={e => e.stopPropagation()}
-              variants={modalVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
-              <div className="modal-header">
-                <motion.h3
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.15 }}
-                >
-                  {editUser ? 'Edit User' : 'Tambah User Baru'}
-                </motion.h3>
-                <motion.button
-                  className="modal-close"
-                  onClick={() => setShowModal(false)}
-                  whileHover={{ scale: 1.15, rotate: 90 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  ✕
-                </motion.button>
-              </div>
-              <AnimatePresence>
-                {error && (
-                  <motion.div
-                    className="login-error"
-                    initial={{ opacity: 0, height: 0, y: -8 }}
-                    animate={{ opacity: 1, height: 'auto', y: 0 }}
-                    exit={{ opacity: 0, height: 0, y: -8 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    ⚠️ {error}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <motion.form
-                onSubmit={handleSubmit}
-                variants={{ visible: { transition: { staggerChildren: 0.06 } } }}
-              >
-                <motion.div className="form-group" variants={fieldVariants}>
-                  <label className="form-label">Nama Lengkap</label>
-                  <input className="form-input" value={form.full_name} onChange={e => setForm({...form, full_name: e.target.value})} required />
-                </motion.div>
-                <motion.div className="form-group" variants={fieldVariants}>
-                  <label className="form-label">Email</label>
-                  <input type="email" className="form-input" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required disabled={!!editUser} />
-                </motion.div>
-                <motion.div className="form-group" variants={fieldVariants}>
-                  <label className="form-label">{editUser ? 'Password Baru (kosongkan jika tidak diubah)' : 'Password'}</label>
-                  <input type="password" className="form-input" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required={!editUser} minLength={8} />
-                </motion.div>
-                <motion.div className="form-group" variants={fieldVariants}>
-                  <label className="form-label">NIK</label>
-                  <input className="form-input" value={form.nik} onChange={e => setForm({...form, nik: e.target.value})} />
-                </motion.div>
-                <motion.div className="form-group" variants={fieldVariants}>
-                  <label className="form-label">Role</label>
-                  <select className="form-select" value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
-                    <option value="verifikator">Verifikator</option>
-                    <option value="supervisor">Supervisor</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </motion.div>
-                <motion.div
-                  className="modal-footer"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.3 }}
-                >
-                  <motion.button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowModal(false)}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    Batal
-                  </motion.button>
-                  <motion.button
-                    type="submit"
-                    className="btn btn-primary"
-                    whileHover={{ scale: 1.03, boxShadow: '0 4px 16px rgba(59,130,246,0.3)' }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    💾 Simpan
-                  </motion.button>
-                </motion.div>
-              </motion.form>
+            <motion.div className="space-y-1.5" variants={fieldVariants}>
+              <Label htmlFor="full_name">Nama Lengkap</Label>
+              <Input
+                id="full_name"
+                value={form.full_name}
+                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                required
+              />
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            <motion.div className="space-y-1.5" variants={fieldVariants}>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
+                disabled={!!editUser}
+              />
+            </motion.div>
+
+            <motion.div className="space-y-1.5" variants={fieldVariants}>
+              <Label htmlFor="password">
+                {editUser ? 'Password Baru (kosongkan jika tidak diubah)' : 'Password'}
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required={!editUser}
+                minLength={8}
+              />
+            </motion.div>
+
+            <motion.div className="space-y-1.5" variants={fieldVariants}>
+              <Label htmlFor="nik">NIK</Label>
+              <Input
+                id="nik"
+                value={form.nik}
+                onChange={(e) => setForm({ ...form, nik: e.target.value })}
+              />
+            </motion.div>
+
+            <motion.div className="space-y-1.5" variants={fieldVariants}>
+              <Label htmlFor="role">Role</Label>
+              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+                <SelectTrigger id="role" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="verifikator">Verifikator</SelectItem>
+                  <SelectItem value="supervisor">Supervisor</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </motion.div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                Batal
+              </Button>
+              <Button type="submit">Simpan</Button>
+            </DialogFooter>
+          </motion.form>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

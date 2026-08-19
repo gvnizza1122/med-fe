@@ -2,7 +2,37 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Header } from '@/components/dashboard/header';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface ClaimFile {
   id: string; file_name: string; period: string; status: string;
@@ -45,12 +75,17 @@ const statusLabel = (s: string) =>
   s === 'error' ? 'Error' :
   s.charAt(0).toUpperCase() + s.slice(1);
 
-const statusClass = (s: string) =>
-  s === 'completed' ? 'completed' :
-  s === 'validating' ? 'validating' :
-  s === 'parsing' ? 'parsing' :
-  s === 'approved' ? 'approved' :
-  s === 'error' ? 'error' : s;
+// Maps backend status to a visual treatment: green (valid/approved), red (error), amber (in progress)
+const statusBadgeClass = (s: string) => {
+  if (s === 'completed' || s === 'approved') {
+    return 'bg-primary/10 text-primary border-primary/20';
+  }
+  if (s === 'error') {
+    return 'bg-destructive/10 text-destructive border-destructive/20';
+  }
+  // validating, parsing, pending, etc.
+  return 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400';
+};
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -61,6 +96,7 @@ export default function HistoryPage() {
   const [jenisKlaimFilter, setJenisKlaimFilter] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const loadFiles = useCallback(async () => {
     try {
@@ -73,209 +109,243 @@ export default function HistoryPage() {
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Yakin ingin menghapus file ini?')) return;
     try { await api.deleteFile(id); loadFiles(); } catch (err) { console.error('[History] Gagal hapus file:', err); }
   };
 
   const totalPages = Math.ceil(total / 15);
+  const hasActiveFilters = Boolean(jenisKlaimFilter || fromDate || toDate);
 
   return (
     <motion.div
-      className="fade-in"
+      className="space-y-4 md:space-y-6"
       variants={pageVariants}
       initial="hidden"
       animate="visible"
     >
-      <div className="page-header">
-        <div><h2>📁 Riwayat Upload</h2><p>{total} file telah diupload</p></div>
-        <motion.button
-          className="btn btn-primary"
-          onClick={() => router.push('/upload')}
-          whileHover={{ scale: 1.04, boxShadow: '0 4px 16px rgba(59,130,246,0.3)' }}
-          whileTap={{ scale: 0.96 }}
-        >
-          📤 Upload Baru
-        </motion.button>
-      </div>
+      <Header
+        title="Riwayat Upload"
+        description={`${total} file telah diupload`}
+        actions={
+          <Button onClick={() => router.push('/upload')} className="gap-2">
+            <Upload className="size-4" />
+            Upload Baru
+          </Button>
+        }
+      />
 
-      <div className="filter-group" style={{ marginBottom: 16, flexWrap: 'wrap', rowGap: 10 }}>
-        <span className="filter-label">Kategori:</span>
-        <select
-          className="filter-select"
-          value={jenisKlaimFilter}
-          onChange={e => { setJenisKlaimFilter(e.target.value); setPage(1); }}
-        >
-          <option value="">Semua Kategori</option>
-          {Object.entries(JENIS_KLAIM_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3 md:p-4 animate-slide-in-up">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Kategori</label>
+          <Select
+            value={jenisKlaimFilter || 'ALL'}
+            onValueChange={(v) => { setJenisKlaimFilter(v === 'ALL' ? '' : v); setPage(1); }}
+          >
+            <SelectTrigger className="w-full sm:w-[190px]">
+              <SelectValue placeholder="Semua Kategori" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Semua Kategori</SelectItem>
+              {Object.entries(JENIS_KLAIM_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        <span className="filter-label" style={{ marginLeft: 8 }}>Dari:</span>
-        <input
-          type="date"
-          className="filter-date-input"
-          value={fromDate}
-          max={toDate || undefined}
-          onChange={e => { setFromDate(e.target.value); setPage(1); }}
-        />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Dari</label>
+          <Input
+            type="date"
+            className="w-full sm:w-[160px]"
+            value={fromDate}
+            max={toDate || undefined}
+            onChange={e => { setFromDate(e.target.value); setPage(1); }}
+          />
+        </div>
 
-        <span className="filter-label">Sampai:</span>
-        <input
-          type="date"
-          className="filter-date-input"
-          value={toDate}
-          min={fromDate || undefined}
-          onChange={e => { setToDate(e.target.value); setPage(1); }}
-        />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Sampai</label>
+          <Input
+            type="date"
+            className="w-full sm:w-[160px]"
+            value={toDate}
+            min={fromDate || undefined}
+            onChange={e => { setToDate(e.target.value); setPage(1); }}
+          />
+        </div>
 
-        {(jenisKlaimFilter || fromDate || toDate) && (
-          <button
+        {hasActiveFilters && (
+          <Button
             type="button"
-            className="btn btn-secondary btn-sm"
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground"
             onClick={() => { setJenisKlaimFilter(''); setFromDate(''); setToDate(''); setPage(1); }}
           >
-            ✕ Reset Filter
-          </button>
+            <X className="size-3.5" />
+            Reset Filter
+          </Button>
         )}
       </div>
 
       {loading ? (
-        <div className="loading"><div className="spinner" /></div>
+        <div className="flex items-center justify-center py-24">
+          <div className="size-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        </div>
       ) : (
-      <AnimatePresence mode="wait">
-        {files.length === 0 ? (
-          <motion.div
-            className="card"
-            key="empty"
-            variants={emptyVariants}
-            initial="hidden"
-            animate="visible"
-            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.25 } }}
-          >
-            <div className="empty-state">
-              <motion.div
-                className="empty-state-icon"
-                animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' as const }}
-              >
-                📁
-              </motion.div>
-              <h3>Belum ada file</h3>
-              <p>Upload file klaim untuk memulai validasi</p>
-              <motion.button
-                className="btn btn-primary"
-                onClick={() => router.push('/upload')}
-                whileHover={{ scale: 1.04, boxShadow: '0 4px 16px rgba(59,130,246,0.3)' }}
-                whileTap={{ scale: 0.96 }}
-              >
-                📤 Upload Sekarang
-              </motion.button>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            className="table-container"
-            key="table"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: 0.3 } }}
-            exit={{ opacity: 0, transition: { duration: 0.2 } }}
-          >
-            <table>
-              <thead><tr><th>File</th><th>Kategori</th><th>Periode</th><th>Total</th><th>Valid</th><th>Error</th><th>Status</th><th>Diunggah</th><th>Aksi</th></tr></thead>
-              <motion.tbody
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-              >
-                <AnimatePresence>
-                  {files.map((f, i) => (
-                    <motion.tr
-                      key={f.id}
-                      variants={rowVariants}
-                      layout
-                      whileHover={{
-                        backgroundColor: 'rgba(59,130,246,0.04)',
-                        y: -1,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                        transition: { duration: 0.15 },
-                      }}
-                      exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-                      style={{ cursor: 'default' }}
-                    >
-                      <td style={{ fontWeight: 600 }}>{f.file_name}</td>
-                      <td>
-                        {f.jenis_klaim ? (
-                          <span className="badge badge-secondary" style={{ fontSize: 10 }}>{jenisKlaimLabel(f.jenis_klaim)}</span>
-                        ) : '-'}
-                      </td>
-                      <td>{f.period || '-'}</td>
-                      <td>{f.total_records}</td>
-                      <td style={{ color: 'var(--accent-green)' }}>{f.valid_count}</td>
-                      <td style={{ color: 'var(--accent-red)' }}>{f.error_count}</td>
-                      <td>
-                        <motion.span
-                          className={`badge badge-${statusClass(f.status)}`}
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: i * 0.03 + 0.15, type: 'spring', stiffness: 300, damping: 20 }}
-                          whileHover={{ scale: 1.08 }}
-                        >
-                          {statusLabel(f.status)}
-                        </motion.span>
-                      </td>
-                      <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{f.uploaded_by_name}<br/>{new Date(f.created_at).toLocaleDateString('id-ID')}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <motion.button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => router.push(`/results/${f.id}`)}
-                            whileHover={{ scale: 1.06, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                            whileTap={{ scale: 0.94 }}
+        <AnimatePresence mode="wait">
+          {files.length === 0 ? (
+            <motion.div
+              key="empty"
+              variants={emptyVariants}
+              initial="hidden"
+              animate="visible"
+              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.25 } }}
+              className="rounded-xl border border-border bg-card"
+            >
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <motion.div
+                  className="flex size-16 items-center justify-center rounded-full bg-muted"
+                  animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' as const }}
+                >
+                  <FolderOpen className="size-7 text-muted-foreground" />
+                </motion.div>
+                <h3 className="text-base font-semibold text-foreground">Belum ada file</h3>
+                <p className="text-sm text-muted-foreground">Upload file klaim untuk memulai validasi</p>
+                <Button onClick={() => router.push('/upload')} className="mt-2 gap-2">
+                  <Upload className="size-4" />
+                  Upload Sekarang
+                </Button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="table"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: { duration: 0.3 } }}
+              exit={{ opacity: 0, transition: { duration: 0.2 } }}
+              className="overflow-hidden rounded-xl border border-border bg-card"
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>File</TableHead>
+                    <TableHead>Kategori</TableHead>
+                    <TableHead>Periode</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Valid</TableHead>
+                    <TableHead className="text-right">Error</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Diunggah</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
+                  <AnimatePresence>
+                    {files.map((f, i) => (
+                      <motion.tr
+                        key={f.id}
+                        variants={rowVariants}
+                        layout
+                        whileHover={{
+                          backgroundColor: 'var(--muted)',
+                          transition: { duration: 0.15 },
+                        }}
+                        exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+                        className="border-b border-border last:border-0"
+                      >
+                        <TableCell className="max-w-[220px] truncate font-medium text-foreground">
+                          <div className="flex items-center gap-2">
+                            <FileText className="size-4 shrink-0 text-muted-foreground" />
+                            <span className="truncate">{f.file_name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {f.jenis_klaim ? (
+                            <Badge variant="secondary" className="whitespace-nowrap text-[10px]">
+                              {jenisKlaimLabel(f.jenis_klaim)}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{f.period || '-'}</TableCell>
+                        <TableCell className="text-right">{f.total_records}</TableCell>
+                        <TableCell className="text-right font-medium text-primary">{f.valid_count}</TableCell>
+                        <TableCell className="text-right font-medium text-destructive">{f.error_count}</TableCell>
+                        <TableCell>
+                          <motion.span
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: i * 0.03 + 0.15, type: 'spring', stiffness: 300, damping: 20 }}
+                            whileHover={{ scale: 1.08 }}
+                            className="inline-block"
                           >
-                            📋 Detail
-                          </motion.button>
-                          <motion.button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleDelete(f.id)}
-                            whileHover={{ scale: 1.1, boxShadow: '0 2px 8px rgba(239,68,68,0.3)' }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            🗑️
-                          </motion.button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </motion.tbody>
-            </table>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                            <Badge variant="outline" className={statusBadgeClass(f.status)}>
+                              {statusLabel(f.status)}
+                            </Badge>
+                          </motion.span>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          <div>{f.uploaded_by_name}</div>
+                          <div>{new Date(f.created_at).toLocaleDateString('id-ID')}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1.5">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="gap-1.5"
+                              onClick={() => router.push(`/results/${f.id}`)}
+                            >
+                              <FileText className="size-3.5" />
+                              Detail
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon-sm"
+                              onClick={() => setPendingDeleteId(f.id)}
+                              aria-label="Hapus file"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </motion.tbody>
+              </Table>
+            </motion.div>
+          )}
+        </AnimatePresence>
       )}
 
       <AnimatePresence>
         {totalPages > 1 && (
           <motion.div
-            className="pagination"
+            className="flex items-center justify-center gap-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             transition={{ delay: 0.3, duration: 0.35 }}
           >
-            <motion.button
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page <= 1}
-              whileHover={page > 1 ? { scale: 1.04 } : {}}
-              whileTap={page > 1 ? { scale: 0.96 } : {}}
             >
-              ← Sebelumnya
-            </motion.button>
+              <ChevronLeft className="size-4" />
+              Sebelumnya
+            </Button>
             <AnimatePresence mode="wait">
               <motion.span
                 key={page}
-                style={{ fontSize: 13, color: 'var(--text-secondary)' }}
+                className="text-sm text-muted-foreground"
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
@@ -284,17 +354,42 @@ export default function HistoryPage() {
                 Halaman {page} dari {totalPages}
               </motion.span>
             </AnimatePresence>
-            <motion.button
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              whileHover={page < totalPages ? { scale: 1.04 } : {}}
-              whileTap={page < totalPages ? { scale: 0.96 } : {}}
             >
-              Selanjutnya →
-            </motion.button>
+              Selanjutnya
+              <ChevronRight className="size-4" />
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AlertDialog open={pendingDeleteId !== null} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus file ini?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak dapat dibatalkan. File beserta seluruh data klaim terkait akan dihapus secara permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDeleteId) handleDelete(pendingDeleteId);
+                setPendingDeleteId(null);
+              }}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }

@@ -26,12 +26,12 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 100 }}
-            className={`px-4 py-3 rounded-lg shadow-lg text-sm font-medium pointer-events-auto max-w-sm ${
+            className={`px-4 py-3 rounded-xl shadow-lg border text-sm font-medium pointer-events-auto max-w-sm backdrop-blur-sm ${
               toast.type === 'success'
-                ? 'bg-green-500 text-white'
+                ? 'bg-primary text-primary-foreground border-primary/20'
                 : toast.type === 'error'
-                ? 'bg-red-500 text-white'
-                : 'bg-blue-500 text-white'
+                ? 'bg-destructive text-destructive-foreground border-destructive/20'
+                : 'bg-card text-foreground border-border'
             }`}
           >
             {toast.type === 'success' && '✅ '}

@@ -2,13 +2,26 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Menu, FileWarning } from 'lucide-react';
 
 // Worker di-bundle & disajikan same-origin oleh Next (bukan CDN) — supaya
 // tidak melanggar CSP script-src/worker-src 'self' yang sudah diset di app ini.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+// Dibungkus try/catch: pernah ditemukan device (PC RS, browser lawas) yang
+// crash total & minta reload saat membuka panel PDF, sementara PC lain aman —
+// kalau baris ini yang jadi biang keladinya (browser tak dukung import.meta.url/
+// Worker API tertentu), kegagalannya sekarang cuma bikin PdfViewer masuk ke
+// status error yang bisa di-"Coba Lagi", bukan crash modul yang menjalar ke
+// ErrorBoundary di halaman hasil.
+try {
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url,
+  ).toString();
+} catch (err) {
+  console.error('[PdfViewer] Gagal mengatur workerSrc pdf.js:', err);
+}
 
 interface PdfViewerProps {
   fileId: string;
@@ -177,77 +190,137 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
 
   if (pdfState.status === 'loading') {
     return (
-      <div className="pdf-viewer-shell" style={{ height }}>
-        <div className="pdf-viewer-message">Memuat dokumen PDF...</div>
+      <div
+        className="flex items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground"
+        style={{ height }}
+      >
+        Memuat dokumen PDF...
       </div>
     );
   }
 
   if (pdfState.status === 'error') {
     return (
-      <div className="pdf-viewer-shell" style={{ height }}>
-        <div className="pdf-viewer-message">
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--red)', marginBottom: 4 }}>
+      <div
+        className="flex items-center justify-center rounded-2xl border border-border bg-card"
+        style={{ height }}
+      >
+        <div className="flex flex-col items-center gap-2 text-center">
+          <FileWarning className="h-6 w-6 text-destructive" />
+          <div className="text-sm font-semibold text-destructive">
             Dokumen tidak dapat ditampilkan
           </div>
-          <div style={{ fontSize: 12, color: 'var(--body-mid)', marginBottom: 8 }}>
+          <div className="max-w-xs text-xs text-muted-foreground">
             {pdfState.message}
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={handleRetry}>
+          <Button size="sm" variant="outline" onClick={handleRetry}>
             Coba Lagi
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="pdf-viewer-shell" style={{ height }}>
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card" style={{ height }}>
       <Document
         file={pdfState.blob}
         onLoadSuccess={onDocLoadSuccess}
         onLoadError={() => setPdfState({ status: 'error', message: 'Berkas PDF rusak atau tidak valid.' })}
-        loading={<div className="pdf-viewer-message">Merender dokumen...</div>}
-        error={<div className="pdf-viewer-message">Dokumen tidak dapat dirender.</div>}
+        loading={<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Merender dokumen...</div>}
+        error={<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Dokumen tidak dapat dirender.</div>}
+        className="flex flex-1 flex-col overflow-hidden"
       >
-        <div className="pdf-toolbar">
-          <button
-            className={`pdf-toolbar-btn ${showThumbs ? 'active' : ''}`}
+        <div className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/40 px-2 py-1.5">
+          <Button
+            type="button"
+            size="icon"
+            variant={showThumbs ? 'secondary' : 'ghost'}
+            className="h-7 w-7"
             onClick={() => setShowThumbs(v => !v)}
             title="Tampilkan/sembunyikan daftar halaman"
           >
-            ☰
-          </button>
-          <span className="pdf-toolbar-sep" />
-          <button className="pdf-toolbar-btn" disabled={currentPage <= 1} onClick={() => scrollToPage(currentPage - 1)} title="Halaman sebelumnya">
-            ‹
-          </button>
-          <span className="pdf-toolbar-page">{currentPage} / {numPages || '–'}</span>
-          <button className="pdf-toolbar-btn" disabled={currentPage >= numPages} onClick={() => scrollToPage(currentPage + 1)} title="Halaman berikutnya">
-            ›
-          </button>
-          <span className="pdf-toolbar-sep" />
-          <button className="pdf-toolbar-btn" onClick={zoomOut} disabled={scale <= ZOOM_MIN} title="Perkecil">
-            −
-          </button>
-          <button className="pdf-toolbar-zoom" onClick={zoomReset} title="Kembali ke ukuran normal">
+            <Menu className="h-3.5 w-3.5" />
+          </Button>
+          <span className="mx-1 h-4 w-px bg-border" />
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            disabled={currentPage <= 1}
+            onClick={() => scrollToPage(currentPage - 1)}
+            title="Halaman sebelumnya"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <span className="min-w-[64px] text-center text-xs font-medium text-foreground">
+            {currentPage} / {numPages || '–'}
+          </span>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            disabled={currentPage >= numPages}
+            onClick={() => scrollToPage(currentPage + 1)}
+            title="Halaman berikutnya"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+          <span className="mx-1 h-4 w-px bg-border" />
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={zoomOut}
+            disabled={scale <= ZOOM_MIN}
+            title="Perkecil"
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
+          <button
+            type="button"
+            className="min-w-[48px] rounded-md px-1.5 py-1 text-xs font-medium text-foreground hover:bg-accent"
+            onClick={zoomReset}
+            title="Kembali ke ukuran normal"
+          >
             {Math.round(scale * 100)}%
           </button>
-          <button className="pdf-toolbar-btn" onClick={zoomIn} disabled={scale >= ZOOM_MAX} title="Perbesar">
-            +
-          </button>
-          {fileName && <span className="pdf-toolbar-filename" title={fileName}>{fileName}</span>}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={zoomIn}
+            disabled={scale >= ZOOM_MAX}
+            title="Perbesar"
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
+          {fileName && (
+            <span className="ml-auto truncate text-xs text-muted-foreground" title={fileName}>
+              {fileName}
+            </span>
+          )}
         </div>
 
-        <div className="pdf-viewer-body">
+        <div className="flex flex-1 overflow-hidden">
           {showThumbs && (
-            <div className="pdf-thumb-strip">
+            <div className="flex w-20 shrink-0 flex-col gap-2 overflow-y-auto border-r border-border bg-muted/20 p-2">
               {Array.from({ length: numPages }, (_, i) => i + 1).map(n => (
                 <button
                   key={n}
-                  className={`pdf-thumb ${n === currentPage ? 'active' : ''}`}
+                  type="button"
                   onClick={() => scrollToPage(n)}
                   title={`Halaman ${n}`}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-md border p-1 text-[10px] text-muted-foreground transition-colors',
+                    n === currentPage
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-transparent hover:border-border hover:bg-accent',
+                  )}
                 >
                   <Page pageNumber={n} width={64} renderTextLayer={false} renderAnnotationLayer={false} />
                   <span>{n}</span>
@@ -255,17 +328,19 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
               ))}
             </div>
           )}
-          <div className="pdf-main-scroll" ref={scrollRef}>
-            {Array.from({ length: numPages }, (_, i) => i + 1).map(n => (
-              <div
-                key={n}
-                data-page={n}
-                ref={el => { pageRefs.current[n] = el; }}
-                className="pdf-page-wrap"
-              >
-                <Page pageNumber={n} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} />
-              </div>
-            ))}
+          <div className="flex-1 overflow-y-auto bg-muted/10 p-3" ref={scrollRef}>
+            <div className="flex flex-col items-center gap-3">
+              {Array.from({ length: numPages }, (_, i) => i + 1).map(n => (
+                <div
+                  key={n}
+                  data-page={n}
+                  ref={el => { pageRefs.current[n] = el; }}
+                  className="rounded-md shadow-sm"
+                >
+                  <Page pageNumber={n} scale={scale} renderTextLayer={false} renderAnnotationLayer={false} />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </Document>

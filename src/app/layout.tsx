@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,17 +19,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="theme-init" strategy="beforeInteractive">
           {`
             try {
-              var t = localStorage.getItem('theme');
-              if (!t) {
-                var m = window.matchMedia('(prefers-color-scheme: light)');
-                t = m.matches ? 'light' : 'dark';
-              }
-              document.documentElement.setAttribute('data-theme', t);
+              var t = localStorage.getItem('tasko-theme') || 'light';
+              document.documentElement.classList.toggle('dark', t === 'dark');
             } catch(e) {}
           `}
         </Script>
       </head>
-      <body>{children}</body>
+      <body className="font-sans antialiased">
+        <ThemeProvider attribute="class" defaultTheme="light" storageKey="tasko-theme" enableSystem={false}>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

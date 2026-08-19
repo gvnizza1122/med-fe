@@ -1,5 +1,7 @@
 'use client';
 import { Component, ReactNode } from 'react';
+import { AlertTriangle, RotateCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   children: ReactNode;
@@ -23,33 +25,28 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      // Detail teknis (pesan asli, komponen mana yang error) TIDAK ditampilkan
+      // ke user — staf RS bukan orang teknis, pesan bahasa Inggris/istilah
+      // React cuma bikin bingung. Detail lengkapnya tetap ada di console
+      // browser lewat componentDidCatch() di atas, jadi IT/developer masih
+      // bisa lacak kalau diminta screenshot console.
       return this.props.fallback || (
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', minHeight: '100vh', padding: 40,
-          background: '#0d1117', color: '#c9d1d9', textAlign: 'center'
-        }}>
-          <h1 style={{ fontSize: 32, marginBottom: 8 }}>⚠️</h1>
-          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Terjadi Kesalahan</h2>
-          <p style={{ color: '#8b949e', marginBottom: 20, maxWidth: 400 }}>
-            Aplikasi mengalami error yang tidak terduga. Silakan muat ulang halaman.
+        <div className="flex flex-col items-center justify-center w-full py-16 px-6 bg-background text-center">
+          <img src="/logo.png" alt="RS Lestari Raharja" className="h-12 w-12 object-contain mb-4 opacity-90" />
+          <div className="w-14 h-14 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-4">
+            <AlertTriangle className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Terjadi Kesalahan</h2>
+          <p className="text-muted-foreground mb-1 max-w-md text-sm">
+            Bagian ini mengalami gangguan yang tidak terduga.
           </p>
-          <pre style={{
-            background: '#161b22', padding: '12px 16px', borderRadius: 8,
-            fontSize: 12, color: '#f85149', maxWidth: '90%', overflow: 'auto',
-            marginBottom: 20
-          }}>
-            {this.state.error?.message}
-          </pre>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              padding: '10px 24px', background: '#238636', color: '#fff',
-              border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14
-            }}
-          >
-            🔄 Muat Ulang Halaman
-          </button>
+          <p className="text-muted-foreground mb-6 max-w-md text-sm">
+            Silakan muat ulang halaman. Kalau terus berulang, hubungi petugas IT rumah sakit.
+          </p>
+          <Button onClick={() => window.location.reload()} className="gap-2">
+            <RotateCw className="w-4 h-4" />
+            Muat Ulang Halaman
+          </Button>
         </div>
       );
     }

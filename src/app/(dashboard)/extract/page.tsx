@@ -3,47 +3,31 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io, type Socket } from 'socket.io-client';
+import {
+  FileText,
+  Files,
+  UploadCloud,
+  CheckCircle2,
+  XCircle,
+  X,
+  ArrowRight,
+  AlertTriangle,
+  Footprints,
+  BedDouble,
+} from 'lucide-react';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { Header } from '@/components/dashboard/header';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 
-// Ikon garis (24x24, stroke 2px) — gaya sama persis dengan ikon di Sidebar,
-// mengganti emoji (🚶🛏️📄📚📁🚀) supaya konsisten dengan bahasa visual
-// aplikasi, bukan campur emoji generik.
-const IconWalk = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="6" r="3" />
-    <path d="M5.5 21a6.5 6.5 0 0 1 13 0" />
-  </svg>
-);
-const IconBed = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 20v-6a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v6" />
-    <path d="M2 20h20" />
-    <path d="M6 11V8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3" />
-  </svg>
-);
-const IconFile = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-  </svg>
-);
-const IconStack = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M8 4h9a2 2 0 0 1 2 2v11" />
-    <path d="M4 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" />
-  </svg>
-);
-const IconUploadArrow = ({ size = 22 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="17 8 12 3 7 8" />
-    <line x1="12" y1="3" x2="12" y2="15" />
-  </svg>
-);
-
-const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc: string; accent: string }[] = [
-  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: <IconWalk />, desc: 'Pasien tidak menginap', accent: '#2563eb' },
-  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: <IconBed />, desc: 'Pasien menginap di ruangan', accent: '#6366f1' },
+const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc: string }[] = [
+  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: <Footprints className="size-5" />, desc: 'Pasien tidak menginap' },
+  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: <BedDouble className="size-5" />, desc: 'Pasien menginap di ruangan' },
 ];
 
 const MAX_BATCH_FILES = 30; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
@@ -177,260 +161,310 @@ export default function ExtractPage() {
     }
   }, [files, jenisKlaim]);
 
+  const batchProgressDone = batchStatuses.filter(s => s.status === 'done' || s.status === 'failed').length;
+  const batchProgressPct = files.length > 0 ? Math.round((batchProgressDone / files.length) * 100) : 0;
+
   return (
-    <motion.div className="fade-in" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      {/* Header + card dibungkus 1 kolom lebar sama (maxWidth 700, center) —
-          sebelumnya header lebar penuh tapi card sendiri yang dibatasi &
-          di-center, jadi keduanya kelihatan tidak sejajar/nyambung. Sekalian
-          kasih margin-top supaya ruang kosong di halaman ini (form pendek,
-          tidak ada konten lain) tidak semuanya numpuk di bawah. */}
-      <div style={{ maxWidth: 700, margin: '0 auto' }}>
-      <div className="page-header">
-        <div>
-          <h2>Ekstrak PDF Klaim</h2>
-          <p>Upload berkas PDF klaim dari SIMRS — sistem mengekstrak datanya secara otomatis untuk diperiksa dan divalidasi</p>
-        </div>
-      </div>
+    <div className="space-y-6 md:space-y-8">
+      <Header
+        title="Ekstrak PDF Klaim"
+        description="Unggah berkas PDF klaim dari SIMRS — sistem mengekstrak datanya secara otomatis untuk diperiksa dan divalidasi"
+      />
 
-      <motion.div
-        className="card"
-        style={{ marginTop: 28 }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        {/* ── Mode toggle: Single / Batch ── */}
-        <div className="upload-mode-toggle" role="tablist" aria-label="Mode upload">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'single'}
-            className={`upload-mode-tab ${mode === 'single' ? 'active' : ''}`}
-            onClick={() => switchMode('single')}
-            disabled={uploading}
-          >
-            <IconFile /> Satu File
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'batch'}
-            className={`upload-mode-tab ${mode === 'batch' ? 'active' : ''}`}
-            onClick={() => switchMode('batch')}
-            disabled={uploading}
-          >
-            <IconStack /> Banyak File (Batch)
-          </button>
-        </div>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-full max-w-2xl">
+        <Card className="animate-slide-in-up">
+          <CardContent className="space-y-6">
+            {/* ── Mode toggle: Single / Batch ── */}
+            <div
+              role="tablist"
+              aria-label="Mode upload"
+              className="bg-muted text-muted-foreground inline-flex h-10 w-full items-center justify-center rounded-lg p-1"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'single'}
+                onClick={() => switchMode('single')}
+                disabled={uploading}
+                className={cn(
+                  'inline-flex h-full flex-1 items-center justify-center gap-2 rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50',
+                  mode === 'single' ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground',
+                )}
+              >
+                <FileText className="size-4" /> Satu File
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'batch'}
+                onClick={() => switchMode('batch')}
+                disabled={uploading}
+                className={cn(
+                  'inline-flex h-full flex-1 items-center justify-center gap-2 rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50',
+                  mode === 'batch' ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground',
+                )}
+              >
+                <Files className="size-4" /> Banyak File (Batch)
+              </button>
+            </div>
 
-        <div className="form-group" style={{ marginBottom: 20, marginTop: 18 }}>
-          <label className="form-label">Kategori Pelayanan</label>
-          <div className="category-picker" role="radiogroup" aria-label="Kategori Pelayanan">
-            {JENIS_KLAIM_OPTIONS.map(opt => {
-              const isSelected = jenisKlaim === opt.value;
-              return (
-                <motion.button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  className={`category-card ${isSelected ? 'selected' : ''}`}
-                  style={{ ['--category-accent' as string]: opt.accent }}
-                  onClick={() => { setJenisKlaim(opt.value); setError(''); }}
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.97 }}
+            {/* ── Kategori pelayanan ── */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Kategori Pelayanan</label>
+              <div role="radiogroup" aria-label="Kategori Pelayanan" className="grid grid-cols-2 gap-3">
+                {JENIS_KLAIM_OPTIONS.map(opt => {
+                  const isSelected = jenisKlaim === opt.value;
+                  return (
+                    <motion.button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => { setJenisKlaim(opt.value); setError(''); }}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.97 }}
+                      className={cn(
+                        'relative flex flex-col items-start gap-1 rounded-lg border p-4 text-left transition-colors',
+                        isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-border hover:border-primary/40 hover:bg-muted/50',
+                      )}
+                    >
+                      <span className={cn('mb-1', isSelected ? 'text-primary' : 'text-muted-foreground')}>{opt.icon}</span>
+                      <span className="text-sm font-semibold text-foreground">{opt.label}</span>
+                      <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                      <AnimatePresence>
+                        {isSelected && (
+                          <motion.span
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                            className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                          >
+                            <CheckCircle2 className="size-3.5" />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </motion.button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {mode === 'batch'
+                  ? 'Berlaku untuk SEMUA file dalam batch ini — pastikan file yang dipilih sudah dipisah per kategori pelayanan.'
+                  : 'Dipakai supaya AI tidak salah memberi saran (mis. saran ruangan rawat inap untuk klaim rawat jalan) dan untuk memudahkan pencarian di Riwayat Upload.'}
+              </p>
+            </div>
+
+            {/* ── Dropzone ── */}
+            {mode === 'single' ? (
+              <>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setDragover(true); }}
+                  onDragLeave={() => setDragover(false)}
+                  onDrop={e => { e.preventDefault(); setDragover(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
+                  className={cn(
+                    'flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors',
+                    dragover ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 hover:bg-muted/30',
+                  )}
                 >
-                  <span className="category-card-icon">{opt.icon}</span>
-                  <span className="category-card-label">{opt.label}</span>
-                  <span className="category-card-desc">{opt.desc}</span>
-                  <AnimatePresence>
-                    {isSelected && (
-                      <motion.span
-                        className="category-card-check"
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                  <AnimatePresence mode="wait">
+                    {file ? (
+                      <motion.div
+                        key="file-selected"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="flex flex-col items-center gap-2"
                       >
-                        ✓
-                      </motion.span>
+                        <div className="flex items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 px-6 py-4">
+                          <FileText className="size-8 text-primary" />
+                          <div className="text-left">
+                            <h3 className="m-0 text-sm font-semibold break-all">{file.name}</h3>
+                            <p className="m-0 mt-1 text-xs font-medium text-muted-foreground">{formatFileSize(file.size)}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Klik atau drag untuk mengganti file</p>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="empty-state"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex flex-col items-center gap-2"
+                      >
+                        <UploadCloud className="size-10 text-muted-foreground" />
+                        <h3 className="m-0 text-sm font-semibold text-foreground">Klik atau drag berkas PDF ke sini</h3>
+                        <p className="m-0 text-xs text-muted-foreground">Mendukung file .PDF (maks 20MB)</p>
+                      </motion.div>
                     )}
                   </AnimatePresence>
-                </motion.button>
-              );
-            })}
-          </div>
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '8px 0 0' }}>
-            {mode === 'batch'
-              ? 'Berlaku untuk SEMUA file dalam batch ini — pastikan file yang dipilih sudah dipisah per kategori pelayanan.'
-              : 'Dipakai supaya AI tidak salah memberi saran (mis. saran ruangan rawat inap untuk klaim rawat jalan) dan untuk memudahkan pencarian di Riwayat Upload.'}
-          </p>
-        </div>
-
-        {mode === 'single' ? (
-          <>
-            <div
-              className={`upload-zone ${dragover ? 'dragover' : ''}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragover(true); }}
-              onDragLeave={() => setDragover(false)}
-              onDrop={e => { e.preventDefault(); setDragover(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
-              style={{ cursor: 'pointer' }}
-            >
-              <AnimatePresence mode="wait">
-                {file ? (
-                  <motion.div
-                    key="file-selected"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
-                  >
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 16, padding: '16px 24px',
-                      background: 'var(--bg-card, rgba(59,130,246,0.05))', borderRadius: 12,
-                      border: '1px solid rgba(59,130,246,0.2)',
-                    }}>
-                      <div style={{ color: 'var(--primary)' }}><IconFile size={34} /></div>
-                      <div style={{ textAlign: 'left' }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, wordBreak: 'break-all' }}>{file.name}</h3>
-                        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{formatFileSize(file.size)}</p>
-                      </div>
-                    </div>
-                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>Klik atau drag untuk mengganti file</p>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="empty-state"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
-                  >
-                    <div className="upload-zone-icon"><IconUploadArrow size={40} /></div>
-                    <h3 style={{ margin: 0 }}>Klik atau drag berkas PDF ke sini</h3>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Mendukung file .PDF (maks 20MB)</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <input ref={fileInputRef} type="file" accept=".pdf" hidden onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
-          </>
-        ) : (
-          <>
-            <div
-              className={`upload-zone ${dragover ? 'dragover' : ''}`}
-              onClick={() => !uploading && fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); if (!uploading) setDragover(true); }}
-              onDragLeave={() => setDragover(false)}
-              onDrop={e => { e.preventDefault(); setDragover(false); if (!uploading && e.dataTransfer.files.length) addBatchFiles(e.dataTransfer.files); }}
-              style={{ cursor: uploading ? 'default' : 'pointer' }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <div className="upload-zone-icon"><IconUploadArrow size={40} /></div>
-                <h3 style={{ margin: 0 }}>Klik atau drag beberapa berkas PDF ke sini</h3>
-                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Maks {MAX_BATCH_FILES} file, masing-masing maks 20MB — 1 kategori pelayanan untuk semua file</p>
-              </div>
-            </div>
-            <input
-              ref={fileInputRef} type="file" accept=".pdf" multiple hidden
-              onChange={e => { if (e.target.files?.length) addBatchFiles(e.target.files); e.target.value = ''; }}
-            />
-
-            {files.length > 0 && (
-              <div className="batch-file-list" style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                  {files.length} file dipilih ({formatFileSize(files.reduce((s, f) => s + f.size, 0))})
                 </div>
-                <AnimatePresence>
-                  {files.map((f, i) => {
-                    const status = batchStatuses.find(s => s.fileName === f.name);
-                    return (
-                      <motion.div
-                        key={`${f.name}-${f.size}-${i}`}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 10 }}
-                        className="batch-file-row"
-                      >
-                        <span className="batch-file-icon"><IconFile size={14} /></span>
-                        <span className="batch-file-name" title={f.name}>{f.name}</span>
-                        <span className="batch-file-size">{formatFileSize(f.size)}</span>
-                        {status && (
-                          <span className={`badge batch-file-status-badge badge-${
-                            status.status === 'done' ? 'valid' : status.status === 'failed' ? 'error' : status.status === 'processing' ? 'pending' : 'secondary'
-                          }`}>
-                            {status.status === 'done' ? '✓ Selesai' : status.status === 'failed' ? '✗ Gagal' : status.status === 'processing' ? 'Memproses...' : 'Menunggu'}
-                          </span>
+                <input ref={fileInputRef} type="file" accept=".pdf" hidden onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
+              </>
+            ) : (
+              <>
+                <div
+                  onClick={() => !uploading && fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); if (!uploading) setDragover(true); }}
+                  onDragLeave={() => setDragover(false)}
+                  onDrop={e => { e.preventDefault(); setDragover(false); if (!uploading && e.dataTransfer.files.length) addBatchFiles(e.dataTransfer.files); }}
+                  className={cn(
+                    'flex min-h-[180px] flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors',
+                    uploading ? 'cursor-default' : 'cursor-pointer',
+                    dragover ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 hover:bg-muted/30',
+                  )}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <UploadCloud className="size-10 text-muted-foreground" />
+                    <h3 className="m-0 text-sm font-semibold text-foreground">Klik atau drag beberapa berkas PDF ke sini</h3>
+                    <p className="m-0 text-xs text-muted-foreground">Maks {MAX_BATCH_FILES} file, masing-masing maks 20MB — 1 kategori pelayanan untuk semua file</p>
+                  </div>
+                </div>
+                <input
+                  ref={fileInputRef} type="file" accept=".pdf" multiple hidden
+                  onChange={e => { if (e.target.files?.length) addBatchFiles(e.target.files); e.target.value = ''; }}
+                />
+
+                {files.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                      <span>{files.length} file dipilih ({formatFileSize(files.reduce((s, f) => s + f.size, 0))})</span>
+                      {uploading && <span>{batchProgressDone}/{files.length}</span>}
+                    </div>
+                    {uploading && <Progress value={batchProgressPct} />}
+                    <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-border p-2">
+                      <AnimatePresence>
+                        {files.map((f, i) => {
+                          const status = batchStatuses.find(s => s.fileName === f.name);
+                          return (
+                            <motion.div
+                              key={`${f.name}-${f.size}-${i}`}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 10 }}
+                              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
+                            >
+                              <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                              <span className="flex-1 truncate" title={f.name}>{f.name}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">{formatFileSize(f.size)}</span>
+                              {status && (
+                                <Badge
+                                  variant={
+                                    status.status === 'done'
+                                      ? 'default'
+                                      : status.status === 'failed'
+                                        ? 'destructive'
+                                        : 'secondary'
+                                  }
+                                  className="shrink-0"
+                                >
+                                  {status.status === 'done' ? (
+                                    <><CheckCircle2 className="size-3" /> Selesai</>
+                                  ) : status.status === 'failed' ? (
+                                    <><XCircle className="size-3" /> Gagal</>
+                                  ) : status.status === 'processing' ? (
+                                    'Memproses...'
+                                  ) : (
+                                    'Menunggu'
+                                  )}
+                                </Badge>
+                              )}
+                              {!uploading && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeBatchFile(i)}
+                                  aria-label={`Hapus ${f.name}`}
+                                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <X className="size-3.5" />
+                                </button>
+                              )}
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                )}
+
+                {batchDone && (
+                  <Alert className="border-primary/20 bg-primary/5">
+                    <AlertDescription className="flex flex-wrap items-center gap-2 text-foreground">
+                      <span>
+                        Batch selesai — <strong className="text-primary">{batchDone.successful} berhasil</strong>
+                        {batchDone.failed > 0 && (
+                          <> · <strong className="text-destructive">{batchDone.failed} gagal</strong></>
                         )}
-                        {!uploading && (
-                          <button type="button" className="batch-file-remove" onClick={() => removeBatchFile(i)} aria-label={`Hapus ${f.name}`}>✕</button>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
+                        .
+                      </span>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => router.push('/history')}>
+                        Lihat di Riwayat Upload <ArrowRight className="size-3.5" />
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
             )}
 
-            {batchDone && (
-              <div className="card-accent-blue" style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, background: 'var(--surface-low)', fontSize: 13 }}>
-                Batch selesai — <strong style={{ color: 'var(--green)' }}>{batchDone.successful} berhasil</strong>
-                {batchDone.failed > 0 && <> · <strong style={{ color: 'var(--red)' }}>{batchDone.failed} gagal</strong></>}.{' '}
-                <button type="button" className="btn btn-secondary btn-sm" style={{ marginLeft: 8 }} onClick={() => router.push('/history')}>
-                  Lihat di Riwayat Upload →
-                </button>
-              </div>
-            )}
-          </>
-        )}
-
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              className="login-error"
-              style={{ marginTop: 16 }}
-              initial={{ opacity: 0, y: -10, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: 'auto' }}
-              exit={{ opacity: 0, y: -10, height: 0 }}
-            >
-              ⚠️ {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-          {mode === 'single' ? (
-            <>
-              <button
-                className="btn btn-primary btn-lg"
-                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex', gap: 8 }}
-                onClick={handleUploadSingle}
-                disabled={!file || !jenisKlaim || uploading}
-              >
-                {uploading ? (<><span className="btn-spinner" />Memproses...</>) : (<><IconUploadArrow size={16} /> Upload & Ekstrak</>)}
-              </button>
-              {file && !uploading && (
-                <button className="btn btn-secondary" onClick={() => { setFile(null); setError(''); }}>Batal</button>
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -10, height: 0 }}
+                >
+                  <Alert variant="destructive">
+                    <AlertTriangle />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                </motion.div>
               )}
-            </>
-          ) : (
-            <>
-              <button
-                className="btn btn-primary btn-lg"
-                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex', gap: 8 }}
-                onClick={handleUploadBatch}
-                disabled={files.length === 0 || !jenisKlaim || uploading}
-              >
-                {uploading ? (<><span className="btn-spinner" />Memproses {batchStatuses.filter(s => s.status === 'done' || s.status === 'failed').length}/{files.length}...</>) : (<><IconUploadArrow size={16} /> Upload & Ekstrak Semua ({files.length} file)</>)}
-              </button>
-              {files.length > 0 && !uploading && (
-                <button className="btn btn-secondary" onClick={() => { setFiles([]); setBatchStatuses([]); setBatchDone(null); setError(''); }}>Kosongkan</button>
+            </AnimatePresence>
+
+            <div className="flex gap-3">
+              {mode === 'single' ? (
+                <>
+                  <Button
+                    size="lg"
+                    className="flex-1"
+                    onClick={handleUploadSingle}
+                    disabled={!file || !jenisKlaim || uploading}
+                  >
+                    {uploading ? (<><Spinner /> Memproses...</>) : (<><UploadCloud className="size-4" /> Unggah &amp; Ekstrak</>)}
+                  </Button>
+                  {file && !uploading && (
+                    <Button variant="secondary" size="lg" onClick={() => { setFile(null); setError(''); }}>Batal</Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="lg"
+                    className="flex-1"
+                    onClick={handleUploadBatch}
+                    disabled={files.length === 0 || !jenisKlaim || uploading}
+                  >
+                    {uploading ? (
+                      <><Spinner /> Memproses {batchProgressDone}/{files.length}...</>
+                    ) : (
+                      <><UploadCloud className="size-4" /> Unggah &amp; Ekstrak Semua ({files.length} file)</>
+                    )}
+                  </Button>
+                  {files.length > 0 && !uploading && (
+                    <Button variant="secondary" size="lg" onClick={() => { setFiles([]); setBatchStatuses([]); setBatchDone(null); setError(''); }}>
+                      Kosongkan
+                    </Button>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
-      </div>
-    </motion.div>
+    </div>
   );
 }

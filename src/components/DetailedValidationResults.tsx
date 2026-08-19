@@ -1,6 +1,11 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo } from 'react';
+import { CheckCircle2, XCircle, AlertCircle, CircleDot, Circle, Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface FieldValidation {
   column_name: string;
@@ -131,18 +136,18 @@ export default function DetailedValidationResults({
     valid: Object.values(fieldValidationMap).filter(f => f.status === 'valid' || f.status === 'not_validated').length,
   }), [fieldValidationMap, vclaimColumns]);
 
-  const getStatusIcon = (status: string) => {
+  const StatusIcon = ({ status }: { status: string }) => {
     switch (status) {
-      case 'error': return '❌';
-      case 'warning': return '⚠️';
-      case 'valid': return '✅';
-      case 'not_validated': return '🔷';
-      case 'empty': return '⚪';
-      default: return '•';
+      case 'error': return <XCircle className="size-[18px]" style={{ color: getStatusColor(status) }} />;
+      case 'warning': return <AlertCircle className="size-[18px]" style={{ color: getStatusColor(status) }} />;
+      case 'valid': return <CheckCircle2 className="size-[18px]" style={{ color: getStatusColor(status) }} />;
+      case 'not_validated': return <CircleDot className="size-[18px]" style={{ color: getStatusColor(status) }} />;
+      case 'empty': return <Circle className="size-[18px]" style={{ color: getStatusColor(status) }} />;
+      default: return <Circle className="size-[18px]" style={{ color: getStatusColor(status) }} />;
     }
   };
 
-  const getStatusColor = (status: string) => {
+  function getStatusColor(status: string) {
     switch (status) {
       case 'error': return '#dc2626';
       case 'warning': return '#f59e0b';
@@ -151,7 +156,7 @@ export default function DetailedValidationResults({
       case 'empty': return '#9ca3af';
       default: return '#6b7280';
     }
-  };
+  }
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -165,51 +170,36 @@ export default function DetailedValidationResults({
   };
 
   return (
-    <div style={{ marginTop: 24 }}>
+    <div className="mt-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 20,
-          paddingBottom: 16,
-          borderBottom: '1px solid var(--border-color)',
-        }}
+        className="flex items-center justify-between mb-5 pb-4 border-b flex-wrap gap-3"
       >
-        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
-          📋 Validasi Lengkap (60 Kolom vClaim)
+        <h3 className="text-base font-bold m-0">
+          Validasi Lengkap (60 Kolom vClaim)
         </h3>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {[
-              { count: stats.errors, label: 'Error', color: '#dc2626' },
-              { count: stats.warnings, label: 'Kosong', color: '#f59e0b' },
-              { count: stats.valid, label: 'Valid/vClaim', color: '#10b981' },
-            ].map(stat => (
-              <motion.div
-                key={stat.label}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: `${stat.color}15`,
-                  border: `1px solid ${stat.color}40`,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: stat.color,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-                whileHover={{ scale: 1.05 }}
-              >
-                <span>{stat.count}</span>
-                <span>{stat.label}</span>
-              </motion.div>
-            ))}
-          </div>
+        <div className="flex gap-2 items-center flex-wrap">
+          {[
+            { count: stats.errors, label: 'Error', color: '#dc2626' },
+            { count: stats.warnings, label: 'Kosong', color: '#f59e0b' },
+            { count: stats.valid, label: 'Valid/vClaim', color: '#10b981' },
+          ].map(stat => (
+            <motion.div
+              key={stat.label}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold border"
+              style={{
+                background: `${stat.color}15`,
+                borderColor: `${stat.color}40`,
+                color: stat.color,
+              }}
+              whileHover={{ scale: 1.05 }}
+            >
+              <span>{stat.count}</span>
+              <span>{stat.label}</span>
+            </motion.div>
+          ))}
         </div>
       </motion.div>
 
@@ -217,76 +207,42 @@ export default function DetailedValidationResults({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        style={{
-          display: 'flex',
-          gap: 12,
-          marginBottom: 20,
-          flexWrap: 'wrap',
-        }}
+        className="flex gap-3 mb-5 flex-wrap"
       >
         {/* Search */}
-        <div style={{
-          flex: 1,
-          minWidth: 200,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          background: 'var(--surface)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '8px 12px',
-        }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>🔍</span>
-          <input
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Input
             type="text"
             placeholder="Cari kolom atau nilai..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              flex: 1,
-              border: 'none',
-              background: 'transparent',
-              outline: 'none',
-              fontSize: 13,
-              color: 'var(--text-primary)',
-            }}
+            className="pl-9"
           />
         </div>
 
         {/* Filter buttons */}
-        {['all', 'error', 'warning', 'valid'].map(f => (
-          <motion.button
-            key={f}
-            onClick={() => setFilter(f as any)}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-sm)',
-              border: 'none',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              background: filter === f ? 'var(--primary)' : 'var(--surface)',
-              color: filter === f ? 'white' : 'var(--text-primary)',
-              transition: 'all 0.2s',
-            }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {f === 'all' && 'Semua'}
-            {f === 'error' && 'Hanya Error'}
-            {f === 'warning' && 'Hanya Kosong'}
-            {f === 'valid' && 'Hanya Valid'}
-          </motion.button>
+        {(['all', 'error', 'warning', 'valid'] as const).map(f => (
+          <motion.div key={f} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button
+              type="button"
+              size="sm"
+              variant={filter === f ? 'default' : 'secondary'}
+              onClick={() => setFilter(f)}
+            >
+              {f === 'all' && 'Semua'}
+              {f === 'error' && 'Hanya Error'}
+              {f === 'warning' && 'Hanya Kosong'}
+              {f === 'valid' && 'Hanya Valid'}
+            </Button>
+          </motion.div>
         ))}
       </motion.div>
 
       {/* Columns Grid */}
       <motion.div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: 12,
-        }}
+        className="grid gap-3"
+        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}
         variants={{
           hidden: {},
           visible: { transition: { staggerChildren: 0.03 } }
@@ -298,33 +254,25 @@ export default function DetailedValidationResults({
           {displayColumns.length === 0 ? (
             <motion.div
               key="empty"
-              style={{
-                gridColumn: '1 / -1',
-                textAlign: 'center',
-                padding: 40,
-                color: 'var(--text-muted)',
-              }}
+              className="col-span-full text-center py-10 text-muted-foreground"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+              <div className="mb-2"><Search className="size-8 mx-auto" /></div>
               <div>Tidak ada kolom yang sesuai filter</div>
             </motion.div>
           ) : (
-            displayColumns.map((field, idx) => (
+            displayColumns.map((field) => (
               <motion.div
                 key={field.column_name}
                 onClick={() => setExpandedColumn(
                   expandedColumn === field.column_name ? null : field.column_name
                 )}
+                className="rounded-lg border p-4 cursor-pointer transition-all"
                 style={{
-                  padding: 16,
-                  borderRadius: 'var(--radius-sm)',
-                  border: `1px solid ${getStatusColor(field.status)}40`,
+                  borderColor: `${getStatusColor(field.status)}40`,
                   background: `${getStatusColor(field.status)}08`,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
                 }}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -337,28 +285,16 @@ export default function DetailedValidationResults({
                 }}
               >
                 {/* Header */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 10,
-                }}>
-                  <span style={{ fontSize: 18 }}>{getStatusIcon(field.status)}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: getStatusColor(field.status),
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                    }}>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <StatusIcon status={field.status} />
+                  <div className="flex-1">
+                    <div
+                      className="text-xs font-bold uppercase tracking-wide"
+                      style={{ color: getStatusColor(field.status) }}
+                    >
                       {field.column_name}
                     </div>
-                    <div style={{
-                      fontSize: 10,
-                      color: 'var(--text-muted)',
-                      marginTop: 2,
-                    }}>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
                       {getStatusLabel(field.status)}
                     </div>
                   </div>
@@ -369,37 +305,23 @@ export default function DetailedValidationResults({
                   <textarea
                     value={String(editedValues[field.column_name] !== undefined ? editedValues[field.column_name] : field.value || '')}
                     onChange={(e) => onEdit?.(field.column_name, e.target.value)}
+                    className="w-full min-h-[50px] rounded-md border bg-background px-3 py-2.5 text-[11px] font-mono resize-y outline-none"
                     style={{
-                      width: '100%',
-                      minHeight: 50,
-                      padding: '10px 12px',
-                      borderRadius: 'var(--radius-xs)',
-                      border: `1px solid ${editedValues[field.column_name] !== undefined ? '#3b82f6' : getStatusColor(field.status)}`,
-                      background: 'var(--surface)',
-                      color: 'var(--text-primary)',
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      resize: 'vertical',
-                      outline: 'none',
+                      borderColor: editedValues[field.column_name] !== undefined ? '#3b82f6' : getStatusColor(field.status),
                     }}
                   />
                 ) : (
-                  <div style={{
-                    background: 'var(--surface)',
-                    border: `1px solid ${editedValues[field.column_name] !== undefined ? '#3b82f6' : getStatusColor(field.status)}30`,
-                    borderRadius: 'var(--radius-xs)',
-                    padding: '10px 12px',
-                    marginBottom: 10,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: field.status === 'error' ? '#dc2626' : 'var(--text-primary)',
-                    wordBreak: 'break-word',
-                    minHeight: 28,
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}>
+                  <div
+                    className={cn(
+                      'rounded-md border bg-background px-3 py-2.5 mb-2.5 font-mono text-xs break-words min-h-[28px] flex items-center',
+                      field.status === 'error' ? 'text-destructive' : 'text-foreground',
+                    )}
+                    style={{
+                      borderColor: `${editedValues[field.column_name] !== undefined ? '#3b82f6' : getStatusColor(field.status)}30`,
+                    }}
+                  >
                     {field.value === null || field.value === undefined || field.value === ''
-                      ? <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>(kosong)</span>
+                      ? <span className="text-muted-foreground italic">(kosong)</span>
                       : String(field.value).substring(0, 50)
                     }
                   </div>
@@ -408,25 +330,18 @@ export default function DetailedValidationResults({
                 {/* Error Details */}
                 {field.status === 'error' && field.error_message && (
                   <motion.div
-                    style={{
-                      background: '#fef2f2',
-                      border: '1px solid #fecaca',
-                      borderRadius: 'var(--radius-xs)',
-                      padding: '8px 10px',
-                      fontSize: 11,
-                      color: '#7f1d1d',
-                      lineHeight: '1.4',
-                    }}
+                    className="rounded-md border px-2.5 py-2 text-[11px] leading-relaxed"
+                    style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#7f1d1d' }}
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                   >
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    <div className="font-semibold mb-1">
                       {field.rule_id}: {field.severity?.toUpperCase()}
                     </div>
                     <div>{field.error_message}</div>
                     {field.suggestion && (
-                      <div style={{ marginTop: 6, padding: '6px 8px', background: '#fee2e2', borderRadius: 4 }}>
+                      <div className="mt-1.5 px-2 py-1.5 rounded" style={{ background: '#fee2e2' }}>
                         <strong>Saran:</strong> {field.suggestion}
                       </div>
                     )}
@@ -436,14 +351,7 @@ export default function DetailedValidationResults({
                 {/* Expand Indicator */}
                 {(field.status === 'error' || field.value) && (
                   <motion.div
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--text-muted)',
-                      textAlign: 'center',
-                      marginTop: 8,
-                      paddingTop: 8,
-                      borderTop: '1px solid var(--border-color)',
-                    }}
+                    className="text-[11px] text-muted-foreground text-center mt-2 pt-2 border-t"
                     animate={{ opacity: expandedColumn === field.column_name ? 1 : 0.5 }}
                   >
                     {expandedColumn === field.column_name ? '▲ Sembunyikan' : '▼ Detail'}
@@ -460,26 +368,19 @@ export default function DetailedValidationResults({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        style={{
-          marginTop: 24,
-          padding: 16,
-          background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface-low) 100%)',
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--border-color)',
-          fontSize: 12,
-          color: 'var(--text-muted)',
-        }}
+        className="mt-6 rounded-lg border p-4 text-xs text-muted-foreground"
+        style={{ background: 'linear-gradient(135deg, var(--muted) 0%, var(--secondary) 100%)' }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="flex justify-between items-center flex-wrap gap-3">
           <div>
-            <strong>Total {stats.total} kolom vClaim</strong>
-            <div style={{ fontSize: 11, marginTop: 4 }}>
-              Kolom ditandai dengan 🔷 akan diisi oleh sistem vClaim secara otomatis
+            <strong className="text-foreground">Total {stats.total} kolom vClaim</strong>
+            <div className="text-[11px] mt-1">
+              Kolom ditandai dengan indikator biru akan diisi oleh sistem vClaim secara otomatis
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>
+          <div className="flex gap-4 items-center">
+            <div className="text-right">
+              <div className="text-[13px] font-bold text-emerald-600 dark:text-emerald-400">
                 {stats.valid}/{stats.total}
               </div>
               <div>Valid / OK</div>

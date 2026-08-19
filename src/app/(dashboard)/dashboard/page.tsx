@@ -1,8 +1,40 @@
-﻿'use client';
+'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import {
+  FileText,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  Upload,
+  Inbox,
+} from 'lucide-react';
 import { api } from '@/lib/api';
+import { Header } from '@/components/dashboard/header';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 interface DashboardData {
   total_files: number;
@@ -48,32 +80,27 @@ function AnimatedCounter({ value, duration = 1200 }: { value: number; duration?:
   return <>{display.toLocaleString('id-ID')}</>;
 }
 
-/* ─── SVG Empty State Illustrations ─────────────────────────────── */
+/* ─── Empty States ───────────────────────────────────────────────── */
 function EmptyErrorState() {
   return (
-    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-      <svg width="80" height="80" viewBox="0 0 80 80" fill="none" style={{ margin: '0 auto 16px' }}>
-        <rect x="10" y="16" width="60" height="48" rx="8" fill="var(--surface-2, #f1f5f9)" stroke="var(--border, #e2e8f0)" strokeWidth="1.5" />
-        <path d="M30 36h20M30 44h14" stroke="var(--body-mid, #94a3b8)" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="56" cy="56" r="14" fill="var(--surface, #f8fafc)" stroke="var(--green, #22c55e)" strokeWidth="2" />
-        <path d="M50 56l4 4 8-8" stroke="var(--green, #22c55e)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <p style={{ color: 'var(--mute)', fontSize: 13, fontWeight: 500 }}>Belum ada data error</p>
-      <p style={{ color: 'var(--mute)', fontSize: 11, marginTop: 4, opacity: 0.7 }}>Semua klaim terproses dengan baik</p>
+    <div className="flex flex-col items-center justify-center py-10 text-center">
+      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+        <CheckCircle2 className="h-7 w-7 text-primary" />
+      </div>
+      <p className="text-sm font-medium text-foreground">Belum ada data error</p>
+      <p className="mt-1 text-xs text-muted-foreground">Semua klaim terproses dengan baik</p>
     </div>
   );
 }
 
 function EmptyUploadState() {
   return (
-    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-      <svg width="80" height="80" viewBox="0 0 80 80" fill="none" style={{ margin: '0 auto 16px' }}>
-        <rect x="12" y="20" width="56" height="44" rx="8" fill="var(--surface-2, #f1f5f9)" stroke="var(--border, #e2e8f0)" strokeWidth="1.5" strokeDasharray="4 3" />
-        <path d="M40 34v16M32 42l8-8 8 8" stroke="var(--primary, #6366f1)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="40" cy="14" r="4" fill="var(--primary, #6366f1)" opacity="0.2" />
-      </svg>
-      <p style={{ color: 'var(--mute)', fontSize: 13, fontWeight: 500 }}>Belum ada file yang diupload</p>
-      <p style={{ color: 'var(--mute)', fontSize: 11, marginTop: 4, opacity: 0.7 }}>Upload file pertama Anda untuk memulai</p>
+    <div className="flex flex-col items-center justify-center py-10 text-center">
+      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+        <Inbox className="h-7 w-7 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium text-foreground">Belum ada file yang diupload</p>
+      <p className="mt-1 text-xs text-muted-foreground">Upload file pertama Anda untuk memulai</p>
     </div>
   );
 }
@@ -144,46 +171,31 @@ const tableRowVariants = (index: number) => ({
 function LoadingSkeleton() {
   return (
     <motion.div
-      className="fade-in dashboard-page-container"
-      style={{ padding: 0 }}
+      className="space-y-4 md:space-y-5"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <div className="page-header" style={{ marginBottom: 20 }}>
-        <div className="skeleton" style={{ width: 200, height: 28, borderRadius: 6 }} />
-        <div className="skeleton" style={{ width: 300, height: 14, borderRadius: 6, marginTop: 8 }} />
+      <div>
+        <Skeleton className="h-7 w-48 rounded-md" />
+        <Skeleton className="mt-2 h-4 w-72 rounded-md" />
       </div>
-      <div className="stats-grid" style={{ marginBottom: 20 }}>
-        {[1, 2, 3, 4].map(i => (
-          <motion.div
-            key={i}
-            className="dashboard-stat-card"
-            style={{ padding: '16px 20px' }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08, duration: 0.4 }}
-          >
-            <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 10, marginBottom: 12 }} />
-            <div className="skeleton" style={{ width: 80, height: 12, borderRadius: 6, marginBottom: 8 }} />
-            <div className="skeleton" style={{ width: 60, height: 28, borderRadius: 6 }} />
-          </motion.div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="p-4">
+            <Skeleton className="mb-3 h-10 w-10 rounded-lg" />
+            <Skeleton className="mb-2 h-3 w-20 rounded-md" />
+            <Skeleton className="h-7 w-16 rounded-md" />
+          </Card>
         ))}
       </div>
-      <div className="dashboard-split-layout">
-        {[1, 2].map(i => (
-          <motion.div
-            key={i}
-            className="dashboard-table-card"
-            style={{ padding: 20, height: 300 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 + i * 0.1, duration: 0.4 }}
-          >
-            <div className="skeleton" style={{ width: '60%', height: 20, borderRadius: 6, marginBottom: 16 }} />
-            <div className="skeleton" style={{ width: '100%', height: 200, borderRadius: 6 }} />
-          </motion.div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {[1, 2].map((i) => (
+          <Card key={i} className="h-72 p-5">
+            <Skeleton className="mb-4 h-5 w-40 rounded-md" />
+            <Skeleton className="h-48 w-full rounded-md" />
+          </Card>
         ))}
       </div>
     </motion.div>
@@ -194,47 +206,42 @@ function LoadingSkeleton() {
 function StatCard({
   label,
   value,
-  icon,
-  accentClass,
-  valueClass,
-  iconBgClass,
+  icon: Icon,
+  iconBg,
+  iconColor,
+  valueColor,
   footer,
 }: {
   label: string;
   value: number;
-  icon: string;
-  accentClass: string;
-  valueClass: string;
-  iconBgClass: string;
+  icon: React.ElementType;
+  iconBg: string;
+  iconColor: string;
+  valueColor: string;
   footer: string;
 }) {
   return (
     <motion.div
-      className={`dashboard-stat-card ${accentClass}`}
       variants={statCardVariants}
-      whileHover={{ y: -4, boxShadow: '0 8px 25px -5px rgba(0,0,0,0.1)', transition: { duration: 0.2 } }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="stat-label-modern">{label}</div>
-        <div
-          className={iconBgClass}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 16,
-          }}
-        >
-          {icon}
+      <Card className="gap-3 p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
+          <div
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-lg',
+              iconBg,
+            )}
+          >
+            <Icon className={cn('h-4 w-4', iconColor)} />
+          </div>
         </div>
-      </div>
-      <div className={`stat-value ${valueClass}`} style={{ fontSize: 28 }}>
-        <AnimatedCounter value={value} />
-      </div>
-      <div className="stat-footer">{footer}</div>
+        <div className={cn('text-2xl font-bold', valueColor)}>
+          <AnimatedCounter value={value} />
+        </div>
+        <div className="text-xs text-muted-foreground">{footer}</div>
+      </Card>
     </motion.div>
   );
 }
@@ -253,7 +260,7 @@ export default function DashboardPage() {
       setLoading(true);
       const d = await api.getDashboard(period || undefined);
       setData(d);
-      setContentKey(k => k + 1);
+      setContentKey((k) => k + 1);
     } catch (err) {
       console.error('[Dashboard] Gagal memuat data:', err);
     } finally {
@@ -266,7 +273,12 @@ export default function DashboardPage() {
   }, [loadData]);
 
   if (loading) return <LoadingSkeleton />;
-  if (!data) return <div className="empty-state"><h3>Gagal memuat data</h3></div>;
+  if (!data)
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-20 text-center">
+        <h3 className="text-sm font-semibold text-foreground">Gagal memuat data</h3>
+      </div>
+    );
 
   const validPct = data.total_claims > 0 ? ((data.valid / data.total_claims) * 100).toFixed(1) : '0';
   const errorPct = data.total_claims > 0 ? ((data.error / data.total_claims) * 100).toFixed(1) : '0';
@@ -283,41 +295,43 @@ export default function DashboardPage() {
   return (
     <motion.div
       key={contentKey}
-      className="fade-in dashboard-page-container"
+      className="space-y-4 md:space-y-5"
       variants={pageVariants}
       initial="hidden"
       animate="visible"
     >
-      {/* Header */}
-      <div className="page-header" style={{ marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.03em' }}>Ringkasan</h2>
-          <p style={{ fontSize: 12, color: 'var(--body-mid)', marginTop: 4 }}>Metrik validasi klaim real-time</p>
-        </div>
-        <div className="filter-group">
-          <label className="filter-label">Periode</label>
-          <select
-            className="select-glass"
-            value={period}
-            onChange={(e) => {
-              setPeriod(e.target.value);
-              setUploadPage(1);
-            }}
-          >
-            <option value="">Semua Periode</option>
-            {data.available_periods.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <Header
+        title="Ringkasan"
+        description="Metrik validasi klaim real-time"
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Periode</span>
+            <Select
+              value={period || 'all'}
+              onValueChange={(v) => {
+                setPeriod(v === 'all' ? '' : v);
+                setUploadPage(1);
+              }}
+            >
+              <SelectTrigger size="sm" className="w-40 bg-card">
+                <SelectValue placeholder="Semua Periode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Periode</SelectItem>
+                {data.available_periods.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        }
+      />
 
       {/* Stats Grid */}
       <motion.div
-        className="stats-grid"
-        style={{ marginBottom: 24 }}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
         variants={staggerContainer}
         initial="hidden"
         animate="visible"
@@ -325,280 +339,255 @@ export default function DashboardPage() {
         <StatCard
           label="Total Klaim"
           value={data.total_claims}
-          icon="📋"
-          accentClass="card-accent-blue"
-          valueClass="stat-value-blue"
-          iconBgClass="icon-bg-blue"
+          icon={FileText}
+          iconBg="bg-primary/10"
+          iconColor="text-primary"
+          valueColor="text-foreground"
           footer={`${data.total_files} file diupload`}
         />
         <StatCard
           label="Valid"
           value={data.valid}
-          icon="✅"
-          accentClass="card-accent-green"
-          valueClass="stat-value-green"
-          iconBgClass="icon-bg-green"
+          icon={CheckCircle2}
+          iconBg="bg-primary/10"
+          iconColor="text-primary"
+          valueColor="text-primary"
           footer={`${validPct}% dari total`}
         />
         <StatCard
           label="Error"
           value={data.error}
-          icon="❌"
-          accentClass="card-accent-red"
-          valueClass="stat-value-red"
-          iconBgClass="icon-bg-red"
+          icon={XCircle}
+          iconBg="bg-destructive/10"
+          iconColor="text-destructive"
+          valueColor="text-destructive"
           footer={`${errorPct}% dari total`}
         />
         <StatCard
           label="Pending"
           value={data.pending}
-          icon="⏳"
-          accentClass="card-accent-amber"
-          valueClass="stat-value-amber"
-          iconBgClass="icon-bg-amber"
+          icon={Clock}
+          iconBg="bg-amber-500/10"
+          iconColor="text-amber-600"
+          valueColor="text-amber-600"
           footer={`${pendingPct}% dari total`}
         />
       </motion.div>
 
       {/* Split Layout */}
       <motion.div
-        className="dashboard-split-layout"
+        className="grid grid-cols-1 gap-4 lg:grid-cols-2"
         variants={splitLayoutVariants}
         initial="hidden"
         animate="visible"
       >
         {/* Left Column: Top 5 Error Rules */}
-        <motion.div className="dashboard-card-column" variants={columnVariants}>
-          <div className="dashboard-table-card">
-            <div className="card-header">
-              <h3><span className="text-gradient-indigo">📊</span> 5 Aturan Error Tertinggi</h3>
-              <span
-                style={{ fontSize: 12, color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}
+        <motion.div variants={columnVariants}>
+          <Card className="h-full gap-4 p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                5 Aturan Error Tertinggi
+              </h3>
+              <button
+                className="text-xs font-semibold text-primary hover:underline"
                 onClick={() => router.push('/rules')}
               >
-                Lihat Semua →
-              </span>
+                Lihat Semua &rarr;
+              </button>
             </div>
-            <div className="card-body">
-              {data.error_by_type.length === 0 ? (
-                <EmptyErrorState />
-              ) : (
-                <div className="rule-list-scrollable">
-                  <motion.div
-                    className="rule-list-container"
-                    variants={ruleStaggerContainer}
-                    initial="hidden"
-                    animate="visible"
-                  >
-                    {data.error_by_type.slice(0, 5).map((e, index) => {
-                      const pct = totalErrors > 0 ? Math.round((e.count / totalErrors) * 100) : 0;
-                      return (
+
+            {data.error_by_type.length === 0 ? (
+              <EmptyErrorState />
+            ) : (
+              <motion.div
+                className="space-y-3"
+                variants={ruleStaggerContainer}
+                initial="hidden"
+                animate="visible"
+              >
+                {data.error_by_type.slice(0, 5).map((e, index) => {
+                  const pct = totalErrors > 0 ? Math.round((e.count / totalErrors) * 100) : 0;
+                  return (
+                    <motion.div
+                      key={e.rule_id}
+                      className="rounded-lg p-2.5 transition-colors hover:bg-muted/50"
+                      variants={ruleItemVariants}
+                    >
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center text-xs font-medium text-foreground">
+                          <Badge variant="destructive" className="mr-2 shrink-0 px-1.5 py-0 text-[9px]">
+                            {e.rule_id}
+                          </Badge>
+                          <span className="truncate">{e.rule_name}</span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold text-muted-foreground">{pct}%</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                         <motion.div
-                          key={e.rule_id}
-                          className="rule-list-item-modern"
-                          style={{ padding: '10px 14px' }}
-                          variants={ruleItemVariants}
-                          whileHover={{
-                            x: 4,
-                            backgroundColor: 'rgba(99, 102, 241, 0.04)',
-                            transition: { duration: 0.15 },
+                          className="h-full rounded-full bg-destructive"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{
+                            duration: 0.8,
+                            ease: [0.25, 0.46, 0.45, 0.94] as const,
+                            delay: 0.3 + index * 0.08,
                           }}
-                        >
-                          <div className="rule-list-item-header">
-                            <span className="rule-list-item-title" style={{ fontSize: 11 }}>
-                              <span
-                                className="badge badge-error"
-                                style={{
-                                  marginRight: 8,
-                                  borderRadius: 'var(--radius-sm)',
-                                  padding: '2px 6px',
-                                  fontSize: 9,
-                                }}
-                              >
-                                {e.rule_id}
-                              </span>
-                              {e.rule_name}
-                            </span>
-                            <span className="rule-list-item-percent" style={{ fontSize: 10 }}>
-                              {pct}%
-                            </span>
-                          </div>
-                          <div className="rule-progress-track">
-                            <motion.div
-                              className="rule-progress-fill"
-                              style={{ background: 'linear-gradient(90deg, #ef4444, #ec4899)' }}
-                              initial={{ width: 0 }}
-                              animate={{ width: `${pct}%` }}
-                              transition={{
-                                duration: 0.8,
-                                ease: [0.25, 0.46, 0.45, 0.94] as const,
-                                delay: 0.3 + index * 0.08,
-                              }}
-                            />
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                </div>
-              )}
-            </div>
-          </div>
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </Card>
         </motion.div>
 
         {/* Right Column: Recent Uploads Table */}
-        <motion.div className="dashboard-card-column" variants={columnVariants}>
-          <div className="dashboard-table-card">
-            <div className="card-header">
-              <h3><span className="text-gradient-teal">📁</span> Upload Terbaru</h3>
-              <button
-                className="btn btn-primary"
-                onClick={() => router.push('/upload')}
-                style={{ padding: '6px 12px', fontSize: 11 }}
-              >
+        <motion.div variants={columnVariants}>
+          <Card className="flex h-full flex-col gap-4 p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <FileText className="h-4 w-4 text-primary" />
+                Upload Terbaru
+              </h3>
+              <Button size="sm" className="h-7 gap-1 text-xs" onClick={() => router.push('/upload')}>
+                <Upload className="h-3.5 w-3.5" />
                 Upload Baru
-              </button>
+              </Button>
             </div>
-            <div className="card-body">
-              {data.recent_files.length === 0 ? (
-                <EmptyUploadState />
-              ) : (
-                <>
-                  <div className="table-container-scrollable">
-                    <table className="dashboard-table">
-                      <thead>
-                        <tr>
-                          <th>Nama File</th>
-                          <th>Tanggal Upload</th>
-                          <th>Periode</th>
-                          <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedFiles.map((f, index) => {
-                          const statusText =
-                            f.status === 'completed'
-                              ? 'Processed'
-                              : f.status === 'validating'
-                              ? 'Validating'
-                              : f.status === 'failed'
-                              ? 'Failed'
-                              : f.status;
-                          const badgeClass =
-                            f.status === 'completed'
-                              ? 'valid'
-                              : f.status === 'validating'
-                              ? 'pending'
-                              : f.status === 'failed'
-                              ? 'error'
-                              : 'uploaded';
 
-                          return (
-                            <motion.tr
-                              key={f.id}
-                              custom={index}
-                              variants={tableRowVariants(index)}
-                              initial="hidden"
-                              animate="visible"
-                              whileHover={{
-                                backgroundColor: 'rgba(99, 102, 241, 0.03)',
-                                transition: { duration: 0.15 },
-                              }}
-                              style={{ borderRadius: 6 }}
-                            >
-                              <td style={{ padding: '10px 14px' }}>
-                                <div className="file-cell" style={{ gap: 8 }}>
-                                  <div className="file-icon-modern" style={{ width: 28, height: 28, fontSize: 13 }}>
-                                    &#128196;
-                                  </div>
-                                  <span style={{ fontWeight: 500, fontSize: 12 }}>{f.file_name}</span>
+            {data.recent_files.length === 0 ? (
+              <EmptyUploadState />
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Nama File</TableHead>
+                        <TableHead className="text-xs">Tanggal Upload</TableHead>
+                        <TableHead className="text-xs">Periode</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-right text-xs">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedFiles.map((f, index) => {
+                        const statusText =
+                          f.status === 'completed'
+                            ? 'Processed'
+                            : f.status === 'validating'
+                            ? 'Validating'
+                            : f.status === 'failed'
+                            ? 'Failed'
+                            : f.status;
+                        const badgeVariant: 'default' | 'destructive' | 'secondary' =
+                          f.status === 'completed'
+                            ? 'default'
+                            : f.status === 'failed'
+                            ? 'destructive'
+                            : 'secondary';
+                        const badgeClassName =
+                          f.status === 'completed'
+                            ? 'bg-primary/10 text-primary border-transparent'
+                            : f.status === 'validating'
+                            ? 'bg-amber-500/10 text-amber-600 border-transparent'
+                            : f.status === 'failed'
+                            ? ''
+                            : 'bg-muted text-muted-foreground border-transparent';
+
+                        return (
+                          <motion.tr
+                            key={f.id}
+                            custom={index}
+                            variants={tableRowVariants(index)}
+                            initial="hidden"
+                            animate="visible"
+                            className="border-b transition-colors last:border-0 hover:bg-muted/50"
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                                  <FileText className="h-3.5 w-3.5 text-primary" />
                                 </div>
-                              </td>
-                              <td style={{ color: 'var(--body-mid)', padding: '10px 14px', fontSize: 12 }}>
-                                {new Date(f.created_at).toLocaleDateString('id-ID', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric',
-                                })}
-                                ,{' '}
-                                {new Date(f.created_at).toLocaleTimeString('id-ID', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </td>
-                              <td style={{ color: 'var(--body-mid)', padding: '10px 14px', fontSize: 12 }}>
-                                {f.period || '-'}
-                              </td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <span
-                                  className={`badge badge-${badgeClass}`}
-                                  style={{ fontSize: 9, padding: '2px 6px', fontWeight: 600 }}
-                                >
-                                  {statusText}
+                                <span className="max-w-[140px] truncate text-xs font-medium text-foreground">
+                                  {f.file_name}
                                 </span>
-                              </td>
-                              <td style={{ textAlign: 'right', padding: '10px 14px' }}>
-                                {f.status === 'completed' && f.error_count === 0 ? (
-                                  <button
-                                    className="btn-table-action primary"
-                                    onClick={() => router.push(`/results/${f.id}`)}
-                                    style={{ padding: '4px 10px', fontSize: 11 }}
-                                  >
-                                    Lihat Laporan
-                                  </button>
-                                ) : f.status === 'completed' || f.status === 'failed' ? (
-                                  <button
-                                    className="btn-table-action danger"
-                                    onClick={() => router.push(`/results/${f.id}`)}
-                                    style={{ padding: '4px 10px', fontSize: 11 }}
-                                  >
-                                    Lihat Error
-                                  </button>
-                                ) : (
-                                  <span style={{ color: 'var(--mute)', fontSize: 11, marginRight: 8 }}>
-                                    Memvalidasi...
-                                  </span>
-                                )}
-                              </td>
-                            </motion.tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {new Date(f.created_at).toLocaleDateString('id-ID', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                              ,{' '}
+                              {new Date(f.created_at).toLocaleTimeString('id-ID', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{f.period || '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant={badgeVariant} className={cn('text-[10px]', badgeClassName)}>
+                                {statusText}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {f.status === 'completed' && f.error_count === 0 ? (
+                                <button
+                                  className="text-xs font-semibold text-primary hover:underline"
+                                  onClick={() => router.push(`/results/${f.id}`)}
+                                >
+                                  Lihat Laporan
+                                </button>
+                              ) : f.status === 'completed' || f.status === 'failed' ? (
+                                <button
+                                  className="text-xs font-semibold text-destructive hover:underline"
+                                  onClick={() => router.push(`/results/${f.id}`)}
+                                >
+                                  Lihat Error
+                                </button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Memvalidasi...</span>
+                              )}
+                            </TableCell>
+                          </motion.tr>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
 
-                  {/* Pagination Controls */}
-                  <div className="table-footer-modern" style={{ marginTop: 'auto', paddingTop: 10 }}>
-                    <div className="table-footer-info" style={{ fontSize: 11 }}>
-                      Menampilkan {startIndex + 1}-{Math.min(endIndex, data.recent_files.length)} dari{' '}
-                      {data.recent_files.length}
-                    </div>
-                    <div className="table-footer-pagination">
-                      <button
-                        className="btn-pagination-arrow"
-                        disabled={uploadPage <= 1}
-                        onClick={() => setUploadPage((p) => Math.max(1, p - 1))}
-                        title="Halaman Sebelumnya"
-                        style={{ width: 28, height: 28, fontSize: 11 }}
-                      >
-                        &lt;
-                      </button>
-                      <button
-                        className="btn-pagination-arrow"
-                        disabled={uploadPage >= totalPages}
-                        onClick={() => setUploadPage((p) => Math.min(totalPages, p + 1))}
-                        title="Halaman Berikutnya"
-                        style={{ width: 28, height: 28, fontSize: 11 }}
-                      >
-                        &gt;
-                      </button>
-                    </div>
+                {/* Pagination Controls */}
+                <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
+                  <div className="text-xs text-muted-foreground">
+                    Menampilkan {startIndex + 1}-{Math.min(endIndex, data.recent_files.length)} dari{' '}
+                    {data.recent_files.length}
                   </div>
-                </>
-              )}
-            </div>
-          </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                      disabled={uploadPage <= 1}
+                      onClick={() => setUploadPage((p) => Math.max(1, p - 1))}
+                      title="Halaman Sebelumnya"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                      disabled={uploadPage >= totalPages}
+                      onClick={() => setUploadPage((p) => Math.min(totalPages, p + 1))}
+                      title="Halaman Berikutnya"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </Card>
         </motion.div>
       </motion.div>
     </motion.div>

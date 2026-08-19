@@ -2,8 +2,17 @@
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { ToastContainer, useToast } from '@/components/Toast';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { Header } from '@/components/dashboard/header';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { Search, CheckCircle2, XCircle, ChevronLeft, ChevronRight, FileText, Sparkles, Lightbulb, AlertTriangle, PanelLeftOpen, Users } from 'lucide-react';
 
 // react-pdf (pdfjs-dist) mengakses DOMMatrix di level modul — API browser
 // yang tidak ada saat Next.js SSR. Import statis biasa bikin server crash
@@ -110,11 +119,16 @@ interface FieldRow {
 
 // RV-13/14/15/16 (BA Kesepakatan BPJS No. 1247/2024) butuh data riwayat kunjungan
 // lintas episode (jumlah episode konsul, riwayat obat kronis, urutan iterasi, dst)
-// yang TIDAK PERNAH ada di PDF "Berkas Klaim Individual" — hanya tersedia kalau
-// data masuk lewat bridging TXT/JSON dari SIMRS yang menyertakan kolom tambahan
-// ini. Kalau tidak ada satupun penanda kolom ini di raw_data, keempat rule itu
-// otomatis tidak pernah bisa menyala untuk record ini — bukan berarti klaimnya
-// benar-benar valid dari sisi itu, verifikator wajib cek manual.
+// yang TIDAK PERNAH ada di 1 dokumen PDF sendirian — hanya tersedia kalau (a) data
+// masuk lewat bridging TXT/JSON dari SIMRS yang menyertakan kolom tambahan ini,
+// atau (b) backend berhasil cross-check RV-13 antar record NOKARTU+tanggal sama
+// di database (lihat detectAndFlagInternalEpisodes() di claimFiles.js — kalau itu
+// jalan, kolom jumlah_episode_klaim/jenis_konsultasi/is_same_day di DB TERISI,
+// meski raw_data — snapshot asli upload — tetap kosong, makanya cek di bawah
+// tidak cuma baca raw_data, tapi juga kolom record langsung). Kalau tidak ada
+// satupun penanda ini, RV-13/14/15/16 tidak pernah bisa menyala untuk record ini
+// — bukan berarti klaimnya benar-benar valid dari sisi itu, verifikator wajib
+// cek manual.
 const EPISODE_TRACKING_MARKERS = [
   'JENIS_KONSULTASI', 'JUMLAH_EPISODE_KLAIM', 'IS_SAME_DAY',
   'HISTORI_OBAT_KRONIS_BULAN_BERTURUT', 'URUTAN_ITERASI',
@@ -126,8 +140,15 @@ const UNVERIFIABLE_WITHOUT_EPISODE_DATA = [
   { rule_id: 'RV-16', label: 'Batas Maksimal Iterasi Obat Kronis' },
 ];
 
-function hasEpisodeTrackingData(rawData: Record<string, any>): boolean {
-  return EPISODE_TRACKING_MARKERS.some(k => rawData[k] !== undefined && rawData[k] !== null && rawData[k] !== '');
+function hasEpisodeTrackingData(record: Record<string, any>): boolean {
+  const rawData = parseRawData(record);
+  if (EPISODE_TRACKING_MARKERS.some(k => rawData[k] !== undefined && rawData[k] !== null && rawData[k] !== '')) {
+    return true;
+  }
+  // Kolom DB langsung (diisi cross-check backend, bukan lewat raw_data) —
+  // jenis_konsultasi & jumlah_episode_klaim > 1 artinya cross-check RV-13
+  // sudah menemukan & menandai kunjungan lintas-poli hari yang sama.
+  return Boolean(record.jenis_konsultasi) && Number(record.jumlah_episode_klaim) > 1;
 }
 
 function parseRawData(recordData: Record<string, any>): Record<string, any> {
@@ -136,11 +157,30 @@ function parseRawData(recordData: Record<string, any>): Record<string, any> {
   catch { return {}; }
 }
 
+interface PendingRiskNote {
+  pattern: string;
+  page_number: number;
+  basis: string;
+  note: string;
+}
+
 interface AiReview {
   field_notes?: Record<string, string>;
   code_evidence?: CodeEvidence[];
   suggested_codes?: SuggestedCode[];
+  pending_risk_notes?: PendingRiskNote[];
 }
+
+// Label ramah-verifikator untuk tiap pola risiko pending — dipetakan dari
+// analisis data pending BPJS riil (lihat aiReviewService.js di backend untuk
+// definisi lengkap tiap pola & aturan bukti dokumennya).
+const PENDING_RISK_LABELS: Record<string, string> = {
+  kegawatan_lemah: 'Kriteria kegawatan lemah',
+  manifestasi_ikut_du: 'Diagnosis sekunder = manifestasi DU',
+  tb_level_fktp: 'TB seharusnya cukup di FKTP',
+  usg_berulang_tanpa_indikasi: 'USG berulang tanpa indikasi baru',
+  rujuk_saja_tanpa_tindakan: 'Kunjungan rujuk-saja, cek kode Z71.9',
+};
 
 function parseAiReview(recordData: Record<string, any>): AiReview | null {
   if (!recordData.ai_review) return null;
@@ -217,17 +257,18 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
   return map;
 }
 
-function statusBadgeClass(status: FieldRow['status']) {
-  if (status === 'error') return 'badge-error';
-  if (status === 'empty') return 'badge-pending';
-  if (status === 'system') return 'badge-secondary';
-  return 'badge-valid';
+function StatusBadge({ status }: { status: FieldRow['status'] }) {
+  if (status === 'error') return <Badge variant="destructive" className="text-[10px]">Error</Badge>;
+  if (status === 'empty') return <Badge className="text-[10px] border-transparent bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Kosong</Badge>;
+  if (status === 'system') return <Badge variant="secondary" className="text-[10px]">Otomatis vClaim</Badge>;
+  return <Badge className="text-[10px] border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">Valid</Badge>;
 }
-function statusLabel(status: FieldRow['status']) {
-  if (status === 'error') return 'Error';
-  if (status === 'empty') return 'Kosong';
-  if (status === 'system') return 'Otomatis vClaim';
-  return 'Valid';
+
+function RecordStatusBadge({ status }: { status: string }) {
+  const s = status.toLowerCase();
+  if (s === 'error') return <Badge variant="destructive" className="text-[10px]">{status.toUpperCase()}</Badge>;
+  if (s === 'pending') return <Badge className="text-[10px] border-transparent bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">{status.toUpperCase()}</Badge>;
+  return <Badge className="text-[10px] border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">{status.toUpperCase()}</Badge>;
 }
 
 // ─── Unified 60-column table (replaces old "Validasi 60 Kolom" + "Verifikasi & Edit" tabs) ───
@@ -261,21 +302,21 @@ function RecordFieldsTable({
   const totalRows = categories.reduce((n, c) => n + c.rows.length, 0);
 
   return (
-    <div className="table-container" style={{ maxHeight: 560, overflowY: 'auto' }}>
-      <table>
-        <thead>
-          <tr>
-            <th style={{ width: 190 }}>Kolom</th>
-            <th>Nilai</th>
-            <th style={{ width: 110 }}>Status</th>
-            <th>Catatan / Saran</th>
+    <div className="rounded-lg border overflow-y-auto" style={{ maxHeight: 560 }}>
+      <table className="w-full text-sm border-collapse">
+        <thead className="sticky top-0 z-10 bg-muted">
+          <tr className="border-b">
+            <th className="w-[190px] text-left px-3 py-2 font-semibold text-xs">Kolom</th>
+            <th className="text-left px-3 py-2 font-semibold text-xs">Nilai</th>
+            <th className="w-[110px] text-left px-3 py-2 font-semibold text-xs">Status</th>
+            <th className="text-left px-3 py-2 font-semibold text-xs">Catatan / Saran</th>
           </tr>
         </thead>
         <tbody>
           {totalRows === 0 && onlyIssues ? (
             <tr>
-              <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>
-                <strong>✅ Tidak ada data bermasalah</strong> — semua kolom vClaim terisi &amp; valid.
+              <td colSpan={4} className="text-center py-6 text-muted-foreground">
+                <strong className="text-foreground">✅ Tidak ada data bermasalah</strong> — semua kolom vClaim terisi &amp; valid.
                 Matikan &ldquo;Tampilkan hanya yang bermasalah&rdquo; untuk melihat seluruh data klaim.
               </td>
             </tr>
@@ -283,7 +324,7 @@ function RecordFieldsTable({
             categories.map(({ category, rows }) => (
               <Fragment key={category}>
                 <tr>
-                  <td colSpan={4} style={{ background: 'var(--surface)', fontWeight: 700, fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  <td colSpan={4} className="bg-muted/70 font-bold text-[11px] text-muted-foreground uppercase tracking-wide px-3 py-1.5">
                     {category}
                   </td>
                 </tr>
@@ -293,116 +334,99 @@ function RecordFieldsTable({
                     ? editedValues[field.column_name] : field.value;
                   const isChanged = editedValues[field.column_name] !== undefined;
                   return (
-                    <tr key={field.column_name}>
-                      <td style={{ fontWeight: 600, fontSize: 12 }}>{field.column_name}</td>
-                      <td>
+                    <tr key={field.column_name} className="border-b last:border-0 hover:bg-muted/40 align-top">
+                      <td className="px-3 py-2 font-semibold text-xs">{field.column_name}</td>
+                      <td className="px-3 py-2">
                         {editing && !isSystem ? (
                           <input
                             type="text"
                             value={String(currentValue ?? '')}
                             onChange={e => onEdit(field.column_name, e.target.value)}
-                            style={{
-                              width: '100%',
-                              padding: '6px 8px',
-                              borderRadius: 4,
-                              border: `1px solid ${isChanged ? 'var(--accent-blue)' : 'var(--border-color)'}`,
-                              background: 'var(--surface)',
-                              color: 'var(--text-primary)',
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                            }}
+                            className={cn(
+                              'w-full rounded-md border bg-background px-2 py-1.5 font-mono text-xs',
+                              'focus:outline-none focus:ring-2 focus:ring-ring/50',
+                              isChanged ? 'border-blue-500' : 'border-input',
+                            )}
                           />
                         ) : (
-                          <span style={{
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            color: field.status === 'error' ? '#dc2626' : 'var(--text-primary)',
-                          }}>
+                          <span className={cn('font-mono text-xs', field.status === 'error' ? 'text-destructive' : 'text-foreground')}>
                             {currentValue === null || currentValue === undefined || currentValue === ''
-                              ? <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>(kosong)</span>
+                              ? <span className="text-muted-foreground italic">(kosong)</span>
                               : String(currentValue)}
                           </span>
                         )}
                       </td>
-                      <td>
-                        <span className={`badge ${statusBadgeClass(field.status)}`} style={{ fontSize: 10 }}>
-                          {statusLabel(field.status)}
-                        </span>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={field.status} />
                       </td>
-                      <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
                         {field.status === 'error' && field.error_message && (
                           <div>
-                            <div style={{ color: '#dc2626', marginBottom: 4 }}>
+                            <div className="text-destructive mb-1">
                               <strong>{field.rule_id}:</strong> {field.error_message}
                             </div>
                             {field.suggestion && (
-                              <div style={{
-                                background: 'var(--surface-secondary, rgba(59,130,246,0.08))',
-                                borderLeft: '3px solid var(--accent-blue, #3b82f6)',
-                                padding: '6px 10px',
-                                borderRadius: '0 4px 4px 0',
-                                marginTop: 4,
-                              }}>
+                              <div className="bg-blue-500/10 border-l-2 border-blue-500 px-2.5 py-1.5 rounded-r-md mt-1">
                                 <strong>Perbaiki menjadi:</strong>{' '}
-                                <code style={{ fontFamily: 'monospace', fontSize: 12 }}>{field.suggestion}</code>
+                                <code className="font-mono text-xs">{field.suggestion}</code>
                               </div>
                             )}
                           </div>
                         )}
                         {field.status === 'empty' && !field.codeEvidence && (
-                          <span style={{ color: '#f59e0b' }}>
+                          <span className="text-amber-600 dark:text-amber-400">
                             {(field.column_name === 'KODE_RS' || field.column_name === 'KELAS_RS')
                               ? <>Field ini atribut rumah sakit, bukan per-klaim — memang tidak pernah tercetak di SEP/Resume Medis pasien. Isi sekali di menu <strong>Aturan Validasi &gt; Profil Rumah Sakit</strong>, akan otomatis terisi untuk klaim berikutnya.</>
                               : 'Data tidak ditemukan di dokumen PDF. Periksa dan isi manual.'}
                           </span>
                         )}
                         {field.aiNote && (
-                          <div style={{
-                            marginTop: field.status === 'error' ? 6 : 0,
-                            background: 'var(--surface-secondary, rgba(124,58,237,0.06))',
-                            borderLeft: '3px solid #7c3aed',
-                            padding: '6px 10px',
-                            borderRadius: '0 4px 4px 0',
-                          }}>
-                            <strong>🤖 AI:</strong> {field.aiNote}
+                          <div className={cn('bg-violet-500/10 border-l-2 border-violet-500 px-2.5 py-1.5 rounded-r-md', field.status === 'error' ? 'mt-1.5' : '')}>
+                            <strong className="inline-flex items-center gap-1"><Sparkles className="size-3" /> AI:</strong> {field.aiNote}
                           </div>
                         )}
                         {field.codeEvidence && field.codeEvidence.length > 0 && (
-                          <div style={{ marginTop: (field.status === 'error' || field.aiNote) ? 6 : 0, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          <div className={cn('flex flex-wrap gap-1', (field.status === 'error' || field.aiNote) ? 'mt-1.5' : '')}>
                             {field.codeEvidence.map(ev => (
                               <span
                                 key={ev.code}
-                                className={`badge ${ev.found ? 'badge-valid' : 'badge-error'}`}
-                                style={{ fontSize: 10, fontFamily: 'monospace', cursor: ev.quotation ? 'help' : 'default' }}
+                                className={cn(
+                                  'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono border',
+                                  ev.found
+                                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30'
+                                    : 'bg-destructive/10 text-destructive border-destructive/30',
+                                  ev.quotation ? 'cursor-help' : '',
+                                )}
                                 title={ev.found && ev.quotation ? `Hal. ${ev.page_number}: "${ev.quotation}"` : !ev.found ? 'Tidak ada bukti dokumen — periksa manual' : undefined}
                               >
-                                {ev.found ? '✅' : '⚠️'} {ev.code}
+                                {ev.found ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />} {ev.code}
                               </span>
                             ))}
                           </div>
                         )}
                         {field.suggestedCodes && field.suggestedCodes.length > 0 && (
-                          <div style={{ marginTop: 4, color: '#2563eb', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                            <span>💡 Kode disarankan dari dokumen (belum diklaim, verifikasi dulu sebelum dipakai):</span>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                            <span className="inline-flex items-center gap-1"><Lightbulb className="size-3" /> Kode disarankan dari dokumen (belum diklaim, verifikasi dulu sebelum dipakai):</span>
                             {field.suggestedCodes.map((s, i) => {
                               const currentCodes = String(currentValue ?? '').split(';').map(c => c.trim()).filter(Boolean);
                               const alreadyApplied = currentCodes.includes(s.code);
                               return (
-                                <span key={s.code} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <span key={s.code} className="inline-flex items-center gap-1">
                                   {i > 0 && <span>,</span>}
-                                  <span title={`Hal. ${s.page_number}: "${s.quotation}"${s.reasoning ? ` — ${s.reasoning}` : ''}`} style={{ cursor: 'help', fontFamily: 'monospace' }}>
+                                  <span title={`Hal. ${s.page_number}: "${s.quotation}"${s.reasoning ? ` — ${s.reasoning}` : ''}`} className="cursor-help font-mono">
                                     {s.code}
                                   </span>
                                   {editing && !isSystem && (
-                                    <button
+                                    <Button
                                       type="button"
-                                      className="btn btn-secondary btn-sm"
+                                      variant="secondary"
+                                      size="sm"
                                       disabled={alreadyApplied}
                                       onClick={() => onEdit(field.column_name, [...currentCodes, s.code].join(';'))}
-                                      style={{ fontSize: 10, padding: '1px 6px' }}
+                                      className="h-5 px-1.5 text-[10px]"
                                     >
                                       {alreadyApplied ? '✓ Diterapkan' : 'Terapkan'}
-                                    </button>
+                                    </Button>
                                   )}
                                 </span>
                               );
@@ -429,8 +453,8 @@ function RecordFieldsTable({
 
 function LoadingSpinner() {
   return (
-    <div className="loading">
-      <div className="spinner" />
+    <div className="flex items-center justify-center py-24">
+      <div className="size-8 rounded-full border-2 border-muted border-t-primary animate-spin" />
     </div>
   );
 }
@@ -455,6 +479,12 @@ export default function ResultsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [onlyIssues, setOnlyIssues] = useState(false);
+  const [listCollapsed, setListCollapsed] = useState(false);
+
+  const selectRecord = (id: string) => {
+    setSelectedRecordId(id);
+    setListCollapsed(true);
+  };
 
   const loadRecords = useCallback(async () => {
     try {
@@ -535,9 +565,25 @@ export default function ResultsPage() {
     }
   };
 
+  // Berapa persen data (di halaman yang sudah dimuat) yang butuh cek manual
+  // karena field riwayat episode kosong — verifikator ingin tahu skala
+  // dampaknya, bukan cuma tahu record yang sedang dilihat saja yang kena.
+  const episodeGapStats = useMemo(() => {
+    if (records.length === 0) return null;
+    const affected = records.filter(r => !hasEpisodeTrackingData(r));
+    if (affected.length === 0) return null;
+    return {
+      count: affected.length,
+      ofLoaded: records.length,
+      pct: Math.round((affected.length / records.length) * 100),
+    };
+  }, [records]);
+
   if (loading) return <LoadingSpinner />;
   if (!fileInfo) return (
-    <div className="empty-state"><h3>File tidak ditemukan</h3></div>
+    <div className="flex items-center justify-center py-24 text-muted-foreground">
+      <h3 className="text-base font-semibold">File tidak ditemukan</h3>
+    </div>
   );
 
   const totalPages = Math.ceil(total / 30);
@@ -546,84 +592,85 @@ export default function ResultsPage() {
 
   const selectedRecord = selectedRecordId ? records.find(r => r.id === selectedRecordId) : null;
 
+  const kategori = JENIS_KLAIM_OPTIONS.find(o => o.value === fileInfo.jenis_klaim);
+
   return (
-    <div className="fade-in results-page-container">
+    <div className="animate-fade-in space-y-4">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      {/* ─── Header ──────────────────────────────────────────────────── */}
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
-            Hasil Validasi
-            {(() => {
-              const kategori = JENIS_KLAIM_OPTIONS.find(o => o.value === fileInfo.jenis_klaim);
-              return kategori ? (
-                <span
-                  className="badge"
-                  style={{
-                    background: `color-mix(in srgb, ${kategori.accent} 14%, transparent)`,
-                    color: kategori.accent,
-                    fontSize: 11,
-                  }}
-                >
-                  {kategori.icon} {kategori.label}
-                </span>
-              ) : null;
-            })()}
-          </h2>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fileInfo.file_name}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          {canApprove && (
-            <button className="btn btn-success" onClick={handleApprove}>Setujui</button>
-          )}
-        </div>
-      </div>
+      <Header
+        title="Hasil Validasi"
+        description={fileInfo.file_name}
+        actions={
+          <>
+            {kategori && (
+              <Badge
+                className="text-[11px] border-transparent"
+                style={{ background: `color-mix(in srgb, ${kategori.accent} 14%, transparent)`, color: kategori.accent }}
+              >
+                {kategori.icon} {kategori.label}
+              </Badge>
+            )}
+            <Button variant="outline" onClick={handleExport}>Ekspor</Button>
+            {canApprove && (
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleApprove}>Setujui</Button>
+            )}
+          </>
+        }
+      />
 
       {/* ─── Compact summary bar ─────────────────────────────────────── */}
-      <div className="card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Card className="p-4 flex flex-row flex-wrap items-center gap-7">
         <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total Data</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{fileInfo.total_records}</div>
+          <div className="text-[11px] text-muted-foreground">Total Data</div>
+          <div className="text-xl font-bold">{fileInfo.total_records}</div>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Valid</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>{fileInfo.valid_count}</div>
+          <div className="text-[11px] text-muted-foreground">Valid</div>
+          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{fileInfo.valid_count}</div>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Error</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#dc2626' }}>{fileInfo.error_count}</div>
+          <div className="text-[11px] text-muted-foreground">Error</div>
+          <div className="text-xl font-bold text-destructive">{fileInfo.error_count}</div>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>{fileInfo.pending_count}</div>
+          <div className="text-[11px] text-muted-foreground">Pending</div>
+          <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{fileInfo.pending_count}</div>
         </div>
         {fileInfo.error_summary && fileInfo.error_summary.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
+          <div className="flex flex-wrap gap-2 ml-auto">
             {fileInfo.error_summary.map(rule => (
-              <span key={rule.rule_id} className={`badge badge-${rule.severity}`} style={{ fontSize: 10 }}>
+              <Badge
+                key={rule.rule_id}
+                variant={rule.severity === 'critical' ? 'destructive' : 'secondary'}
+                className="text-[10px]"
+              >
                 {rule.rule_id} · {rule.count}
-              </span>
+              </Badge>
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* ─── Toolbar: search / filter (only relevant when there's more than 1 record) ─── */}
       {(total > 1 || search || filter !== 'all') && (
-        <div className="results-toolbar">
-          <div className="search-container" style={{ borderRadius: 'var(--radius-sm)' }}>
-            <span className="search-icon">🔍</span>
-            <input
-              className="search-input"
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
               placeholder="Cari Nama, SEP, atau No. Kartu..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
-          <div className="filter-group">
-            <span className="filter-label">Status:</span>
-            <select className="filter-select" value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }}>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Status:</span>
+            <select
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              value={filter}
+              onChange={e => { setFilter(e.target.value); setPage(1); }}
+            >
               <option value="all">Semua Rekam</option>
               <option value="valid">Valid</option>
               <option value="error">Error</option>
@@ -633,151 +680,257 @@ export default function ResultsPage() {
         </div>
       )}
 
-      <div className="split-layout">
-        {/* ─── Left: records list (multi-record files) ────────────────── */}
+      <div className={cn('flex gap-4 items-start', !(total > 1 || records.length > 1) && 'block')}>
+        {/* ─── Left: records list (multi-record files) — collapses to a rail once a record is picked, so the detail panel gets room to breathe ── */}
         {(total > 1 || records.length > 1) && (
-          <div className="panel-left">
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
-                <table>
-                  <thead>
-                    <tr><th>Nama Pasien</th><th>No. SEP</th><th>Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {records.length === 0 ? (
-                      <tr><td colSpan={3} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>Tidak ada data</td></tr>
-                    ) : records.map(rec => (
-                      <tr
-                        key={rec.id}
-                        className={selectedRecordId === rec.id ? 'selected-row' : ''}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => setSelectedRecordId(rec.id)}
-                      >
-                        <td>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{rec.nama_pasien || '(kosong)'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>MRN: {rec.mrn || '-'}</div>
-                        </td>
-                        <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{rec.sep}</td>
-                        <td><span className={`badge badge-${rec.validation_status}`} style={{ fontSize: 10 }}>{rec.validation_status.toUpperCase()}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <motion.div
+            className="shrink-0 overflow-hidden"
+            animate={{ width: listCollapsed ? 48 : 380 }}
+            initial={false}
+            transition={{ type: 'spring', stiffness: 340, damping: 32 }}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              {listCollapsed ? (
+                <motion.button
+                  key="rail"
+                  onClick={() => setListCollapsed(false)}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="w-12 h-[420px] rounded-xl border border-border bg-card hover:bg-muted/50 flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-foreground transition-colors"
+                  title="Tampilkan daftar pasien"
+                >
+                  <PanelLeftOpen className="size-4" />
+                  <span
+                    className="text-[11px] font-medium tracking-wide"
+                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                  >
+                    Daftar Pasien ({total || records.length})
+                  </span>
+                </motion.button>
+              ) : (
+                <motion.div
+                  key="list"
+                  className="space-y-3 w-[380px]"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, delay: 0.1 }}
+                >
+                  <Card className="p-0 overflow-hidden gap-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-3 py-2 text-xs font-semibold">Nama Pasien</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold">No. SEP</th>
+                            <th className="text-left px-3 py-2 text-xs font-semibold">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {records.length === 0 ? (
+                            <tr><td colSpan={3} className="text-center py-6 text-muted-foreground">Tidak ada data</td></tr>
+                          ) : records.map(rec => (
+                            <tr
+                              key={rec.id}
+                              className={cn('cursor-pointer border-b last:border-0 hover:bg-muted/40', selectedRecordId === rec.id && 'bg-primary/10')}
+                              onClick={() => selectRecord(rec.id)}
+                            >
+                              <td className="px-3 py-2">
+                                <div className="font-semibold text-[13px]">{rec.nama_pasien || '(kosong)'}</div>
+                                <div className="text-[11px] text-muted-foreground">MRN: {rec.mrn || '-'}</div>
+                              </td>
+                              <td className="px-3 py-2 font-mono text-xs">{rec.sep}</td>
+                              <td className="px-3 py-2"><RecordStatusBadge status={rec.validation_status} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
 
-            {totalPages > 1 && (
-              <div className="pagination" style={{ marginTop: 12 }}>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>← Sebelumnya</button>
-                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                  let pageNum: number;
-                  if (totalPages <= 7) pageNum = i + 1;
-                  else if (page <= 4) pageNum = i + 1;
-                  else if (page >= totalPages - 3) pageNum = totalPages - 6 + i;
-                  else pageNum = page - 3 + i;
-                  return (
-                    <button key={pageNum} className={page === pageNum ? 'active' : ''} onClick={() => setPage(pageNum)}>
-                      {pageNum}
-                    </button>
-                  );
-                })}
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Selanjutnya →</button>
-              </div>
-            )}
-          </div>
+                  {totalPages > 1 && (
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
+                        <ChevronLeft className="size-3.5" /> Sebelumnya
+                      </Button>
+                      {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                        let pageNum: number;
+                        if (totalPages <= 7) pageNum = i + 1;
+                        else if (page <= 4) pageNum = i + 1;
+                        else if (page >= totalPages - 3) pageNum = totalPages - 6 + i;
+                        else pageNum = page - 3 + i;
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={page === pageNum ? 'default' : 'outline'}
+                            size="sm"
+                            className="w-8 px-0"
+                            onClick={() => setPage(pageNum)}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                      <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+                        Selanjutnya <ChevronRight className="size-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         )}
 
         {/* ─── Right: selected record detail ───────────────────────────── */}
-        {/* Saat panel-left tidak dirender (cuma 1 record), div ini tetap jadi
-            grid item di dalam .split-layout — tanpa gridColumn: 1/-1 dia akan
-            terjebak di kolom pertama (380px) dan kolom kanan (1fr) kosong. */}
-        <div
-          className={total > 1 || records.length > 1 ? 'panel-right' : ''}
-          style={{
-            position: 'static',
-            width: '100%',
-            gridColumn: (total > 1 || records.length > 1) ? undefined : '1 / -1',
-          }}
-        >
+        <div className="min-w-0 flex-1">
           {selectedRecord ? (
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+            <Card className="p-5">
+              <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700 }}>{selectedRecord.nama_pasien} (SEP: {selectedRecord.sep})</h3>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                    MRN: {selectedRecord.mrn || '-'} · Status:{' '}
-                    <span className={`badge badge-${selectedRecord.validation_status}`} style={{ fontSize: 10 }}>
-                      {selectedRecord.validation_status.toUpperCase()}
-                    </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-bold">{selectedRecord.nama_pasien} (SEP: {selectedRecord.sep})</h3>
+                    {kategori && (
+                      <Badge
+                        className="text-[11px] border-transparent"
+                        style={{ background: `color-mix(in srgb, ${kategori.accent} 14%, transparent)`, color: kategori.accent }}
+                      >
+                        {kategori.icon} {kategori.label}
+                      </Badge>
+                    )}
+                    {parseRawData(selectedRecord).POTENSI_PRB_SEP && (
+                      <Badge
+                        className="text-[11px] border-transparent bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300"
+                        title="Flag ini tercetak langsung dari sistem BPJS di halaman SEP, bukan simpulan AI/RS — pertimbangkan cek status PRB pasien ini."
+                      >
+                        🔔 Potensi PRB (BPJS)
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
+                    MRN: {selectedRecord.mrn || '-'} · Status:
+                    <RecordStatusBadge status={selectedRecord.validation_status} />
+                    {parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP && (
+                      <span>· Jenis Kunjungan (SEP): <span className="text-foreground">{parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP}</span></span>
+                    )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                <div className="flex gap-2 items-center">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input type="checkbox" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
                     Tampilkan hanya yang bermasalah
                   </label>
                   {!isEditing ? (
-                    <button className="btn btn-secondary btn-sm" onClick={() => setIsEditing(true)}>Edit</button>
+                    <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>Edit</Button>
                   ) : (
                     <>
-                      <button className="btn btn-secondary btn-sm" onClick={() => { setIsEditing(false); setEditedValues({}); }}>Batal</button>
-                      <button
-                        className="btn btn-primary btn-sm"
+                      <Button variant="secondary" size="sm" onClick={() => { setIsEditing(false); setEditedValues({}); }}>Batal</Button>
+                      <Button
+                        size="sm"
                         disabled={Object.keys(editedValues).length === 0 || isSavingRecord}
                         onClick={handleSaveRecord}
                       >
                         {isSavingRecord ? 'Menyimpan...' : `Simpan (${Object.keys(editedValues).length})`}
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>
               </div>
 
               {/* ─── Peringatan: rule yang tidak bisa diverifikasi otomatis ── */}
-              {!hasEpisodeTrackingData(parseRawData(selectedRecord)) && (
-                <div style={{
-                  marginBottom: 16, padding: '10px 14px', borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.35)',
-                  fontSize: 12, color: 'var(--text-primary)',
-                }}>
-                  <strong>⚠️ Cek manual diperlukan</strong> — berkas ini tidak menyertakan data riwayat kunjungan/episode, sehingga beberapa aturan tidak bisa diperiksa otomatis. Harap pastikan secara manual.
-                  {' '}
-                  {UNVERIFIABLE_WITHOUT_EPISODE_DATA.map((r, i) => (
-                    <span key={r.rule_id}>
-                      {i > 0 && ', '}
-                      <strong>{r.rule_id}</strong> ({r.label})
-                    </span>
-                  ))}.
+              {!hasEpisodeTrackingData(selectedRecord) && (
+                <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-foreground flex gap-2">
+                  <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="space-y-1.5">
+                    <div>
+                      <strong>Cek manual diperlukan</strong> — berkas ini tidak menyertakan data riwayat kunjungan/episode, sehingga beberapa aturan tidak bisa diperiksa otomatis. Harap pastikan secara manual.
+                      {' '}
+                      {UNVERIFIABLE_WITHOUT_EPISODE_DATA.map((r, i) => (
+                        <span key={r.rule_id}>
+                          {i > 0 && ', '}
+                          <strong>{r.rule_id}</strong> ({r.label})
+                        </span>
+                      ))}.
+                    </div>
+                    {episodeGapStats && (
+                      <div className="flex items-center gap-1.5 pt-0.5 border-t border-amber-500/20 mt-1.5">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 font-semibold text-amber-800 dark:text-amber-300 tabular-nums">
+                          {episodeGapStats.pct}%
+                        </span>
+                        <span className="text-muted-foreground">
+                          data pada berkas ini ({episodeGapStats.count} dari {episodeGapStats.ofLoaded} record{episodeGapStats.ofLoaded < total ? ' yang dimuat' : ''}) berpotensi pending karena alasan yang sama — field riwayat episode kosong, sama seperti record yang sedang dilihat.
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
+              {/* ─── Potensi risiko pending (di luar rule engine) ─────────
+                  Pola administratif/klinis yang paling sering bikin klaim RS
+                  ini di-pending verifikator BPJS (dianalisis dari data
+                  pending riil), dideteksi AI dari bukti dokumen — bukan
+                  error validasi format, jadi ditampilkan terpisah dari tabel
+                  di bawah. Selalu tertaut ke kutipan dokumen; verifikator
+                  yang memutuskan, bukan aplikasi. */}
+              {(() => {
+                const pendingRisks = parseAiReview(selectedRecord)?.pending_risk_notes;
+                if (!pendingRisks || pendingRisks.length === 0) return null;
+                return (
+                  <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-violet-500/10 border border-violet-500/30 text-xs text-foreground space-y-2.5">
+                    <div className="flex items-center gap-2 font-semibold text-violet-700 dark:text-violet-300">
+                      <Sparkles className="size-4 shrink-0" />
+                      Potensi Risiko Pending — {pendingRisks.length} pola terdeteksi AI dari dokumen
+                    </div>
+                    {pendingRisks.map((risk, i) => (
+                      <div key={i} className="pl-6 border-l-2 border-violet-500/30 space-y-1">
+                        <div className="font-semibold">
+                          {PENDING_RISK_LABELS[risk.pattern] || risk.pattern}
+                          <span className="ml-1.5 font-normal text-muted-foreground">(hal. {risk.page_number})</span>
+                        </div>
+                        <div className="text-muted-foreground">{risk.note}</div>
+                        <div className="italic text-muted-foreground/80">&ldquo;{risk.basis}&rdquo;</div>
+                      </div>
+                    ))}
+                    <div className="pt-1 text-muted-foreground/80">
+                      Ini saran untuk dicek verifikator/koder, bukan keputusan final — rule engine tidak menolak klaim karena hal ini.
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* ─── Bukti primer: dokumen PDF asli vs data klaim ───────── */}
               {/* Tampil jika berkas aslinya PDF (via nama file, tidak bergantung
                   flag has_pdf dari backend) — kalau file ternyata hilang di disk,
                   PdfViewer menampilkan pesan yang jelas. */}
               {String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') && (
-                <div style={{ marginBottom: 16 }}>
-                  <button className="btn-glass" onClick={() => setShowPdf(v => !v)}>
+                <div className="mb-4">
+                  <Button variant="outline" size="sm" onClick={() => setShowPdf(v => !v)}>
+                    <FileText className="size-3.5" />
                     {showPdf ? 'Sembunyikan Dokumen PDF Asli' : 'Lihat Dokumen PDF Asli'}
-                  </button>
+                  </Button>
                 </div>
               )}
 
               {/* ─── The single 60-column table (side-by-side dengan PDF saat dibuka) ─── */}
               {showPdf ? (
                 <div>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setMaximizeData(v => !v)}>
+                  <div className="flex gap-2 mb-2 items-center">
+                    <Button variant="secondary" size="sm" onClick={() => setMaximizeData(v => !v)}>
                       {maximizeData ? 'Kembali' : 'Perbesar Data'}
-                    </button>
+                    </Button>
                   </div>
-                  <div className={`pdf-compare-grid${maximizeData ? ' maximized' : ''}`}>
-                    <div style={{
-                      minWidth: 0,
-                      order: maximizeData ? 1 : 0,  // data first when maximized
-                      maxHeight: maximizeData ? 'none' : 780,
-                      overflowY: maximizeData ? 'visible' : 'auto',
-                    }}>
+                  <div className={cn('grid gap-4', maximizeData ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2')}>
+                    <div
+                      className="min-w-0"
+                      style={{
+                        order: maximizeData ? 1 : 0,
+                        maxHeight: maximizeData ? 'none' : 780,
+                        overflowY: maximizeData ? 'visible' : 'auto',
+                      }}
+                    >
                       <RecordFieldsTable
                         recordData={selectedRecord}
                         validationErrors={selectedRecord.errors || []}
@@ -788,11 +941,37 @@ export default function ResultsPage() {
                         jenisKlaim={fileInfo.jenis_klaim}
                       />
                     </div>
-                    <div style={{
-                      minWidth: 0,
-                      order: maximizeData ? 2 : 0,
-                    }}>
-                      <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 420 : 780} />
+                    <div className="min-w-0" style={{ order: maximizeData ? 2 : 0 }}>
+                      {/* ─── ErrorBoundary lokal, BUKAN global ───────────────
+                          PdfViewer pakai pdf.js (canvas + web worker) yang
+                          perilakunya bisa beda-beda tergantung browser/PC
+                          (versi lama, driver grafis, antivirus yang blok
+                          worker script, dst) — device tim RS pernah crash
+                          total & minta reload, padahal PC lain aman-aman
+                          saja. Sebelum ini TIDAK ADA ErrorBoundary di mana
+                          pun di aplikasi, jadi crash apapun di PdfViewer
+                          menjalar ke seluruh halaman (termasuk tabel 60
+                          kolom yang jauh lebih penting dari sekadar preview
+                          PDF). key={fileId} supaya boundary reset otomatis
+                          kalau pindah record — sekali crash tidak nge-stuck
+                          selamanya. */}
+                      <ErrorBoundary
+                        key={fileId}
+                        fallback={
+                          <div
+                            className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card p-6 text-center"
+                            style={{ height: maximizeData ? 420 : 780 }}
+                          >
+                            <FileText className="size-6 text-muted-foreground" />
+                            <p className="text-sm font-semibold text-foreground">Dokumen PDF tidak dapat ditampilkan</p>
+                            <p className="max-w-xs text-xs text-muted-foreground">
+                              Terjadi kendala teknis saat menampilkan pratinjau PDF di perangkat ini (kadang terjadi di browser versi lama). Data klaim di sebelah tetap bisa dibaca & diedit seperti biasa.
+                            </p>
+                          </div>
+                        }
+                      >
+                        <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 420 : 780} />
+                      </ErrorBoundary>
                     </div>
                   </div>
                 </div>
@@ -807,12 +986,11 @@ export default function ResultsPage() {
                   jenisKlaim={fileInfo.jenis_klaim}
                 />
               )}
-
-            </div>
+            </Card>
           ) : (
-            <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
+            <Card className="p-10 text-center text-muted-foreground">
               Pilih data dari tabel untuk melihat detail validasi
-            </div>
+            </Card>
           )}
         </div>
       </div>

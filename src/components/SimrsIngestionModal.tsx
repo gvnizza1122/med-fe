@@ -1,7 +1,13 @@
 'use client';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UploadCloud, FileText, X, Loader2, Rocket } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 interface SimrsIngestionModalProps {
   isOpen: boolean;
@@ -40,7 +46,7 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
     setLoading(true);
     try {
       const result = await api.ingestSimrsJson(parsed);
-      setSuccess(`✅ Berhasil import ${result.records_count || 1} rekam SIMRS`);
+      setSuccess(`Berhasil import ${result.records_count || 1} rekam SIMRS`);
       setJsonInput('');
       onSuccess?.(result);
       setTimeout(() => onClose(), 1500);
@@ -67,7 +73,7 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
         const result = await api.ingestSimrsPdf(file);
         results.push(result);
       }
-      setSuccess(`✅ Berhasil upload ${pdfFiles.length} file PDF`);
+      setSuccess(`Berhasil upload ${pdfFiles.length} file PDF`);
       setPdfFiles([]);
       onSuccess?.(results);
       setTimeout(() => onClose(), 1500);
@@ -104,51 +110,35 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
     setPdfFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
-  if (!isOpen) return null;
+  const busy = loading || (tab === 'json' ? !jsonInput.trim() : pdfFiles.length === 0);
 
   return (
-    <motion.div
-      className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
-      <motion.div
-        className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl w-full max-w-2xl max-h-96"
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
-          <h2 className="text-xl font-bold">⬆️ Import SIMRS Data</h2>
-          <motion.button
-            onClick={onClose}
-            className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-2xl"
-            whileHover={{ rotate: 90 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            ✕
-          </motion.button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
+        <DialogHeader className="flex flex-row items-center justify-between px-6 py-4 border-b border-border space-y-0">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <UploadCloud className="w-5 h-5 text-primary" />
+            Import SIMRS Data
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Tabs */}
-        <div className="flex gap-2 p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+        <div className="flex gap-2 p-4 border-b border-border bg-muted/40">
           {(['json', 'pdf'] as const).map(t => (
             <motion.button
               key={t}
               onClick={() => { setTab(t); setError(''); setSuccess(''); }}
-              className={`px-4 py-2 rounded font-medium transition-all ${
+              className={cn(
+                'px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 flex items-center gap-1.5',
                 tab === t
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-              }`}
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                  : 'bg-card text-muted-foreground hover:text-foreground border border-border',
+              )}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              {t === 'json' ? '📄 JSON Import' : '📑 PDF Upload'}
+              <FileText className="w-4 h-4" />
+              {t === 'json' ? 'JSON Import' : 'PDF Upload'}
             </motion.button>
           ))}
         </div>
@@ -164,14 +154,14 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-3"
               >
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="block text-sm font-medium text-foreground">
                   Paste JSON SIMRS data:
                 </label>
-                <textarea
+                <Textarea
                   value={jsonInput}
                   onChange={e => setJsonInput(e.target.value)}
                   placeholder='{"data": [...], "metadata": {...}}'
-                  className="w-full h-32 p-3 border border-slate-300 dark:border-slate-600 rounded font-mono text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-32 font-mono text-sm"
                 />
               </motion.div>
             )}
@@ -184,20 +174,16 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-3"
               >
-                <motion.div
+                <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all ${
-                    dragOverRef.current
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-slate-300 dark:border-slate-600 hover:border-slate-400'
-                  }`}
                   onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-border rounded-2xl p-6 text-center cursor-pointer transition-all duration-300 hover:border-primary/50 hover:bg-primary/5"
                 >
-                  <div className="text-3xl mb-2">📤</div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">Drag & drop PDF di sini</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">atau klik untuk pilih file</p>
+                  <UploadCloud className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="font-medium text-foreground text-sm">Drag & drop PDF di sini</p>
+                  <p className="text-xs text-muted-foreground">atau klik untuk pilih file</p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -206,31 +192,30 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                </motion.div>
+                </div>
 
                 {pdfFiles.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      📁 {pdfFiles.length} file dipilih:
+                    <p className="text-sm font-medium text-foreground">
+                      {pdfFiles.length} file dipilih:
                     </p>
                     {pdfFiles.map((f, idx) => (
                       <motion.div
                         key={idx}
-                        className="flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-800 rounded text-sm"
+                        className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm"
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                       >
-                        <span className="truncate text-slate-900 dark:text-slate-100">
-                          📄 {f.name} ({(f.size / 1024).toFixed(0)}KB)
+                        <span className="truncate text-foreground flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                          {f.name} ({(f.size / 1024).toFixed(0)}KB)
                         </span>
-                        <motion.button
+                        <button
                           onClick={() => removePdfFile(idx)}
-                          className="text-red-500 hover:text-red-700 font-bold ml-2"
-                          whileHover={{ scale: 1.2 }}
-                          whileTap={{ scale: 0.9 }}
+                          className="text-destructive hover:text-destructive/80 ml-2"
                         >
-                          ✕
-                        </motion.button>
+                          <X className="w-4 h-4" />
+                        </button>
                       </motion.div>
                     ))}
                   </div>
@@ -242,53 +227,37 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
           {/* Error/Success */}
           <AnimatePresence>
             {error && (
-              <motion.div
-                className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-300 text-sm"
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-              >
-                ❌ {error}
+              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-3">
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               </motion.div>
             )}
             {success && (
-              <motion.div
-                className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-green-700 dark:text-green-300 text-sm"
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-              >
-                {success}
+              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-3">
+                <Alert className="border-primary/30 bg-primary/5 text-primary">
+                  <AlertDescription>{success}</AlertDescription>
+                </Alert>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-          <motion.button
-            onClick={onClose}
-            className="px-4 py-2 rounded font-medium bg-slate-300 dark:bg-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-400 dark:hover:bg-slate-600"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
+        <div className="flex gap-3 p-4 border-t border-border bg-muted/40">
+          <Button variant="outline" onClick={onClose}>
             Batal
-          </motion.button>
-          <motion.button
+          </Button>
+          <Button
             onClick={tab === 'json' ? handleJsonProcess : handlePdfProcess}
-            disabled={loading || (tab === 'json' ? !jsonInput.trim() : pdfFiles.length === 0)}
-            className={`ml-auto px-4 py-2 rounded font-medium text-white transition-all ${
-              loading || (tab === 'json' ? !jsonInput.trim() : pdfFiles.length === 0)
-                ? 'bg-slate-400 cursor-not-allowed'
-                : 'bg-blue-500 hover:bg-blue-600'
-            }`}
-            whileHover={loading ? {} : { scale: 1.02 }}
-            whileTap={loading ? {} : { scale: 0.98 }}
+            disabled={busy}
+            className="ml-auto gap-2 hover:shadow-lg hover:shadow-primary/20 hover:scale-105 transition-all duration-300"
           >
-            {loading ? '⏳ Proses...' : tab === 'json' ? '🚀 Import JSON' : '🚀 Upload PDF'}
-          </motion.button>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+            {loading ? 'Proses...' : tab === 'json' ? 'Import JSON' : 'Upload PDF'}
+          </Button>
         </div>
-      </motion.div>
-    </motion.div>
+      </DialogContent>
+    </Dialog>
   );
 }

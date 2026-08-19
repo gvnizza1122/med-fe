@@ -1,41 +1,54 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { Settings2, Building2, Pencil, Check, X, Save } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useRequireRole } from '@/lib/useRequireRole';
+import { Header } from '@/components/dashboard/header';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-interface Rule { 
-  id: string; 
-  rule_code: string; 
-  rule_name: string; 
-  description: string; 
-  field_name: string; 
-  priority: number; 
-  is_active: boolean; 
-  error_message: string; 
+interface Rule {
+  id: string;
+  rule_code: string;
+  rule_name: string;
+  description: string;
+  field_name: string;
+  priority: number;
+  is_active: boolean;
+  error_message: string;
 }
-
-const pageVariants: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const } },
-};
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
 };
 
 const cardVariants: Variants = {
-  hidden: { opacity: 0, y: 20, scale: 0.97 },
+  hidden: { opacity: 0, y: 16, scale: 0.98 },
   visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 260, damping: 24 } },
 };
 
-const priorityGlow = (p: number) =>
-  p === 1 ? '0 0 12px rgba(239,68,68,0.35)' :
-  p === 2 ? '0 0 12px rgba(245,158,11,0.3)' :
-  '0 0 12px rgba(59,130,246,0.25)';
-
 const KELAS_RS_OPTIONS = ['A', 'B', 'C', 'D'];
+
+const priorityMeta = (p: number) =>
+  p === 1
+    ? { label: 'Kritis', className: 'bg-destructive/10 text-destructive border-destructive/20' }
+    : p === 2
+    ? { label: 'Mayor', className: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400' }
+    : { label: 'Minor', className: 'bg-primary/10 text-primary border-primary/20' };
 
 export default function RulesPage() {
   const { checking, allowed } = useRequireRole(['admin']);
@@ -90,224 +103,192 @@ export default function RulesPage() {
   };
 
   const handleToggle = async (rule: Rule) => {
-    try { 
-      await api.updateRule(rule.id, { is_active: !rule.is_active }); 
-      loadRules(); 
-    } catch (err) { 
+    try {
+      await api.updateRule(rule.id, { is_active: !rule.is_active });
+      loadRules();
+    } catch (err) {
       console.error('[Rules] Gagal toggle aturan:', err);
     }
   };
 
   const handleSaveMessage = async (ruleId: string) => {
-    try { 
-      await api.updateRule(ruleId, { error_message: editMsg }); 
-      setEditId(null); 
-      loadRules(); 
-    } catch (err) { 
+    try {
+      await api.updateRule(ruleId, { error_message: editMsg });
+      setEditId(null);
+      loadRules();
+    } catch (err) {
       console.error('[Rules] Gagal simpan pesan:', err);
     }
   };
 
-  const priorityLabel = (p: number) => p === 1 ? 'Kritis' : p === 2 ? 'Mayor' : 'Minor';
-  const priorityClass = (p: number) => p === 1 ? 'critical' : p === 2 ? 'major' : 'minor';
-
-  if (checking || !allowed) return <div className="loading"><div className="spinner" /></div>;
-  if (loading) return <div className="loading"><div className="spinner" /></div>;
+  if (checking || !allowed || loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Spinner className="size-8 text-primary" />
+      </div>
+    );
+  }
 
   return (
     <motion.div
-      className="fade-in"
-      variants={pageVariants}
-      initial="hidden"
-      animate="visible"
+      className="space-y-6"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
     >
-      <div className="page-header">
-        <div>
-          <h2>⚙️ Aturan Validasi</h2>
-          <p>Kelola {rules.length} rule validasi klaim BPJS (BA 1247/2024)</p>
-        </div>
-      </div>
-
-      <motion.div
-        className="card"
-        style={{ padding: 20, marginBottom: 16 }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>🏥 Profil Rumah Sakit</div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14 }}>
-          KODE_RS dan KELAS_RS adalah atribut rumah sakit itu sendiri, bukan per-klaim — keduanya
-          tidak pernah tercetak di SEP atau Resume Medis pasien. Isi Kelas RS sekali di sini, sistem akan
-          mengisinya otomatis untuk setiap berkas klaim yang diupload.
-        </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-end' }}>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Kode RS (BPJS)</div>
-            <code style={{ background: 'var(--bg-input)', padding: '6px 10px', borderRadius: 4, fontSize: 13 }}>
-              {hospitalCode || '—'}
-            </code>
+      <Header
+        title="Aturan Validasi"
+        description={`Kelola ${rules.length} rule validasi klaim BPJS (BA 1247/2024)`}
+        actions={
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Settings2 className="size-4" />
+            <span>{rules.filter((r) => r.is_active).length} aktif dari {rules.length}</span>
           </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Kelas RS (akreditasi)</div>
-            <select
-              className="form-input"
-              value={kelasRsDraft}
-              onChange={e => setKelasRsDraft(e.target.value)}
-              style={{ minWidth: 100 }}
+        }
+      />
+
+      <Card className="animate-slide-in-up">
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Building2 className="size-4" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-semibold text-foreground text-sm">Profil Rumah Sakit</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                KODE_RS dan KELAS_RS adalah atribut rumah sakit itu sendiri, bukan per-klaim — keduanya
+                tidak pernah tercetak di SEP atau Resume Medis pasien. Isi Kelas RS sekali di sini, sistem
+                akan mengisinya otomatis untuk setiap berkas klaim yang diupload.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-5 pt-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Kode RS (BPJS)</Label>
+              <code className="block rounded-md bg-muted px-3 py-1.5 text-sm font-mono">
+                {hospitalCode || '—'}
+              </code>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Kelas RS (akreditasi)</Label>
+              <Select value={kelasRsDraft} onValueChange={setKelasRsDraft}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="— Belum diisi —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {KELAS_RS_OPTIONS.map((k) => (
+                    <SelectItem key={k} value={k}>Kelas {k}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              onClick={handleSaveKelasRs}
+              disabled={kelasRsSaving || !kelasRsDraft || kelasRsDraft === kelasRs}
             >
-              <option value="">— Belum diisi —</option>
-              {KELAS_RS_OPTIONS.map(k => <option key={k} value={k}>Kelas {k}</option>)}
-            </select>
+              <Save className="size-4" />
+              {kelasRsSaving ? 'Menyimpan...' : kelasRsSaved ? 'Tersimpan' : 'Simpan'}
+            </Button>
           </div>
-          <motion.button
-            className="btn btn-primary btn-sm"
-            onClick={handleSaveKelasRs}
-            disabled={kelasRsSaving || !kelasRsDraft || kelasRsDraft === kelasRs}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {kelasRsSaving ? 'Menyimpan...' : kelasRsSaved ? '✅ Tersimpan' : '💾 Simpan'}
-          </motion.button>
-        </div>
-      </motion.div>
+        </CardContent>
+      </Card>
 
       <motion.div
-        style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+        className="flex flex-col gap-3"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
         <AnimatePresence>
-          {rules.map(rule => (
-            <motion.div
-              key={rule.id}
-              className="card"
-              style={{ padding: 20 }}
-              variants={cardVariants}
-              layout
-              whileHover={{
-                y: -3,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                transition: { duration: 0.2 },
-              }}
-              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-            >
-              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <motion.span
-                      className="badge badge-error"
-                      style={{ fontSize: 12 }}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    >
-                      {rule.id}
-                    </motion.span>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{rule.rule_name}</span>
-                    <motion.span
-                      className={`badge badge-${priorityClass(rule.priority)}`}
-                      whileHover={{
-                        scale: 1.1,
-                        boxShadow: priorityGlow(rule.priority),
-                      }}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.05 }}
-                    >
-                      {priorityLabel(rule.priority)}
-                    </motion.span>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 8 }}>{rule.description}</p>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Field: <code style={{ background: 'var(--bg-input)', padding: '2px 6px', borderRadius: 4 }}>{rule.field_name}</code>
-                  </div>
+          {rules.map((rule) => {
+            const meta = priorityMeta(rule.priority);
+            return (
+              <motion.div
+                key={rule.id}
+                variants={cardVariants}
+                layout
+                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+              >
+                <Card className="transition-shadow hover:shadow-md">
+                  <CardContent>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="min-w-[220px] flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="font-mono">{rule.id}</Badge>
+                          <span className="font-semibold text-sm text-foreground">{rule.rule_name}</span>
+                          <Badge variant="outline" className={meta.className}>{meta.label}</Badge>
+                        </div>
 
-                  <AnimatePresence mode="wait">
-                    {editId === rule.id ? (
-                      <motion.div
-                        key="edit"
-                        style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}
-                        initial={{ opacity: 0, height: 0, y: -8 }}
-                        animate={{ opacity: 1, height: 'auto', y: 0 }}
-                        exit={{ opacity: 0, height: 0, y: -8 }}
-                        transition={{ duration: 0.25, ease: 'easeInOut' as const }}
-                      >
-                        <motion.input
-                          className="form-input"
-                          value={editMsg}
-                          onChange={e => setEditMsg(e.target.value)}
-                          style={{ flex: 1, minWidth: 160 }}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.1 }}
-                          autoFocus
-                        />
-                        <motion.button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => handleSaveMessage(rule.id)}
-                          whileHover={{ scale: 1.08 }}
-                          whileTap={{ scale: 0.92 }}
-                        >
-                          💾
-                        </motion.button>
-                        <motion.button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => setEditId(null)}
-                          whileHover={{ scale: 1.08 }}
-                          whileTap={{ scale: 0.92 }}
-                        >
-                          ✕
-                        </motion.button>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="view"
-                        style={{ marginTop: 8, fontSize: 12 }}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <span style={{ color: 'var(--text-muted)' }}>Pesan error: </span>
-                        <span style={{ color: 'var(--accent-red)' }}>{rule.error_message}</span>
-                        <motion.button
-                          className="btn btn-secondary btn-sm"
-                          style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}
-                          onClick={() => { setEditId(rule.id); setEditMsg(rule.error_message); }}
-                          whileHover={{ scale: 1.06 }}
-                          whileTap={{ scale: 0.94 }}
-                        >
-                          ✏️ Edit
-                        </motion.button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                        <p className="text-sm text-muted-foreground">{rule.description}</p>
 
-                {/* 4. PERUBAHAN: Evaluasi kondisi element tombol langsung mengecek boolean asli */}
-                <motion.button
-                  className={`btn btn-sm ${rule.is_active ? 'btn-success' : 'btn-secondary'}`}
-                  onClick={() => handleToggle(rule)}
-                  whileHover={{ scale: 1.06, boxShadow: rule.is_active ? '0 2px 12px rgba(34,197,94,0.3)' : '0 2px 8px rgba(0,0,0,0.1)' }}
-                  whileTap={{ scale: 0.94 }}
-                  layout
-                >
-                  <motion.span
-                    key={rule.is_active ? 'active' : 'inactive'}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    transition={{ duration: 0.2 }}
-                    style={{ display: 'inline-block' }}
-                  >
-                    {rule.is_active ? '✅ Aktif' : '⏸️ Nonaktif'}
-                  </motion.span>
-                </motion.button>
-              </div>
-            </motion.div>
-          ))}
+                        <div className="text-xs text-muted-foreground">
+                          Field:{' '}
+                          <code className="rounded bg-muted px-1.5 py-0.5 font-mono">{rule.field_name}</code>
+                        </div>
+
+                        <AnimatePresence mode="wait">
+                          {editId === rule.id ? (
+                            <motion.div
+                              key="edit"
+                              className="flex flex-wrap items-center gap-2 pt-1"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2, ease: 'easeInOut' }}
+                            >
+                              <Input
+                                value={editMsg}
+                                onChange={(e) => setEditMsg(e.target.value)}
+                                className="min-w-[180px] flex-1"
+                                autoFocus
+                              />
+                              <Button size="icon-sm" onClick={() => handleSaveMessage(rule.id)}>
+                                <Check className="size-4" />
+                              </Button>
+                              <Button size="icon-sm" variant="outline" onClick={() => setEditId(null)}>
+                                <X className="size-4" />
+                              </Button>
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="view"
+                              className="flex flex-wrap items-center gap-2 pt-1 text-xs"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                            >
+                              <span className="text-muted-foreground">Pesan error:</span>
+                              <span className="text-destructive">{rule.error_message}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => { setEditId(rule.id); setEditMsg(rule.error_message); }}
+                              >
+                                <Pencil className="size-3" />
+                                Edit
+                              </Button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className={`text-xs font-medium ${rule.is_active ? 'text-primary' : 'text-muted-foreground'}`}>
+                          {rule.is_active ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                        <Switch checked={rule.is_active} onCheckedChange={() => handleToggle(rule)} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </motion.div>
     </motion.div>

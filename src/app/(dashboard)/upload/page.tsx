@@ -4,6 +4,23 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { api } from '@/lib/api';
 import { io } from 'socket.io-client';
+import { Header } from '@/components/dashboard/header';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import {
+  UploadCloud,
+  FileText,
+  FileSpreadsheet,
+  Rocket,
+  X,
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Animation variants
 const pageVariants: Variants = {
@@ -32,15 +49,7 @@ const uploadZoneVariants: Variants = {
   },
   dragover: {
     scale: 1.02,
-    boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.3)',
     transition: { duration: 0.2, ease: 'easeInOut' as const }
-  }
-};
-
-const borderAnimation: Variants = {
-  animate: {
-    backgroundPosition: ['0% 0%', '100% 100%'],
-    transition: { duration: 3, repeat: Infinity, ease: 'linear' as const }
   }
 };
 
@@ -50,10 +59,6 @@ const fileIconVariants: Variants = {
     scale: 1,
     rotate: 0,
     transition: { type: 'spring', stiffness: 200, damping: 15 }
-  },
-  bounce: {
-    y: [0, -10, 0],
-    transition: { duration: 0.6, repeat: Infinity, repeatType: 'reverse' as const }
   }
 };
 
@@ -69,13 +74,6 @@ const getActiveStep = (statusMsg: string, progress: number): string => {
   if (statusMsg.includes('AI Medical') || statusMsg.includes('Rule Engine')) return 'validate';
   if (statusMsg.includes('Membaca') || statusMsg.includes('memproses')) return 'parse';
   return 'upload';
-};
-
-const shimmerVariants: Variants = {
-  animate: {
-    x: ['-100%', '200%'],
-    transition: { duration: 1.5, repeat: Infinity, ease: 'linear' as const }
-  }
 };
 
 const successVariants: Variants = {
@@ -188,463 +186,379 @@ export default function UploadPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const getFileIcon = (filename: string): string => {
+  const getFileIcon = (filename: string) => {
     const ext = filename.toLowerCase().split('.').pop();
-    if (ext === 'csv') return '📊';
-    if (ext === 'tsv') return '📋';
-    return '📄';
+    if (ext === 'csv') return FileSpreadsheet;
+    if (ext === 'tsv') return ClipboardList;
+    return FileText;
   };
 
   return (
     <motion.div
-      className="fade-in"
+      className="space-y-4 md:space-y-6"
       variants={pageVariants}
       initial="hidden"
       animate="visible"
       exit="exit"
     >
-      <div className="page-header">
-        <div>
-          <h2>Upload File Klaim</h2>
-          <p>Upload file TXT/TSV dari SIMRS untuk divalidasi</p>
-        </div>
-      </div>
+      <Header title="Upload File Klaim" description="Upload file TXT/TSV dari SIMRS untuk divalidasi" />
 
       <AnimatePresence mode="wait">
         {!result ? (
           <motion.div
             key="upload-form"
-            className="card"
-            style={{ maxWidth: 700, margin: '0 auto' }}
+            className="mx-auto w-full max-w-2xl"
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
             exit={{ opacity: 0, x: -50 }}
           >
-            {/* Upload Zone */}
-            <motion.div
-              variants={staggerItem}
-              className={`upload-zone ${dragover ? 'dragover' : ''}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragover(true); }}
-              onDragLeave={() => setDragover(false)}
-              onDrop={e => { e.preventDefault(); setDragover(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
-              animate={dragover ? 'dragover' : 'idle'}
-              style={{
-                position: 'relative',
-                overflow: 'hidden',
-                cursor: 'pointer'
-              }}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-            >
-              {/* Animated dashed border overlay */}
-              <motion.div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  borderRadius: 'inherit',
-                  border: '2px dashed var(--accent-blue)',
-                  opacity: dragover ? 0.8 : 0.3,
-                  pointerEvents: 'none'
-                }}
-                animate={{
-                  borderColor: dragover
-                    ? ['rgba(59,130,246,0.8)', 'rgba(59,130,246,0.4)', 'rgba(59,130,246,0.8)']
-                    : ['rgba(59,130,246,0.3)', 'rgba(59,130,246,0.15)', 'rgba(59,130,246,0.3)']
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-
-              {/* Pulse effect on dragover */}
-              <AnimatePresence>
-                {dragover && (
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1.5, opacity: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      borderRadius: 'inherit',
-                      border: '2px solid var(--accent-blue)',
-                      pointerEvents: 'none'
-                    }}
-                  />
-                )}
-              </AnimatePresence>
-
-              <AnimatePresence mode="wait">
-                {file ? (
-                  <motion.div
-                    key="file-selected"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.3 }}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
-                  >
-                    {/* File preview card */}
-                    <motion.div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 16,
-                        padding: '16px 24px',
-                        background: 'var(--bg-card, rgba(59,130,246,0.05))',
-                        borderRadius: 12,
-                        border: '1px solid rgba(59,130,246,0.2)'
-                      }}
-                    >
+            <Card className="rounded-2xl">
+              <CardContent className="space-y-5">
+                {/* Upload Zone */}
+                <motion.div
+                  animate={dragover ? 'dragover' : 'idle'}
+                  variants={uploadZoneVariants}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setDragover(true); }}
+                  onDragLeave={() => setDragover(false)}
+                  onDrop={e => { e.preventDefault(); setDragover(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
+                  className={cn(
+                    'relative cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors duration-300',
+                    dragover
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50 hover:bg-muted/40'
+                  )}
+                >
+                  <AnimatePresence mode="wait">
+                    {file ? (
                       <motion.div
-                        style={{ fontSize: 40 }}
-                        variants={fileIconVariants}
-                        initial="hidden"
-                        animate="visible"
+                        key="file-selected"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex flex-col items-center gap-2"
                       >
-                        {getFileIcon(file.name)}
-                      </motion.div>
-                      <div style={{ textAlign: 'left' }}>
-                        <motion.h3
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.2 }}
-                          style={{ margin: 0, fontSize: 16, fontWeight: 600, wordBreak: 'break-all' }}
-                        >
-                          {file.name}
-                        </motion.h3>
-                        <motion.p
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.3 }}
-                          style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}
-                        >
-                          {formatFileSize(file.size)}
-                        </motion.p>
-                      </div>
-                    </motion.div>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.4 }}
-                      style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}
-                    >
-                      Klik atau drag untuk mengganti file
-                    </motion.p>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="empty-state"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
-                  >
-                    <motion.div
-                      className="upload-zone-icon"
-                      animate={{ y: [0, -5, 0] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' as const }}
-                      style={{ fontSize: 48 }}
-                    >
-                      📤
-                    </motion.div>
-                    <h3 style={{ margin: 0 }}>Klik atau drag file ke sini</h3>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Mendukung file .TXT, .TSV, .CSV (maks 10MB)</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-            <input ref={fileInputRef} type="file" accept=".txt,.tsv,.csv" hidden onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
-
-            {/* Period Input */}
-            <motion.div className="form-group" style={{ marginTop: 20 }} variants={staggerItem}>
-              <label className="form-label">Periode Klaim (Opsional)</label>
-              <input type="month" className="form-input" value={period} onChange={e => setPeriod(e.target.value)} placeholder="YYYY-MM" />
-            </motion.div>
-
-            {/* Error Message */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  className="login-error"
-                  style={{ marginTop: 16 }}
-                  initial={{ opacity: 0, y: -10, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: 'auto' }}
-                  exit={{ opacity: 0, y: -10, height: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  ⚠️ {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Progress Section */}
-            <AnimatePresence>
-              {uploading && (
-                <motion.div
-                  style={{ marginTop: 16 }}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  {/* Progress Steps */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, gap: 8 }}>
-                    {progressSteps.map((step, i) => {
-                      const isActive = activeStep === step.key;
-                      const isCompleted = progressSteps.findIndex(s => s.key === activeStep) > i;
-                      return (
-                        <motion.div
-                          key={step.key}
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '8px 4px',
-                            borderRadius: 8,
-                            background: isActive ? 'rgba(59,130,246,0.1)' : isCompleted ? 'rgba(34,197,94,0.08)' : 'transparent',
-                            transition: 'background 0.3s'
-                          }}
-                          animate={isActive ? { scale: [1, 1.05, 1] } : {}}
-                          transition={{ duration: 1, repeat: isActive ? Infinity : 0 }}
-                        >
-                          <motion.span
-                            style={{ fontSize: 18 }}
-                            animate={isActive ? { rotate: [0, 10, -10, 0] } : {}}
-                            transition={{ duration: 0.5, repeat: isActive ? Infinity : 0, repeatDelay: 0.5 }}
+                        <div className="flex items-center gap-4 rounded-xl border bg-card px-6 py-4 shadow-sm">
+                          <motion.div
+                            variants={fileIconVariants}
+                            initial="hidden"
+                            animate="visible"
+                            className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"
                           >
-                            {isCompleted ? '✅' : step.icon}
-                          </motion.span>
-                          <span style={{
-                            fontSize: 11,
-                            fontWeight: isActive ? 700 : 500,
-                            color: isActive ? 'var(--accent-blue)' : isCompleted ? 'var(--accent-green)' : 'var(--text-secondary)'
-                          }}>
-                            {step.label}
-                          </span>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
-                    <motion.span
-                      style={{ fontWeight: 600, color: 'var(--accent-blue)' }}
-                      key={statusMsg}
-                      initial={{ opacity: 0, x: -5 }}
-                      animate={{ opacity: 1, x: 0 }}
-                    >
-                      {statusMsg}
-                    </motion.span>
-                    <motion.span
-                      key={progress}
-                      initial={{ scale: 1.2 }}
-                      animate={{ scale: 1 }}
-                      style={{ fontWeight: 600 }}
-                    >
-                      {progress}%
-                    </motion.span>
-                  </div>
-                  <div className="progress-bar" style={{ position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
-                    <motion.div
-                      className="progress-bar-fill"
-                      style={{
-                        height: '100%',
-                        borderRadius: 8,
-                        background: 'linear-gradient(90deg, var(--accent-blue), #818cf8, var(--accent-blue))',
-                        backgroundSize: '200% 100%',
-                        position: 'relative'
-                      }}
-                      initial={{ width: '0%' }}
-                      animate={{ width: `${progress}%` }}
-                      transition={{ duration: 0.5, ease: 'easeOut' as const }}
-                    >
-                      {/* Shimmer effect */}
+                            {(() => {
+                              const Icon = getFileIcon(file.name);
+                              return <Icon className="h-6 w-6" />;
+                            })()}
+                          </motion.div>
+                          <div className="text-left">
+                            <motion.h3
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.2 }}
+                              className="break-all text-sm font-semibold text-foreground"
+                            >
+                              {file.name}
+                            </motion.h3>
+                            <motion.p
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.3 }}
+                              className="mt-1 text-xs font-medium text-muted-foreground"
+                            >
+                              {formatFileSize(file.size)}
+                            </motion.p>
+                          </div>
+                        </div>
+                        <motion.p
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.4 }}
+                          className="text-xs text-muted-foreground"
+                        >
+                          Klik atau drag untuk mengganti file
+                        </motion.p>
+                      </motion.div>
+                    ) : (
                       <motion.div
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '50%',
-                          height: '100%',
-                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-                          borderRadius: 8
-                        }}
-                        variants={shimmerVariants}
-                        animate="animate"
-                      />
-                    </motion.div>
-                  </div>
+                        key="empty-state"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex flex-col items-center gap-2"
+                      >
+                        <motion.div
+                          animate={{ y: [0, -5, 0] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' as const }}
+                          className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
+                        >
+                          <UploadCloud className="h-7 w-7" />
+                        </motion.div>
+                        <h3 className="text-sm font-semibold text-foreground">Klik atau drag file ke sini</h3>
+                        <p className="text-xs text-muted-foreground">Mendukung file .TXT, .TSV, .CSV (maks 10MB)</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
-              )}
-            </AnimatePresence>
+                <input ref={fileInputRef} type="file" accept=".txt,.tsv,.csv" hidden onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
 
-            {/* Action Buttons */}
-            <motion.div style={{ display: 'flex', gap: 12, marginTop: 20 }} variants={staggerItem}>
-              <motion.button
-                className="btn btn-primary btn-lg"
-                style={{ flex: 1, justifyContent: 'center', alignItems: 'center', display: 'flex' }}
-                onClick={handleUpload}
-                disabled={!file || uploading}
-                whileHover={!(!file || uploading) ? buttonHover : {}}
-                whileTap={!(!file || uploading) ? buttonTap : {}}
-              >
-                {uploading ? (
-                  <>
-                    <span className="btn-spinner" />
-                    Memproses...
-                  </>
-                ) : '🚀 Upload & Validasi'}
-              </motion.button>
-              <AnimatePresence>
-                {file && !uploading && (
-                  <motion.button
-                    className="btn btn-secondary"
-                    onClick={() => { setFile(null); setError(''); }}
-                    initial={{ opacity: 0, scale: 0.8, width: 0 }}
-                    animate={{ opacity: 1, scale: 1, width: 'auto' }}
-                    exit={{ opacity: 0, scale: 0.8, width: 0 }}
-                    whileHover={buttonHover}
-                    whileTap={buttonTap}
+                {/* Period Input */}
+                <motion.div variants={staggerItem} className="space-y-1.5">
+                  <Label htmlFor="period">Periode Klaim (Opsional)</Label>
+                  <Input id="period" type="month" value={period} onChange={e => setPeriod(e.target.value)} placeholder="YYYY-MM" />
+                </motion.div>
+
+                {/* Error Message */}
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: 'auto' }}
+                      exit={{ opacity: 0, y: -10, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex items-center gap-2 overflow-hidden rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+                    >
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      {error}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Progress Section */}
+                <AnimatePresence>
+                  {uploading && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.4 }}
+                      className="space-y-3"
+                    >
+                      {/* Progress Steps */}
+                      <div className="flex justify-between gap-2">
+                        {progressSteps.map((step, i) => {
+                          const isActive = activeStep === step.key;
+                          const isCompleted = progressSteps.findIndex(s => s.key === activeStep) > i;
+                          return (
+                            <motion.div
+                              key={step.key}
+                              animate={isActive ? { scale: [1, 1.05, 1] } : {}}
+                              transition={{ duration: 1, repeat: isActive ? Infinity : 0 }}
+                              className={cn(
+                                'flex flex-1 flex-col items-center gap-1 rounded-lg px-1 py-2 transition-colors',
+                                isActive ? 'bg-primary/10' : isCompleted ? 'bg-primary/5' : 'bg-transparent'
+                              )}
+                            >
+                              <span className="text-base">{isCompleted ? '✅' : step.icon}</span>
+                              <span
+                                className={cn(
+                                  'text-[11px]',
+                                  isActive ? 'font-bold text-primary' : isCompleted ? 'font-medium text-primary/70' : 'font-medium text-muted-foreground'
+                                )}
+                              >
+                                {step.label}
+                              </span>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="flex items-center justify-between text-xs">
+                        <motion.span
+                          key={statusMsg}
+                          initial={{ opacity: 0, x: -5 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className="font-semibold text-primary"
+                        >
+                          {statusMsg}
+                        </motion.span>
+                        <motion.span key={progress} initial={{ scale: 1.2 }} animate={{ scale: 1 }} className="font-semibold">
+                          {progress}%
+                        </motion.span>
+                      </div>
+                      <Progress value={progress} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Action Buttons */}
+                <motion.div variants={staggerItem} className="flex gap-3 pt-1">
+                  <motion.div
+                    className="flex-1"
+                    whileHover={!(!file || uploading) ? buttonHover : {}}
+                    whileTap={!(!file || uploading) ? buttonTap : {}}
                   >
-                    Batal
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </motion.div>
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={handleUpload}
+                      disabled={!file || uploading}
+                    >
+                      {uploading ? (
+                        <>
+                          <span className="mr-1 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Memproses...
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="h-4 w-4" />
+                          Upload &amp; Validasi
+                        </>
+                      )}
+                    </Button>
+                  </motion.div>
+                  <AnimatePresence>
+                    {file && !uploading && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8, width: 0 }}
+                        animate={{ opacity: 1, scale: 1, width: 'auto' }}
+                        exit={{ opacity: 0, scale: 0.8, width: 0 }}
+                        whileHover={buttonHover}
+                        whileTap={buttonTap}
+                      >
+                        <Button variant="outline" size="lg" onClick={() => { setFile(null); setError(''); }}>
+                          <X className="h-4 w-4" />
+                          Batal
+                        </Button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </CardContent>
+            </Card>
           </motion.div>
         ) : (
           <motion.div
             key="success"
-            className="card"
-            style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center' }}
+            className="mx-auto w-full max-w-2xl"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.5, type: 'spring' }}
           >
-            {/* Confetti-like celebration */}
-            <div style={{ position: 'relative', height: 80, overflow: 'visible' }}>
-              {Array.from({ length: 20 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  style={{
-                    position: 'absolute',
-                    left: '50%',
-                    top: '50%',
-                    width: 8,
-                    height: 8,
-                    borderRadius: i % 2 === 0 ? '50%' : 2,
-                    background: ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'][i % 6]
-                  }}
-                  initial="initial"
-                  animate="animate"
-                  variants={confettiPiece(i)}
-                />
-              ))}
-            </div>
+            <Card className="rounded-2xl text-center">
+              <CardContent>
+                {/* Confetti-like celebration */}
+                <div className="relative h-20 overflow-visible">
+                  {Array.from({ length: 20 }).map((_, i) => (
+                    <motion.div
+                      key={i}
+                      style={{
+                        position: 'absolute',
+                        left: '50%',
+                        top: '50%',
+                        width: 8,
+                        height: 8,
+                        borderRadius: i % 2 === 0 ? '50%' : 2,
+                        background: ['var(--primary)', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'][i % 6]
+                      }}
+                      initial="initial"
+                      animate="animate"
+                      variants={confettiPiece(i)}
+                    />
+                  ))}
+                </div>
 
-            {/* Success checkmark */}
-            <motion.div
-              style={{ fontSize: 64, marginBottom: 16 }}
-              variants={successVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              ✅
-            </motion.div>
-
-            <motion.h3
-              style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              File Berhasil Divalidasi!
-            </motion.h3>
-            <motion.p
-              style={{ color: 'var(--text-secondary)', marginBottom: 24 }}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              {file?.name}
-            </motion.p>
-
-            {/* Stats Grid */}
-            <motion.div
-              className="stats-grid"
-              style={{ maxWidth: 500, margin: '0 auto 24px' }}
-              initial="hidden"
-              animate="visible"
-              variants={staggerContainer}
-            >
-              <motion.div className="stat-card blue" variants={staggerItem} whileHover={{ scale: 1.05, y: -2 }}>
-                <div className="stat-card-label">Total</div>
-                <motion.div
-                  className="stat-card-value"
-                  style={{ fontSize: 24 }}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.5, type: 'spring' }}
-                >
-                  {result.summary.total_records}
+                {/* Success checkmark */}
+                <motion.div variants={successVariants} initial="hidden" animate="visible" className="mb-4 flex justify-center">
+                  <CheckCircle2 className="h-16 w-16 text-primary" />
                 </motion.div>
-              </motion.div>
-              <motion.div className="stat-card green" variants={staggerItem} whileHover={{ scale: 1.05, y: -2 }}>
-                <div className="stat-card-label">Valid</div>
-                <motion.div
-                  className="stat-card-value"
-                  style={{ fontSize: 24, color: 'var(--accent-green)' }}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.6, type: 'spring' }}
-                >
-                  {result.summary.valid}
-                </motion.div>
-              </motion.div>
-              <motion.div className="stat-card red" variants={staggerItem} whileHover={{ scale: 1.05, y: -2 }}>
-                <div className="stat-card-label">Error</div>
-                <motion.div
-                  className="stat-card-value"
-                  style={{ fontSize: 24, color: 'var(--accent-red)' }}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.7, type: 'spring' }}
-                >
-                  {result.summary.error}
-                </motion.div>
-              </motion.div>
-            </motion.div>
 
-            {/* Action Buttons */}
-            <motion.div
-              style={{ display: 'flex', gap: 12, justifyContent: 'center' }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
-            >
-              <motion.button
-                className="btn btn-primary"
-                onClick={() => router.push(`/results/${result.file_id}`)}
-                whileHover={buttonHover}
-                whileTap={buttonTap}
-              >
-                📋 Lihat Detail
-              </motion.button>
-              <motion.button
-                className="btn btn-secondary"
-                onClick={() => { setFile(null); setResult(null); setProgress(0); }}
-                whileHover={buttonHover}
-                whileTap={buttonTap}
-              >
-                📤 Upload Lagi
-              </motion.button>
-            </motion.div>
+                <motion.h3
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="mb-2 text-xl font-bold text-foreground"
+                >
+                  File Berhasil Divalidasi!
+                </motion.h3>
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="mb-6 break-all text-sm text-muted-foreground"
+                >
+                  {file?.name}
+                </motion.p>
+
+                {/* Stats Grid */}
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={staggerContainer}
+                  className="mx-auto mb-6 grid max-w-md grid-cols-3 gap-3"
+                >
+                  <motion.div
+                    variants={staggerItem}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    className="rounded-xl border bg-muted/40 p-4"
+                  >
+                    <div className="text-xs font-medium text-muted-foreground">Total</div>
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.5, type: 'spring' }}
+                      className="text-2xl font-bold text-foreground"
+                    >
+                      {result.summary.total_records}
+                    </motion.div>
+                  </motion.div>
+                  <motion.div
+                    variants={staggerItem}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    className="rounded-xl border border-primary/30 bg-primary/5 p-4"
+                  >
+                    <div className="text-xs font-medium text-muted-foreground">Valid</div>
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.6, type: 'spring' }}
+                      className="text-2xl font-bold text-primary"
+                    >
+                      {result.summary.valid}
+                    </motion.div>
+                  </motion.div>
+                  <motion.div
+                    variants={staggerItem}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    className="rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+                  >
+                    <div className="text-xs font-medium text-muted-foreground">Error</div>
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.7, type: 'spring' }}
+                      className="text-2xl font-bold text-destructive"
+                    >
+                      {result.summary.error}
+                    </motion.div>
+                  </motion.div>
+                </motion.div>
+
+                {/* Action Buttons */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 }}
+                  className="flex justify-center gap-3"
+                >
+                  <motion.div whileHover={buttonHover} whileTap={buttonTap}>
+                    <Button onClick={() => router.push(`/results/${result.file_id}`)}>
+                      <ClipboardList className="h-4 w-4" />
+                      Lihat Detail
+                    </Button>
+                  </motion.div>
+                  <motion.div whileHover={buttonHover} whileTap={buttonTap}>
+                    <Button variant="outline" onClick={() => { setFile(null); setResult(null); setProgress(0); }}>
+                      <UploadCloud className="h-4 w-4" />
+                      Upload Lagi
+                    </Button>
+                  </motion.div>
+                </motion.div>
+              </CardContent>
+            </Card>
           </motion.div>
         )}
       </AnimatePresence>
