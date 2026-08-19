@@ -186,10 +186,14 @@ export const api = {
   // makin banyak file makin lama — timeout digenerosikan (15 menit) supaya
   // batch berukuran wajar (puluhan file) tidak keburu di-abort padahal masih
   // diproses. Progress real-time dikirim lewat socket event 'pdf-batch:*'.
-  uploadPdfBatch: (files: File[], jenisKlaim: string) => {
+  // jenisKlaim: kategori per file, urutan HARUS sama dengan `files` — backend
+  // memasangkan berdasarkan index (lihat /upload-pdf-batch, jenis_klaim_list).
+  // Dulu 1 kategori dipaksa untuk seluruh batch; sekarang boleh campur
+  // RJ/RI/IGD dalam 1 kali upload.
+  uploadPdfBatch: (files: File[], jenisKlaim: string[]) => {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
-    fd.append('jenis_klaim', jenisKlaim);
+    fd.append('jenis_klaim_list', JSON.stringify(jenisKlaim));
     return request('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 900000 });
   },
 

@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc: string }[] = [
   { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: <Footprints className="size-5" />, desc: 'Pasien tidak menginap' },
@@ -58,10 +59,16 @@ export default function ExtractPage() {
   // Mode single
   const [file, setFile] = useState<File | null>(null);
 
-  // Mode batch
+  // Mode batch — kategori BISA BEDA per file (dulu 1 kategori dipaksa untuk
+  // seluruh batch, verifikator harus upload 3x terpisah kalau berkasnya
+  // campur RJ/RI/IGD). Dikunci per file (bukan per index) pakai fileKey()
+  // supaya urutan tetap benar walau file dihapus/ditambah di tengah.
   const [files, setFiles] = useState<File[]>([]);
+  const [fileCategories, setFileCategories] = useState<Record<string, string>>({});
   const [batchStatuses, setBatchStatuses] = useState<BatchFileStatus[]>([]);
   const [batchDone, setBatchDone] = useState<{ successful: number; failed: number } | null>(null);
+
+  const fileKey = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
 
   const validateFile = (f: File): string | null => {
     const ext = f.name.toLowerCase().split('.').pop();
@@ -99,7 +106,30 @@ export default function ExtractPage() {
   };
 
   const removeBatchFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles(prev => {
+      const removed = prev[index];
+      if (removed) {
+        setFileCategories(cats => {
+          const next = { ...cats };
+          delete next[fileKey(removed)];
+          return next;
+        });
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  // Set kategori 1 file, atau semua file sekaligus ("samakan semua kategori").
+  const setCategoryFor = (target: File | 'all', value: string) => {
+    setFileCategories(prev => {
+      if (target === 'all') {
+        const next = { ...prev };
+        files.forEach(f => { next[fileKey(f)] = value; });
+        return next;
+      }
+      return { ...prev, [fileKey(target)]: value };
+    });
+    setError('');
   };
 
   const switchMode = (next: 'single' | 'batch') => {
@@ -107,6 +137,7 @@ export default function ExtractPage() {
     setMode(next);
     setFile(null);
     setFiles([]);
+    setFileCategories({});
     setBatchStatuses([]);
     setBatchDone(null);
     setError('');
@@ -137,7 +168,12 @@ export default function ExtractPage() {
 
   const handleUploadBatch = useCallback(async () => {
     if (files.length === 0) return;
-    if (!jenisKlaim) { setError('Pilih kategori pelayanan terlebih dahulu — berlaku untuk semua file dalam batch ini.'); return; }
+    const categories = files.map(f => fileCategories[fileKey(f)] || '');
+    const missing = categories.filter(c => !c).length;
+    if (missing > 0) {
+      setError(`${missing} file belum diberi kategori pelayanan. Pilih kategori untuk tiap file (atau pakai tombol "samakan semua") sebelum upload.`);
+      return;
+    }
     setUploading(true);
     setError('');
     setBatchDone(null);
@@ -152,7 +188,10 @@ export default function ExtractPage() {
     });
 
     try {
-      const res = await api.uploadPdfBatch(files, jenisKlaim);
+      // Kategori dikirim per file (array, urutan sama dengan `files`) — bukan
+      // 1 nilai untuk seluruh batch lagi, lihat api.uploadPdfBatch & endpoint
+      // backend /upload-pdf-batch (jenis_klaim_list).
+      const res = await api.uploadPdfBatch(files, categories);
       setBatchDone({ successful: res.successful, failed: res.failed });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Batch gagal diunggah. Silakan coba lagi.');
@@ -161,7 +200,7 @@ export default function ExtractPage() {
       batchSocketRef.current = null;
       setUploading(false);
     }
-  }, [files, jenisKlaim]);
+  }, [files, fileCategories]);
 
   const batchProgressDone = batchStatuses.filter(s => s.status === 'done' || s.status === 'failed').length;
   const batchProgressPct = files.length > 0 ? Math.round((batchProgressDone / files.length) * 100) : 0;
@@ -210,23 +249,34 @@ export default function ExtractPage() {
               </button>
             </div>
 
-            {/* ── Kategori pelayanan ── */}
+            {/* ── Kategori pelayanan ──
+                Mode single: 1 kategori untuk file itu (radio, seperti biasa).
+                Mode batch: kategori BISA BEDA per file — tombol di sini cuma
+                "terapkan ke semua file sekaligus" (shortcut kalau semua file
+                dalam batch memang 1 kategori yang sama), kategori tiap file
+                tetap bisa diubah individual di daftar file di bawah. */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Kategori Pelayanan</label>
-              <div role="radiogroup" aria-label="Kategori Pelayanan" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="text-sm font-medium text-foreground">
+                {mode === 'batch' ? 'Terapkan Kategori ke Semua File' : 'Kategori Pelayanan'}
+              </label>
+              <div role={mode === 'single' ? 'radiogroup' : undefined} aria-label="Kategori Pelayanan" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {JENIS_KLAIM_OPTIONS.map(opt => {
-                  const isSelected = jenisKlaim === opt.value;
+                  const isSelected = mode === 'single' && jenisKlaim === opt.value;
                   return (
                     <motion.button
                       key={opt.value}
                       type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      onClick={() => { setJenisKlaim(opt.value); setError(''); }}
+                      role={mode === 'single' ? 'radio' : undefined}
+                      aria-checked={mode === 'single' ? isSelected : undefined}
+                      onClick={() => {
+                        if (mode === 'single') { setJenisKlaim(opt.value); setError(''); }
+                        else setCategoryFor('all', opt.value);
+                      }}
+                      disabled={mode === 'batch' && files.length === 0}
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.97 }}
                       className={cn(
-                        'relative flex flex-col items-start gap-1 rounded-lg border p-4 text-left transition-colors',
+                        'relative flex flex-col items-start gap-1 rounded-lg border p-4 text-left transition-colors disabled:opacity-50 disabled:pointer-events-none',
                         isSelected
                           ? 'border-primary bg-primary/5 ring-1 ring-primary'
                           : 'border-border hover:border-primary/40 hover:bg-muted/50',
@@ -254,7 +304,7 @@ export default function ExtractPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {mode === 'batch'
-                  ? 'Berlaku untuk SEMUA file dalam batch ini — pastikan file yang dipilih sudah dipisah per kategori pelayanan.'
+                  ? 'Klik salah satu untuk menerapkan kategori itu ke SEMUA file yang sudah ditambahkan. Tiap file tetap bisa diberi kategori berbeda satu per satu di daftar file di bawah — jadi berkas RJ/RI/IGD yang bercampur bisa diupload sekaligus, tidak perlu dipisah 3x upload lagi.'
                   : 'Dipakai supaya AI tidak salah memberi saran (mis. saran ruangan rawat inap untuk klaim rawat jalan) dan untuk memudahkan pencarian di Riwayat Upload.'}
               </p>
             </div>
@@ -323,7 +373,7 @@ export default function ExtractPage() {
                   <div className="flex flex-col items-center gap-2">
                     <UploadCloud className="size-10 text-muted-foreground" />
                     <h3 className="m-0 text-sm font-semibold text-foreground">Klik atau drag beberapa berkas PDF ke sini</h3>
-                    <p className="m-0 text-xs text-muted-foreground">Maks {MAX_BATCH_FILES} file, masing-masing maks 20MB — 1 kategori pelayanan untuk semua file</p>
+                    <p className="m-0 text-xs text-muted-foreground">Maks {MAX_BATCH_FILES} file, masing-masing maks 20MB — kategori bisa diatur per file, boleh campur RJ/RI/IGD</p>
                   </div>
                 </div>
                 <input
@@ -353,6 +403,23 @@ export default function ExtractPage() {
                               <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                               <span className="flex-1 truncate" title={f.name}>{f.name}</span>
                               <span className="shrink-0 text-xs text-muted-foreground">{formatFileSize(f.size)}</span>
+                              {/* Kategori per file — boleh beda-beda dalam 1 batch */}
+                              <Select
+                                value={fileCategories[fileKey(f)] || ''}
+                                onValueChange={v => setCategoryFor(f, v)}
+                                disabled={uploading}
+                              >
+                                <SelectTrigger className="h-7 w-[132px] shrink-0 text-xs" size="sm">
+                                  <SelectValue placeholder="Pilih kategori" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {JENIS_KLAIM_OPTIONS.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                      {opt.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               {status && (
                                 <Badge
                                   variant={
@@ -448,7 +515,7 @@ export default function ExtractPage() {
                     size="lg"
                     className="flex-1"
                     onClick={handleUploadBatch}
-                    disabled={files.length === 0 || !jenisKlaim || uploading}
+                    disabled={files.length === 0 || uploading}
                   >
                     {uploading ? (
                       <><Spinner /> Memproses {batchProgressDone}/{files.length}...</>
