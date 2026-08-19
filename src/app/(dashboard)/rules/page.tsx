@@ -35,12 +35,20 @@ const priorityGlow = (p: number) =>
   p === 2 ? '0 0 12px rgba(245,158,11,0.3)' :
   '0 0 12px rgba(59,130,246,0.25)';
 
+const KELAS_RS_OPTIONS = ['A', 'B', 'C', 'D'];
+
 export default function RulesPage() {
   const { checking, allowed } = useRequireRole(['admin']);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [editMsg, setEditMsg] = useState('');
+
+  const [hospitalCode, setHospitalCode] = useState('');
+  const [kelasRs, setKelasRs] = useState('');
+  const [kelasRsDraft, setKelasRsDraft] = useState('');
+  const [kelasRsSaving, setKelasRsSaving] = useState(false);
+  const [kelasRsSaved, setKelasRsSaved] = useState(false);
 
   const loadRules = useCallback(async () => {
     try {
@@ -53,7 +61,33 @@ export default function RulesPage() {
     }
   }, []);
 
-  useEffect(() => { if (allowed) loadRules(); }, [allowed, loadRules]);
+  const loadHospitalSettings = useCallback(async () => {
+    try {
+      const d = await api.getHospitalSettings();
+      setHospitalCode(d.hospital_code || '');
+      setKelasRs(d.kelas_rs || '');
+      setKelasRsDraft(d.kelas_rs || '');
+    } catch (err) {
+      console.error('[Rules] Gagal memuat profil RS:', err);
+    }
+  }, []);
+
+  useEffect(() => { if (allowed) { loadRules(); loadHospitalSettings(); } }, [allowed, loadRules, loadHospitalSettings]);
+
+  const handleSaveKelasRs = async () => {
+    if (!kelasRsDraft || kelasRsDraft === kelasRs) return;
+    setKelasRsSaving(true);
+    try {
+      await api.updateHospitalSettings({ kelas_rs: kelasRsDraft });
+      setKelasRs(kelasRsDraft);
+      setKelasRsSaved(true);
+      setTimeout(() => setKelasRsSaved(false), 2000);
+    } catch (err) {
+      console.error('[Rules] Gagal simpan Kelas RS:', err);
+    } finally {
+      setKelasRsSaving(false);
+    }
+  };
 
   const handleToggle = async (rule: Rule) => {
     try { 
@@ -93,6 +127,50 @@ export default function RulesPage() {
           <p>Kelola {rules.length} rule validasi klaim BPJS (BA 1247/2024)</p>
         </div>
       </div>
+
+      <motion.div
+        className="card"
+        style={{ padding: 20, marginBottom: 16 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>🏥 Profil Rumah Sakit</div>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14 }}>
+          KODE_RS dan KELAS_RS adalah atribut rumah sakit itu sendiri, bukan per-klaim — keduanya
+          tidak pernah tercetak di SEP atau Resume Medis pasien. Isi Kelas RS sekali di sini, sistem akan
+          mengisinya otomatis untuk setiap berkas klaim yang diupload.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-end' }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Kode RS (BPJS)</div>
+            <code style={{ background: 'var(--bg-input)', padding: '6px 10px', borderRadius: 4, fontSize: 13 }}>
+              {hospitalCode || '—'}
+            </code>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Kelas RS (akreditasi)</div>
+            <select
+              className="form-input"
+              value={kelasRsDraft}
+              onChange={e => setKelasRsDraft(e.target.value)}
+              style={{ minWidth: 100 }}
+            >
+              <option value="">— Belum diisi —</option>
+              {KELAS_RS_OPTIONS.map(k => <option key={k} value={k}>Kelas {k}</option>)}
+            </select>
+          </div>
+          <motion.button
+            className="btn btn-primary btn-sm"
+            onClick={handleSaveKelasRs}
+            disabled={kelasRsSaving || !kelasRsDraft || kelasRsDraft === kelasRs}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {kelasRsSaving ? 'Menyimpan...' : kelasRsSaved ? '✅ Tersimpan' : '💾 Simpan'}
+          </motion.button>
+        </div>
+      </motion.div>
 
       <motion.div
         style={{ display: 'flex', flexDirection: 'column', gap: 12 }}

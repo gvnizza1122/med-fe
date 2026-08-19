@@ -153,6 +153,11 @@ export const api = {
   updateRule: (id: string, data: Record<string, unknown>) =>
     request(`/api/v1/validation-rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
+  // Hospital Settings (Profil RS — Kode RS & Kelas RS, dipakai auto-fill saat upload PDF)
+  getHospitalSettings: () => request('/api/v1/hospital-settings'),
+  updateHospitalSettings: (data: { kelas_rs: string }) =>
+    request('/api/v1/hospital-settings', { method: 'PUT', body: JSON.stringify(data) }),
+
   // Users
   getUsers: () => request('/api/v1/users'),
   createUser: (data: Record<string, string>) =>

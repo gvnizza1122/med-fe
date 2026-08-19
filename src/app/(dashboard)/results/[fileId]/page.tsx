@@ -350,7 +350,11 @@ function RecordFieldsTable({
                           </div>
                         )}
                         {field.status === 'empty' && !field.codeEvidence && (
-                          <span style={{ color: '#f59e0b' }}>Data tidak ditemukan di dokumen PDF. Periksa dan isi manual.</span>
+                          <span style={{ color: '#f59e0b' }}>
+                            {(field.column_name === 'KODE_RS' || field.column_name === 'KELAS_RS')
+                              ? <>Field ini atribut rumah sakit, bukan per-klaim — memang tidak pernah tercetak di SEP/Resume Medis pasien. Isi sekali di menu <strong>Aturan Validasi &gt; Profil Rumah Sakit</strong>, akan otomatis terisi untuk klaim berikutnya.</>
+                              : 'Data tidak ditemukan di dokumen PDF. Periksa dan isi manual.'}
+                          </span>
                         )}
                         {field.aiNote && (
                           <div style={{
@@ -378,13 +382,31 @@ function RecordFieldsTable({
                           </div>
                         )}
                         {field.suggestedCodes && field.suggestedCodes.length > 0 && (
-                          <div style={{ marginTop: 4, color: '#2563eb' }}>
-                            💡 Kode tambahan terdeteksi di dokumen:{' '}
-                            {field.suggestedCodes.map((s, i) => (
-                              <span key={s.code} title={`Hal. ${s.page_number}: "${s.quotation}"${s.reasoning ? ` — ${s.reasoning}` : ''}`} style={{ cursor: 'help', fontFamily: 'monospace' }}>
-                                {i > 0 && ', '}{s.code}
-                              </span>
-                            ))}
+                          <div style={{ marginTop: 4, color: '#2563eb', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                            <span>💡 Kode disarankan dari dokumen (belum diklaim, verifikasi dulu sebelum dipakai):</span>
+                            {field.suggestedCodes.map((s, i) => {
+                              const currentCodes = String(currentValue ?? '').split(';').map(c => c.trim()).filter(Boolean);
+                              const alreadyApplied = currentCodes.includes(s.code);
+                              return (
+                                <span key={s.code} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  {i > 0 && <span>,</span>}
+                                  <span title={`Hal. ${s.page_number}: "${s.quotation}"${s.reasoning ? ` — ${s.reasoning}` : ''}`} style={{ cursor: 'help', fontFamily: 'monospace' }}>
+                                    {s.code}
+                                  </span>
+                                  {editing && !isSystem && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary btn-sm"
+                                      disabled={alreadyApplied}
+                                      onClick={() => onEdit(field.column_name, [...currentCodes, s.code].join(';'))}
+                                      style={{ fontSize: 10, padding: '1px 6px' }}
+                                    >
+                                      {alreadyApplied ? '✓ Diterapkan' : 'Terapkan'}
+                                    </button>
+                                  )}
+                                </span>
+                              );
+                            })}
                           </div>
                         )}
                         {field.status !== 'error' && field.status !== 'empty' && !field.aiNote && !field.codeEvidence?.length && !field.suggestedCodes?.length && (
