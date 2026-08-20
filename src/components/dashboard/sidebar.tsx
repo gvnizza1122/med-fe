@@ -11,6 +11,7 @@ import {
   Users,
   ShieldCheck,
   HeartPulse,
+  ClipboardList,
   Sun,
   Moon,
   LogOut,
@@ -44,6 +45,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "supervisor", "verifikator"] },
       { href: "/extract", icon: FileText, label: "Extract PDF", roles: ["admin", "supervisor", "verifikator"] },
       { href: "/history", icon: History, label: "Riwayat Upload", roles: ["admin", "supervisor", "verifikator"] },
+      { href: "/pending-bpjs", icon: ClipboardList, label: "Pending BPJS", roles: ["admin", "supervisor", "verifikator"] },
     ],
   },
   {

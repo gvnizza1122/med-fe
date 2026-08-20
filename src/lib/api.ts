@@ -265,4 +265,20 @@ export const api = {
   getBpjsPending: (recordId: string) => request(`/api/v1/records/${recordId}/pending`),
   updateBpjsPendingStatus: (pendingId: string, data: { status?: string; outcome?: string; poin_kunci?: string; draft_klarifikasi?: string }) =>
     request(`/api/v1/records/pending/${pendingId}/status`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // Rekap Pending BPJS berformat Excel (2 sheet "Pending RJ"/"Pending RI",
+  // 1 baris = 1 klaim pending) — import massal, bukan surat PDF per-klaim.
+  importPendingXlsx: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request('/api/v1/records/pending-import-xlsx', { method: 'POST', body: fd, timeout: 60000 });
+  },
+  getPendingList: (params: { status?: string; outcome?: string; jenis_klaim?: string; search?: string; page?: number; limit?: number } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)); });
+    const q = qs.toString();
+    return request(`/api/v1/records/pending${q ? `?${q}` : ''}`);
+  },
+  generatePendingDraft: (id: string) =>
+    request(`/api/v1/records/pending/${id}/generate-draft`, { method: 'POST', timeout: 90000 }),
 };

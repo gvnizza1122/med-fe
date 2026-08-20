@@ -8,7 +8,6 @@ import { ToastContainer, useToast } from '@/components/Toast';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
 import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
-import { BpjsPendingModal } from '@/components/BpjsPendingModal';
 import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { Header } from '@/components/dashboard/header';
 import { Card } from '@/components/ui/card';
@@ -520,7 +519,6 @@ export default function ResultsPage() {
   const [rv20ModalOpen, setRv20ModalOpen] = useState(false);
   const [rv20ConfirmedRecordIds, setRv20ConfirmedRecordIds] = useState<Set<string>>(new Set());
   const [suratKlarifikasiOpen, setSuratKlarifikasiOpen] = useState(false);
-  const [bpjsPendingOpen, setBpjsPendingOpen] = useState(false);
 
   const selectRecord = (id: string) => {
     setSelectedRecordId(id);
@@ -909,9 +907,6 @@ export default function ResultsPage() {
                       Buat Surat Klarifikasi
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => setBpjsPendingOpen(true)}>
-                    + Upload Jawaban Pending BPJS
-                  </Button>
                   {!isEditing ? (
                     <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>Edit</Button>
                   ) : (
@@ -1097,14 +1092,6 @@ export default function ResultsPage() {
           open={suratKlarifikasiOpen}
           onOpenChange={setSuratKlarifikasiOpen}
           record={selectedRecord}
-        />
-      )}
-
-      {selectedRecord && (
-        <BpjsPendingModal
-          open={bpjsPendingOpen}
-          onOpenChange={setBpjsPendingOpen}
-          recordId={selectedRecord.id}
         />
       )}
 
