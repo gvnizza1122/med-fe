@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { ToastContainer, useToast } from '@/components/Toast';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
 import { Header } from '@/components/dashboard/header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -345,6 +346,11 @@ function RecordFieldsTable({
                   const currentValue = editedValues[field.column_name] !== undefined
                     ? editedValues[field.column_name] : field.value;
                   const isChanged = editedValues[field.column_name] !== undefined;
+                  // Field yang kosong dari AI ekstraksi & diisi otomatis dari
+                  // kunjungan MRN sebelumnya (lihat autofillFromMrn di backend)
+                  // — bukan data dari dokumen INI, ditandai supaya koder tahu
+                  // ini perlu dicek/edit kalau ternyata beda.
+                  const autofilledFrom = parseRawData(recordData)[`_autofill_${field.column_name}`];
                   return (
                     <tr key={field.column_name} className="border-b last:border-0 hover:bg-muted/40 align-top">
                       <td className="px-3 py-2 font-semibold text-xs">{field.column_name}</td>
@@ -368,6 +374,16 @@ function RecordFieldsTable({
                                 ? `${currentValue} - ${DISCHARGE_STATUS_LABELS[String(currentValue)]}`
                                 : String(currentValue)}
                           </span>
+                        )}
+                        {autofilledFrom === 'mrn_history' && !isChanged && (
+                          <Badge
+                            variant="outline"
+                            className="ml-1.5 shrink-0 border-blue-500/40 text-[10px] text-blue-700 dark:text-blue-400 cursor-pointer"
+                            title="Kosong dari dokumen ini — diisi otomatis dari kunjungan sebelumnya (MRN sama). Klik untuk edit kalau ternyata beda."
+                            onClick={() => onEdit(field.column_name, String(currentValue ?? ''))}
+                          >
+                            dari riwayat
+                          </Badge>
                         )}
                       </td>
                       <td className="px-3 py-2">
@@ -498,6 +514,8 @@ export default function ResultsPage() {
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [onlyIssues, setOnlyIssues] = useState(false);
   const [listCollapsed, setListCollapsed] = useState(false);
+  const [rv20ModalOpen, setRv20ModalOpen] = useState(false);
+  const [rv20ConfirmedRecordIds, setRv20ConfirmedRecordIds] = useState<Set<string>>(new Set());
 
   const selectRecord = (id: string) => {
     setSelectedRecordId(id);
@@ -544,7 +562,28 @@ export default function ResultsPage() {
     setEditedValues({});
     setShowPdf(false);
     setMaximizeData(false);
+    setRv20ModalOpen(false);
   }, [selectedRecordId]);
+
+  // RV-20 (kriteria kegawatan IGD, non-blocking) — kalau record ini kena RV-20
+  // dan BELUM pernah dikonfirmasi, tampilkan modal checklist sekali. Dicek ke
+  // server (bukan cuma local state) supaya tidak muncul ulang kalau
+  // verifikator sebelumnya sudah konfirmasi lalu buka lagi halaman ini nanti.
+  useEffect(() => {
+    const rec = selectedRecordId ? records.find(r => r.id === selectedRecordId) : null;
+    const hasRv20 = rec?.errors?.some(e => e.rule_id === 'RV-20');
+    if (!rec || !hasRv20 || rv20ConfirmedRecordIds.has(rec.id)) { setRv20ModalOpen(false); return; }
+    let cancelled = false;
+    api.getRv20Confirmation(rec.id).then(res => {
+      if (cancelled) return;
+      if (res.confirmed) {
+        setRv20ConfirmedRecordIds(prev => new Set(prev).add(rec.id));
+      } else {
+        setRv20ModalOpen(true);
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedRecordId, records, rv20ConfirmedRecordIds]);
 
   const handleExport = async () => {
     try {
@@ -818,12 +857,32 @@ export default function ResultsPage() {
                         {kategori.icon} {kategori.label}
                       </Badge>
                     )}
+                    {parseRawData(selectedRecord)._sep_source && (
+                      <Badge
+                        className="text-[11px] border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                        title={
+                          parseRawData(selectedRecord)._sep_source === 'filename'
+                            ? 'Field SEP kosong dari AI ekstraksi — diisi otomatis dari nama file (nama file di RS ini adalah nomor SEP-nya sendiri). Mohon cek ulang.'
+                            : 'Field SEP kosong dari AI ekstraksi — diisi otomatis dari hasil pindai teks dokumen. Mohon cek ulang.'
+                        }
+                      >
+                        ⚠️ SEP dari {parseRawData(selectedRecord)._sep_source === 'filename' ? 'nama file' : 'scan dokumen'} — harap verifikasi
+                      </Badge>
+                    )}
                     {parseRawData(selectedRecord).POTENSI_PRB_SEP && (
                       <Badge
                         className="text-[11px] border-transparent bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300"
                         title="Flag ini tercetak langsung dari sistem BPJS di halaman SEP, bukan simpulan AI/RS — pertimbangkan cek status PRB pasien ini."
                       >
                         🔔 Potensi PRB (BPJS)
+                      </Badge>
+                    )}
+                    {selectedRecord.prb_exempt_reason && (
+                      <Badge
+                        className="text-[11px] border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                        title={`Dikecualikan dari RV-15 (Program Rujuk Balik): ${selectedRecord.prb_exempt_reason}`}
+                      >
+                        ✓ EXEMPT PRB
                       </Badge>
                     )}
                   </div>
@@ -1012,6 +1071,21 @@ export default function ResultsPage() {
           )}
         </div>
       </div>
+
+      {selectedRecord && (
+        <Rv20ConfirmationModal
+          open={rv20ModalOpen}
+          recordId={selectedRecord.id}
+          onConfirmed={() => {
+            setRv20ConfirmedRecordIds(prev => new Set(prev).add(selectedRecord.id));
+            setRv20ModalOpen(false);
+          }}
+          onEditInstead={() => {
+            setRv20ModalOpen(false);
+            setIsEditing(true);
+          }}
+        />
+      )}
     </div>
   );
 }

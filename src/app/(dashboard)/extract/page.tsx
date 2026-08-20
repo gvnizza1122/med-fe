@@ -1,8 +1,8 @@
 'use client';
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { io, type Socket } from 'socket.io-client';
+import { useUploadJob } from '@/contexts/UploadJobContext';
 import {
   FileText,
   Files,
@@ -16,7 +16,6 @@ import {
   BedDouble,
   Siren,
 } from 'lucide-react';
-import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Header } from '@/components/dashboard/header';
 import { Button } from '@/components/ui/button';
@@ -34,22 +33,6 @@ const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc
 
 const MAX_BATCH_FILES = 30; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
 
-interface JenisKlaimDetection {
-  value: string;
-  source: 'auto' | 'single-allowed' | 'detected-not-in-allowed-list' | 'undetected';
-  confident: boolean;
-}
-
-interface BatchFileStatus {
-  fileName: string;
-  status: 'waiting' | 'processing' | 'done' | 'failed';
-  error?: string | null;
-  // Diisi backend SETELAH proses selesai — kategori dideteksi otomatis dari
-  // isi dokumen, verifikator tidak perlu pilih manual per file lagi.
-  jenisKlaim?: string | null;
-  detection?: JenisKlaimDetection | null;
-}
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -58,12 +41,23 @@ function formatFileSize(bytes: number): string {
 
 export default function ExtractPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const { job, startSingleUpload, startBatchUpload, dismissJob } = useUploadJob();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<'single' | 'batch'>('single');
   const [jenisKlaim, setJenisKlaim] = useState('');
   const [dragover, setDragover] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+
+  // uploading/batchStatuses/batchDone sekarang bersumber dari job global (lihat
+  // UploadJobContext) — supaya progress upload+audit tetap jalan & terlihat
+  // (lewat widget sidebar) walau verifikator pindah ke halaman lain, tidak
+  // terikat ke lifecycle komponen halaman ini lagi.
+  const uploading = job?.active ?? false;
+  const batchStatuses = job?.type === 'batch' ? job.statuses : [];
+  const batchDone = job?.type === 'batch' && !job.active && !job.error
+    ? { successful: job.doneCount, failed: job.failedCount }
+    : null;
 
   // Mode single
   const [file, setFile] = useState<File | null>(null);
@@ -76,8 +70,19 @@ export default function ExtractPage() {
   // SETELAH proses/audit selesai.
   const [files, setFiles] = useState<File[]>([]);
   const [allowedCategories, setAllowedCategories] = useState<string[]>([]);
-  const [batchStatuses, setBatchStatuses] = useState<BatchFileStatus[]>([]);
-  const [batchDone, setBatchDone] = useState<{ successful: number; failed: number } | null>(null);
+
+  // Kalau verifikator TETAP di halaman ini sampai upload 1-file selesai,
+  // pertahankan kebiasaan lama: langsung ke halaman hasil. Kalau sudah
+  // pindah halaman, biarkan (widget sidebar sediakan link "Lihat Hasil" —
+  // memaksa pindah halaman saat mereka sedang lihat halaman lain justru
+  // mengulang masalah yang fitur ini coba perbaiki).
+  useEffect(() => {
+    if (pathname === '/extract' && job?.type === 'single' && !job.active && job.resultFileId) {
+      router.push(`/results/${job.resultFileId}`);
+      dismissJob();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, pathname]);
 
   const toggleAllowedCategory = (value: string) => {
     setAllowedCategories(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
@@ -129,33 +134,20 @@ export default function ExtractPage() {
     setFile(null);
     setFiles([]);
     setAllowedCategories([]);
-    setBatchStatuses([]);
-    setBatchDone(null);
+    dismissJob();
     setError('');
   };
 
   const handleUploadSingle = async () => {
     if (!file) return;
     if (!jenisKlaim) { setError('Pilih kategori pelayanan (Rawat Jalan/Rawat Inap/IGD) terlebih dahulu.'); return; }
-    setUploading(true);
     setError('');
-    try {
-      const res = await api.uploadPdf(file, jenisKlaim);
-      // Langsung ke halaman hasil lengkap (rule engine + OCR bukti + audit AI +
-      // edit field) — satu alur yang sama untuk semua PDF, sudah teruji.
-      router.push(`/results/${res.file_id}`);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Berkas gagal diunggah. Silakan coba lagi.');
-      setUploading(false);
-    }
+    // Upload dijalankan lewat context global (lihat UploadJobContext) —
+    // navigasi ke halaman hasil ditangani effect di atas, bukan di sini,
+    // supaya tetap bekerja meski verifikator sudah pindah halaman sebelum
+    // proses ini selesai.
+    await startSingleUpload(file, jenisKlaim);
   };
-
-  // Socket cuma dibuka selagi batch benar-benar berjalan — supaya tidak ada
-  // koneksi menganggur saat user berada di mode batch tapi belum upload.
-  const batchSocketRef = useRef<Socket | null>(null);
-  useEffect(() => {
-    return () => { batchSocketRef.current?.disconnect(); };
-  }, []);
 
   const handleUploadBatch = useCallback(async () => {
     if (files.length === 0) return;
@@ -163,57 +155,15 @@ export default function ExtractPage() {
       setError('Toggle minimal satu kategori pelayanan yang mungkin ada di batch ini sebelum upload.');
       return;
     }
-    setUploading(true);
     setError('');
-    setBatchDone(null);
-    setBatchStatuses(files.map(f => ({ fileName: f.name, status: 'waiting' })));
-
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000');
-    batchSocketRef.current = socket;
-    socket.on('pdf-batch:file-done', (data: {
-      fileName: string; success: boolean; error?: string | null;
-      jenis_klaim?: string | null; jenis_klaim_detection?: JenisKlaimDetection | null;
-    }) => {
-      setBatchStatuses(prev => prev.map(s =>
-        s.fileName === data.fileName
-          ? { ...s, status: data.success ? 'done' : 'failed', error: data.error, jenisKlaim: data.jenis_klaim, detection: data.jenis_klaim_detection }
-          : s
-      ));
-    });
-
-    try {
-      // Kategori TIDAK dipilih per file lagi — kirim daftar kategori yang
-      // ditoggle di awal ("mungkin ada di batch ini"), backend yang deteksi
-      // otomatis per file dari isi dokumennya (lihat allowed_jenis_klaim di
-      // endpoint /upload-pdf-batch).
-      const res = await api.uploadPdfBatch(files, allowedCategories);
-      setBatchDone({ successful: res.successful, failed: res.failed });
-      // Jaring pengaman: kalau event socket 'pdf-batch:file-done' untuk
-      // sebagian file tidak sampai ke klien (race condition koneksi/reconnect),
-      // baris itu akan macet di "Menunggu" walau file sebenarnya sudah selesai
-      // diproses di server. Respons HTTP ini sudah berisi hasil final semua
-      // file, jadi dipakai untuk menyamakan baris yang belum ke-update socket.
-      type BatchResultItem = {
-        original_name: string; success: boolean; error?: string | null;
-        jenis_klaim?: string | null; jenis_klaim_detection?: JenisKlaimDetection | null;
-      };
-      const resultsByName = new Map<string, BatchResultItem>(
-        (res.results as BatchResultItem[] | undefined)?.map(r => [r.original_name, r]) || []
-      );
-      setBatchStatuses(prev => prev.map(s => {
-        if (s.status !== 'waiting') return s;
-        const r = resultsByName.get(s.fileName);
-        if (!r) return s;
-        return { ...s, status: r.success ? 'done' : 'failed', error: r.error, jenisKlaim: r.jenis_klaim, detection: r.jenis_klaim_detection };
-      }));
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Batch gagal diunggah. Silakan coba lagi.');
-    } finally {
-      socket.disconnect();
-      batchSocketRef.current = null;
-      setUploading(false);
-    }
-  }, [files, allowedCategories]);
+    // Kategori TIDAK dipilih per file lagi — kirim daftar kategori yang
+    // ditoggle di awal ("mungkin ada di batch ini"), backend yang deteksi
+    // otomatis per file dari isi dokumennya (lihat allowed_jenis_klaim di
+    // endpoint /upload-pdf-batch). Proses & status batch dikelola context
+    // global supaya tetap jalan & terlihat (widget sidebar) walau
+    // verifikator pindah ke Dashboard/Riwayat Upload sambil menunggu.
+    await startBatchUpload(files, allowedCategories);
+  }, [files, allowedCategories, startBatchUpload]);
 
   const batchProgressDone = batchStatuses.filter(s => s.status === 'done' || s.status === 'failed').length;
   const batchProgressPct = files.length > 0 ? Math.round((batchProgressDone / files.length) * 100) : 0;
@@ -538,7 +488,7 @@ export default function ExtractPage() {
                     )}
                   </Button>
                   {files.length > 0 && !uploading && (
-                    <Button variant="secondary" size="lg" onClick={() => { setFiles([]); setBatchStatuses([]); setBatchDone(null); setError(''); }}>
+                    <Button variant="secondary" size="lg" onClick={() => { setFiles([]); dismissJob(); setError(''); }}>
                       Kosongkan
                     </Button>
                   )}

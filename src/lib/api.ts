@@ -227,6 +227,27 @@ export const api = {
   getRecordValidationErrors: (recordId: string) =>
     request(`/api/v1/claim-files/${recordId}/validation-errors`),
 
+  // RV-20 (kriteria kegawatan IGD) — audit trail konfirmasi manual checklist.
+  getRv20Confirmation: (recordId: string) => request(`/api/v1/records/${recordId}/rv20-confirm`),
+  confirmRv20: (recordId: string, checklistItems: Record<string, boolean>) =>
+    request(`/api/v1/records/${recordId}/rv20-confirm`, { method: 'POST', body: JSON.stringify({ checklist_items: checklistItems }) }),
+
+  // Exempt PRB (RV-15) — daftar pasien kronis yang sengaja tidak dialihkan
+  // ke Program Rujuk Balik walau sudah stabil >=3 bulan berturut, dikelola
+  // admin. Dicek otomatis oleh detectAndFlagPRB() di backend.
+  getPrbExemptions: () => request('/api/v1/prb-exempt'),
+  createPrbExemption: (data: Record<string, string>) =>
+    request('/api/v1/prb-exempt', { method: 'POST', body: JSON.stringify(data) }),
+  updatePrbExemption: (id: string, data: Record<string, string>) =>
+    request(`/api/v1/prb-exempt/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePrbExemption: (id: string) =>
+    request(`/api/v1/prb-exempt/${id}`, { method: 'DELETE' }),
+
+  // Scan ulang RV-13/15/16 untuk 1 periode bulan ("MM/YYYY") — perlu karena
+  // deteksi lintas-record cuma otomatis nyala saat file BARU diupload.
+  scanEpisodes: (periodeBulan: string) =>
+    request('/api/v1/claim-files/scan-episodes', { method: 'POST', body: JSON.stringify({ periode_bulan: periodeBulan }) }),
+
   // PDF asli yang diunggah — via helper request supaya dapat timeout + refresh
   // token otomatis; untuk konten non-JSON helper mengembalikan Response mentah
   // yang bisa diubah jadi blob lalu ditampilkan via <iframe>.

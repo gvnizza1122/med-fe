@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight, ScanSearch } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Header } from '@/components/dashboard/header';
+import { ToastContainer, useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -97,6 +98,27 @@ export default function HistoryPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const { toasts, addToast, removeToast } = useToast();
+  const [scanPeriode, setScanPeriode] = useState('');
+  const [scanning, setScanning] = useState(false);
+
+  // RV-13/15/16 (episode konsul internal, PRB, iterasi obat kronis) cuma
+  // otomatis nyala saat file BARU diupload — kalau pola barunya muncul dari
+  // kombinasi file LAMA yang sudah lebih dulu ada, harus di-scan ulang manual.
+  const handleScanEpisodes = async () => {
+    if (!scanPeriode) { addToast('Pilih periode bulan dulu.', 'error'); return; }
+    const [year, month] = scanPeriode.split('-');
+    setScanning(true);
+    try {
+      const res = await api.scanEpisodes(`${month}/${year}`);
+      addToast(`Scan selesai — ${res.pasien_discan} pasien dicek ulang untuk periode ${month}/${year}.`, 'success');
+      loadFiles();
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Scan ulang gagal.', 'error');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const loadFiles = useCallback(async () => {
     try {
@@ -187,6 +209,22 @@ export default function HistoryPage() {
             Reset Filter
           </Button>
         )}
+
+        <div className="ml-auto flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Scan Ulang Episode (RV-13/15/16)</label>
+          <div className="flex gap-2">
+            <Input
+              type="month"
+              className="w-[150px]"
+              value={scanPeriode}
+              onChange={e => setScanPeriode(e.target.value)}
+            />
+            <Button type="button" variant="secondary" size="default" className="gap-1.5" onClick={handleScanEpisodes} disabled={scanning}>
+              <ScanSearch className="size-3.5" />
+              {scanning ? 'Memindai...' : 'Scan Ulang'}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -390,6 +428,7 @@ export default function HistoryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </motion.div>
   );
 }

@@ -11,11 +11,13 @@ import {
   History,
   Users,
   ShieldCheck,
+  HeartPulse,
   Sun,
   Moon,
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { UploadProgressWidget } from "@/components/dashboard/upload-progress-widget"
 
 interface User {
   id: string
@@ -51,6 +53,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/users", icon: Users, label: "Manajemen User", roles: ["admin"] },
       { href: "/rules", icon: ShieldCheck, label: "Aturan Validasi", roles: ["admin"] },
+      { href: "/prb-exempt", icon: HeartPulse, label: "Exempt PRB", roles: ["admin"] },
     ],
   },
 ]
@@ -134,6 +137,8 @@ export function Sidebar() {
           )
         })}
       </div>
+
+      <UploadProgressWidget />
 
       <div className="pt-3 border-t border-border space-y-0.5">
         <button

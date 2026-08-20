@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { UploadJobProvider } from '@/contexts/UploadJobContext';
 
 const progressBarVariants = {
   initial: { scaleX: 0, opacity: 1 },
@@ -38,6 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
+    <UploadJobProvider>
     <div className="flex min-h-screen bg-background relative">
       <div className="hidden lg:block">
         <Sidebar />
@@ -85,5 +87,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </ErrorBoundary>
       </main>
     </div>
+    </UploadJobProvider>
   );
 }
