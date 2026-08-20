@@ -959,6 +959,21 @@ export default function ResultsPage() {
                 </div>
               )}
 
+              {/* ─── RV-13 s/d RV-16: silent-valid ────────────────────────
+                  Rule engine (ruleEngine.js) SUDAH silent-valid dari sananya —
+                  cuma push ke errors[] kalau BENAR-BENAR ada masalah, tidak
+                  pernah push entri "valid" untuk rule yang tidak relevan/tidak
+                  ada datanya. Baris ini murni tambahan info ringkas (bukan
+                  checklist per-rule dengan centang hijau) untuk kasus datanya
+                  ADA (hasEpisodeTrackingData true) tapi keempat rule itu bersih
+                  — supaya verifikator tahu itu sudah dicek, bukan cuma diam. */}
+              {hasEpisodeTrackingData(selectedRecord) &&
+                !selectedRecord.errors?.some(e => ['RV-13', 'RV-14', 'RV-15', 'RV-16'].includes(e.rule_id)) && (
+                <p className="mb-4 text-xs text-muted-foreground">
+                  RV-13 s/d RV-16: tidak ada isu terdeteksi.
+                </p>
+              )}
+
               {/* ─── RV-20 (kegawatan IGD): referensi padanan kode, baca saja ── */}
               {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
                 <div className="mb-4">

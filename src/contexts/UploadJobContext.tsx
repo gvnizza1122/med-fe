@@ -143,7 +143,24 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
         };
       });
     } catch (err: unknown) {
-      setJob(prev => prev ? { ...prev, active: false, error: err instanceof Error ? err.message : 'Batch gagal diunggah.' } : prev);
+      // Request HTTP utamanya bisa gagal (koneksi diputus di tengah jalan —
+      // batch besar/lama rawan kena timeout infrastruktur di luar kendali
+      // aplikasi ini, mis. proxy) TANPA berarti prosesnya sendiri gagal —
+      // status per file SUDAH terupdate lewat socket (pdf-batch:file-done)
+      // sepanjang batch berjalan. Cuma tampilkan error kalau BENAR-BENAR ada
+      // file yang statusnya belum diketahui (socket juga tidak sempat
+      // melaporkannya) — kalau semua file sudah kelar dari sisi socket,
+      // anggap batch selesai secara diam-diam, jangan bikin panik verifikator
+      // dengan pesan "gagal" padahal isinya sudah lengkap.
+      setJob(prev => {
+        if (!prev || prev.type !== 'batch') return prev;
+        const stillUnknown = prev.statuses.some(s => s.status === 'waiting' || s.status === 'processing');
+        return {
+          ...prev,
+          active: false,
+          error: stillUnknown ? (err instanceof Error ? err.message : 'Batch gagal diunggah.') : null,
+        };
+      });
     } finally {
       socket.disconnect();
       socketRef.current = null;
