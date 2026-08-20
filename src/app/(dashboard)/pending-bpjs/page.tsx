@@ -72,7 +72,11 @@ export default function PendingBpjsPage() {
   const [items, setItems] = useState<PendingItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  // Data pending menumpuk banyak (impor tiap bulan) — jangan langsung tampilkan
+  // semua saat buka/kembali ke halaman ini. Baru dimuat setelah user cari/filter
+  // atau klik "Tampilkan Data", atau setelah selesai import file baru.
+  const [hasQueried, setHasQueried] = useState(false);
   const [importing, setImporting] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -102,12 +106,17 @@ export default function PendingBpjsPage() {
     }
   }, [page, statusFilter, jenisFilter, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => { if (hasQueried) loadItems(); }, [hasQueried, loadItems]);
 
   useEffect(() => {
-    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 400);
+    if (!hasQueried && !searchInput) return;
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+      if (searchInput.trim()) setHasQueried(true);
+    }, 400);
     return () => clearTimeout(t);
-  }, [searchInput]);
+  }, [searchInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleImport = async (file: File) => {
     if (!/\.(xlsx|xls)$/i.test(file.name)) {
@@ -122,6 +131,7 @@ export default function PendingBpjsPage() {
         'success'
       );
       setPage(1);
+      setHasQueried(true);
       loadItems();
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Gagal mengimpor file.', 'error');
@@ -199,7 +209,7 @@ export default function PendingBpjsPage() {
     <motion.div className="space-y-4 md:space-y-6" variants={pageVariants} initial="hidden" animate="visible">
       <Header
         title="Rekap Pending BPJS"
-        description={`${total} klaim pending tercatat`}
+        description={hasQueried ? `${total} klaim pending tercatat` : 'Cari/filter untuk menampilkan data'}
         actions={
           <>
             <input
@@ -230,7 +240,7 @@ export default function PendingBpjsPage() {
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted-foreground">Status</label>
-          <Select value={statusFilter || 'ALL'} onValueChange={(v) => { setStatusFilter(v === 'ALL' ? '' : v); setPage(1); }}>
+          <Select value={statusFilter || 'ALL'} onValueChange={(v) => { setStatusFilter(v === 'ALL' ? '' : v); setPage(1); setHasQueried(true); }}>
             <SelectTrigger className="w-full sm:w-[170px]"><SelectValue placeholder="Semua Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Semua Status</SelectItem>
@@ -241,7 +251,7 @@ export default function PendingBpjsPage() {
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted-foreground">Jenis</label>
-          <Select value={jenisFilter || 'ALL'} onValueChange={(v) => { setJenisFilter(v === 'ALL' ? '' : v); setPage(1); }}>
+          <Select value={jenisFilter || 'ALL'} onValueChange={(v) => { setJenisFilter(v === 'ALL' ? '' : v); setPage(1); setHasQueried(true); }}>
             <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="Semua Jenis" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Semua Jenis</SelectItem>
@@ -253,13 +263,29 @@ export default function PendingBpjsPage() {
 
         {hasActiveFilters && (
           <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
-            onClick={() => { setStatusFilter(''); setJenisFilter(''); setSearchInput(''); setPage(1); }}>
+            onClick={() => { setStatusFilter(''); setJenisFilter(''); setSearchInput(''); setSearch(''); setPage(1); setHasQueried(false); setItems([]); }}>
             <X className="size-3.5" /> Reset Filter
           </Button>
         )}
       </div>
 
-      {loading ? (
+      {!hasQueried ? (
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-muted">
+              <Search className="size-7 text-muted-foreground" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground">Cari atau filter data pending</h3>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Data pending BPJS menumpuk tiap bulan — gunakan pencarian nama/SEP atau filter status/jenis
+              di atas untuk mempersempit, atau tampilkan semua data sekaligus.
+            </p>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setHasQueried(true)}>
+              Tampilkan Semua Data
+            </Button>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-24">
           <div className="size-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
         </div>
@@ -269,8 +295,8 @@ export default function PendingBpjsPage() {
             <div className="flex size-16 items-center justify-center rounded-full bg-muted">
               <ClipboardList className="size-7 text-muted-foreground" />
             </div>
-            <h3 className="text-base font-semibold text-foreground">Belum ada rekap pending</h3>
-            <p className="text-sm text-muted-foreground">Import file Excel rekap pending BPJS bulanan untuk memulai.</p>
+            <h3 className="text-base font-semibold text-foreground">Tidak ada data yang cocok</h3>
+            <p className="text-sm text-muted-foreground">Coba ubah pencarian/filter, atau import file Excel rekap pending BPJS bulanan.</p>
           </div>
         </div>
       ) : (
