@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
@@ -500,13 +500,19 @@ function LoadingSpinner() {
 export default function ResultsPage() {
   const params = useParams();
   const fileId = params.fileId as string;
+  // ?sep=... (dari link Pending BPJS atau hasil pencarian Riwayat Upload) —
+  // pra-isi pencarian & langsung loncat ke record yang cocok, bukan selalu
+  // record pertama (penting untuk file legacy TXT/Excel yang berisi ratusan
+  // record dalam 1 file).
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get('sep') || '';
   const { toasts, addToast, removeToast } = useToast();
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [records, setRecords] = useState<ClaimRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch);
   const [loading, setLoading] = useState(true);
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [isSavingRecord, setIsSavingRecord] = useState(false);

@@ -362,7 +362,7 @@ export default function HistoryPage() {
                               variant="secondary"
                               size="sm"
                               className="gap-1.5"
-                              onClick={() => router.push(`/results/${f.id}`)}
+                              onClick={() => router.push(f.sep ? `/results/${f.id}?sep=${encodeURIComponent(f.sep)}` : `/results/${f.id}`)}
                             >
                               <FileText className="size-3.5" />
                               Detail

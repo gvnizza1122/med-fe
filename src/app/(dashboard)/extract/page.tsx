@@ -30,7 +30,7 @@ const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc
   { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: <Siren className="size-5" />, desc: 'Kunjungan IGD, tidak lanjut rawat inap' },
 ];
 
-const MAX_BATCH_FILES = 30; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
+const MAX_BATCH_FILES = 100; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';

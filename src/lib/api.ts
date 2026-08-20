@@ -195,7 +195,7 @@ export const api = {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     fd.append('allowed_jenis_klaim', JSON.stringify(allowedJenisKlaim));
-    return request('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 900000 });
+    return request('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 2400000 });
   },
 
   // Batch Audit (Phase 2)

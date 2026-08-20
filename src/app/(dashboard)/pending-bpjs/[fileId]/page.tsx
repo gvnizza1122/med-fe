@@ -31,6 +31,7 @@ import {
 interface PendingItem {
   id: string;
   claim_record_id: string | null;
+  claim_file_id: string | null;
   sep: string | null;
   mrn: string | null;
   nokartu: string | null;
@@ -298,7 +299,18 @@ export default function PendingBpjsFileDetailPage() {
             <TableBody>
               {items.map(item => (
                 <TableRow key={item.id} className="cursor-pointer" onClick={() => openDetail(item)}>
-                  <TableCell className="font-mono text-xs">{item.sep || '-'}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {item.claim_file_id ? (
+                      <button
+                        type="button"
+                        className="text-primary underline-offset-2 hover:underline"
+                        title="Buka halaman detail klaim ini"
+                        onClick={(e) => { e.stopPropagation(); router.push(`/results/${item.claim_file_id}?sep=${encodeURIComponent(item.sep || '')}`); }}
+                      >
+                        {item.sep || '-'}
+                      </button>
+                    ) : (item.sep || '-')}
+                  </TableCell>
                   <TableCell className="max-w-[180px] truncate font-medium">{item.nama_peserta || '-'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-[10px]">{item.jenis_klaim === 'RI' ? 'Rawat Inap' : 'Rawat Jalan'}</Badge>
