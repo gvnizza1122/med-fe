@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { ToastContainer, useToast } from '@/components/Toast';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
+import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
+import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { Header } from '@/components/dashboard/header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -516,6 +518,7 @@ export default function ResultsPage() {
   const [listCollapsed, setListCollapsed] = useState(false);
   const [rv20ModalOpen, setRv20ModalOpen] = useState(false);
   const [rv20ConfirmedRecordIds, setRv20ConfirmedRecordIds] = useState<Set<string>>(new Set());
+  const [suratKlarifikasiOpen, setSuratKlarifikasiOpen] = useState(false);
 
   const selectRecord = (id: string) => {
     setSelectedRecordId(id);
@@ -899,6 +902,11 @@ export default function ResultsPage() {
                     <input type="checkbox" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
                     Tampilkan hanya yang bermasalah
                   </label>
+                  {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
+                    <Button variant="outline" size="sm" onClick={() => setSuratKlarifikasiOpen(true)}>
+                      Buat Surat Klarifikasi
+                    </Button>
+                  )}
                   {!isEditing ? (
                     <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>Edit</Button>
                   ) : (
@@ -942,6 +950,13 @@ export default function ResultsPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* ─── RV-20 (kegawatan IGD): referensi padanan kode, baca saja ── */}
+              {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
+                <div className="mb-4">
+                  <PadananKodeNyeriCard />
                 </div>
               )}
 
@@ -1071,6 +1086,14 @@ export default function ResultsPage() {
           )}
         </div>
       </div>
+
+      {selectedRecord && (
+        <SuratKlarifikasiModal
+          open={suratKlarifikasiOpen}
+          onOpenChange={setSuratKlarifikasiOpen}
+          record={selectedRecord}
+        />
+      )}
 
       {selectedRecord && (
         <Rv20ConfirmationModal
