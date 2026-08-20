@@ -79,6 +79,21 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
 
     const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000');
     socketRef.current = socket;
+    // Sinyal "mulai diproses" per file — tanpa ini status di UI cuma pernah
+    // 'waiting' lalu langsung loncat ke 'done'/'failed', baris tidak pernah
+    // sempat tampil "Memproses..." walau backend sedang benar-benar
+    // mengerjakannya (antrean concurrency 5 di backend sudah ada duluan).
+    socket.on('pdf-batch:file-start', (data: { fileName: string }) => {
+      setJob(prev => {
+        if (!prev || prev.type !== 'batch') return prev;
+        const statuses = prev.statuses.map(s =>
+          s.fileName === data.fileName && s.status === 'waiting'
+            ? { ...s, status: 'processing' as BatchFileStatus['status'] }
+            : s
+        );
+        return { ...prev, statuses };
+      });
+    });
     socket.on('pdf-batch:file-done', (data: {
       fileName: string; success: boolean; error?: string | null;
       jenis_klaim?: string | null; jenis_klaim_detection?: JenisKlaimDetection | null;
