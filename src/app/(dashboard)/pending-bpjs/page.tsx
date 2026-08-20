@@ -63,7 +63,7 @@ export default function PendingBpjsFilesPage() {
     }
   }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { loadFiles(); }, [loadFiles]);
+  useEffect(() => { loadFiles(); }, [loadFiles]); // eslint-disable-line react-hooks/set-state-in-effect
 
   const handleImport = async (file: File) => {
     if (!/\.(xlsx|xls)$/i.test(file.name)) {
@@ -73,6 +73,13 @@ export default function PendingBpjsFilesPage() {
     setImporting(true);
     try {
       const res = await api.importPendingXlsx(file);
+      if (!res.file_id) {
+        addToast(
+          `Semua ${res.total_rows} baris di file ini sudah pernah diimpor sebelumnya — tidak ada file baru dibuat.`,
+          'info'
+        );
+        return;
+      }
       addToast(
         `Impor selesai: ${res.imported} baris baru ditambahkan${res.matched_claim ? `, ${res.matched_claim} cocok dengan klaim di sistem` : ''}${res.skipped_duplicate ? `, ${res.skipped_duplicate} baris duplikat dilewati` : ''} (dari ${res.total_rows} baris total).`,
         'success'

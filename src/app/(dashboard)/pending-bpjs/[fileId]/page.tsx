@@ -109,7 +109,7 @@ export default function PendingBpjsFileDetailPage() {
     }
   }, [fileId, page, statusFilter, jenisFilter, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (hasQueried) loadItems(); }, [hasQueried, loadItems]);
+  useEffect(() => { if (hasQueried) loadItems(); }, [hasQueried, loadItems]); // eslint-disable-line react-hooks/set-state-in-effect
 
   useEffect(() => {
     if (!hasQueried && !searchInput) return;
@@ -124,22 +124,29 @@ export default function PendingBpjsFileDetailPage() {
   const openDetail = (item: PendingItem) => {
     setActive(item);
     setPoinKunci('');
+    // Langsung buatkan jawaban AI begitu dibuka kalau belum ada — koder tidak
+    // perlu klik dulu, jawabannya sudah muncul saat klik baris. Cuma untuk
+    // entri yang masih draft (belum dikirim), supaya tidak menimpa histori
+    // klaim yang sudah dikirim/diterima/ditolak.
+    if (!item.draft_klarifikasi && item.status === 'draft') {
+      handleGenerateDraft(item.id);
+    }
   };
 
-  const patchActive = (patch: Partial<PendingItem>) => {
-    setActive(prev => (prev ? { ...prev, ...patch } : prev));
-    setItems(prev => prev.map(it => (active && it.id === active.id ? { ...it, ...patch } : it)));
+  const patchActive = (id: string, patch: Partial<PendingItem>) => {
+    setActive(prev => (prev && prev.id === id ? { ...prev, ...patch } : prev));
+    setItems(prev => prev.map(it => (it.id === id ? { ...it, ...patch } : it)));
   };
 
-  const handleGenerateDraft = async () => {
-    if (!active) return;
+  const handleGenerateDraft = async (id?: string) => {
+    const targetId = id || active?.id;
+    if (!targetId) return;
     setGenerating(true);
     try {
-      const updated = await api.generatePendingDraft(active.id);
-      patchActive(updated);
-      addToast('Draft klarifikasi AI berhasil dibuat.', 'success');
+      const updated = await api.generatePendingDraft(targetId);
+      patchActive(targetId, updated);
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Gagal membuat draft AI.', 'error');
+      addToast(err instanceof Error ? err.message : 'Gagal membuat jawaban AI.', 'error');
     } finally {
       setGenerating(false);
     }
@@ -149,10 +156,10 @@ export default function PendingBpjsFileDetailPage() {
     if (!active) return;
     try {
       const updated = await api.updateBpjsPendingStatus(active.id, { draft_klarifikasi: active.draft_klarifikasi || '' });
-      patchActive(updated);
-      addToast('Draft disimpan.', 'success');
+      patchActive(active.id, updated);
+      addToast('Jawaban disimpan.', 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Gagal menyimpan draft.', 'error');
+      addToast(err instanceof Error ? err.message : 'Gagal menyimpan jawaban.', 'error');
     }
   };
 
@@ -160,7 +167,7 @@ export default function PendingBpjsFileDetailPage() {
     if (!active) return;
     try {
       const updated = await api.updateBpjsPendingStatus(active.id, { status: 'dikirim', draft_klarifikasi: active.draft_klarifikasi || '' });
-      patchActive(updated);
+      patchActive(active.id, updated);
       addToast('Ditandai sudah dikirim.', 'success');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Gagal menandai dikirim.', 'error');
@@ -176,8 +183,8 @@ export default function PendingBpjsFileDetailPage() {
         draft_klarifikasi: active.draft_klarifikasi || '',
         poin_kunci: poinKunci || undefined,
       });
-      patchActive(updated);
-      addToast(outcome === 'approved' ? 'Ditandai diterima BPJS — draft ini tersimpan sebagai contoh untuk kasus serupa.' : 'Ditandai ditolak BPJS.', outcome === 'approved' ? 'success' : 'error');
+      patchActive(active.id, updated);
+      addToast(outcome === 'approved' ? 'Ditandai diterima BPJS — jawaban ini tersimpan sebagai contoh untuk kasus serupa.' : 'Ditandai ditolak BPJS.', outcome === 'approved' ? 'success' : 'error');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Gagal menyimpan hasil.', 'error');
     }
@@ -370,22 +377,29 @@ export default function PendingBpjsFileDetailPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs font-medium text-muted-foreground">Draft Klarifikasi</p>
-                    <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={handleGenerateDraft} disabled={generating}>
+                    <p className="text-xs font-medium text-muted-foreground">Jawaban</p>
+                    <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={() => handleGenerateDraft()} disabled={generating}>
                       <Sparkles className="size-3.5" />
-                      {generating ? 'Membuat draft...' : active.draft_klarifikasi ? 'Buat Ulang Draft AI' : 'Buat Draft AI'}
+                      {generating ? 'Membuat jawaban...' : active.draft_klarifikasi ? 'Buat Ulang Jawaban AI' : 'Buat Jawaban AI'}
                     </Button>
                   </div>
-                  <textarea
-                    value={active.draft_klarifikasi || ''}
-                    onChange={e => patchActive({ draft_klarifikasi: e.target.value })}
-                    rows={12}
-                    disabled={active.status === 'diterima' || active.status === 'ditolak'}
-                    placeholder="Belum ada draft — klik Buat Draft AI, atau tulis manual di sini."
-                    className="w-full rounded-md border border-input bg-background px-3 py-2.5 font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-60"
-                  />
+                  {generating && !active.draft_klarifikasi ? (
+                    <div className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground">
+                      <div className="size-3.5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                      AI sedang menyusun jawaban...
+                    </div>
+                  ) : (
+                    <textarea
+                      value={active.draft_klarifikasi || ''}
+                      onChange={e => patchActive(active.id, { draft_klarifikasi: e.target.value })}
+                      rows={8}
+                      disabled={active.status === 'diterima' || active.status === 'ditolak'}
+                      placeholder="Belum ada jawaban — klik Buat Jawaban AI, atau tulis manual di sini."
+                      className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-60"
+                    />
+                  )}
                   {active.status !== 'diterima' && active.status !== 'ditolak' && (
-                    <Button type="button" size="sm" variant="ghost" className="mt-1.5" onClick={saveDraft}>Simpan Draft</Button>
+                    <Button type="button" size="sm" variant="ghost" className="mt-1.5" onClick={saveDraft}>Simpan Jawaban</Button>
                   )}
                 </div>
               </div>
