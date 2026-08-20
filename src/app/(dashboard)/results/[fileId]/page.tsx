@@ -148,13 +148,6 @@ const EPISODE_TRACKING_MARKERS = [
   'JENIS_KONSULTASI', 'JUMLAH_EPISODE_KLAIM', 'IS_SAME_DAY',
   'HISTORI_OBAT_KRONIS_BULAN_BERTURUT', 'URUTAN_ITERASI',
 ];
-const UNVERIFIABLE_WITHOUT_EPISODE_DATA = [
-  { rule_id: 'RV-13', label: 'Gabung Episode Konsul Internal' },
-  { rule_id: 'RV-14', label: 'Validasi Episode Rujukan Internal' },
-  { rule_id: 'RV-15', label: 'Flagging Program Rujuk Balik (PRB)' },
-  { rule_id: 'RV-16', label: 'Batas Maksimal Iterasi Obat Kronis' },
-];
-
 function hasEpisodeTrackingData(record: Record<string, any>): boolean {
   const rawData = parseRawData(record);
   if (EPISODE_TRACKING_MARKERS.some(k => rawData[k] !== undefined && rawData[k] !== null && rawData[k] !== '')) {
@@ -631,20 +624,6 @@ export default function ResultsPage() {
     }
   };
 
-  // Berapa persen data (di halaman yang sudah dimuat) yang butuh cek manual
-  // karena field riwayat episode kosong — verifikator ingin tahu skala
-  // dampaknya, bukan cuma tahu record yang sedang dilihat saja yang kena.
-  const episodeGapStats = useMemo(() => {
-    if (records.length === 0) return null;
-    const affected = records.filter(r => !hasEpisodeTrackingData(r));
-    if (affected.length === 0) return null;
-    return {
-      count: affected.length,
-      ofLoaded: records.length,
-      pct: Math.round((affected.length / records.length) * 100),
-    };
-  }, [records]);
-
   if (loading) return <LoadingSpinner />;
   if (!fileInfo) return (
     <div className="flex items-center justify-center py-24 text-muted-foreground">
@@ -930,43 +909,17 @@ export default function ResultsPage() {
                 </div>
               </div>
 
-              {/* ─── Peringatan: rule yang tidak bisa diverifikasi otomatis ── */}
-              {!hasEpisodeTrackingData(selectedRecord) && (
-                <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-foreground flex gap-2">
-                  <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                  <div className="space-y-1.5">
-                    <div>
-                      <strong>Cek manual diperlukan</strong> — berkas ini tidak menyertakan data riwayat kunjungan/episode, sehingga beberapa aturan tidak bisa diperiksa otomatis. Harap pastikan secara manual.
-                      {' '}
-                      {UNVERIFIABLE_WITHOUT_EPISODE_DATA.map((r, i) => (
-                        <span key={r.rule_id}>
-                          {i > 0 && ', '}
-                          <strong>{r.rule_id}</strong> ({r.label})
-                        </span>
-                      ))}.
-                    </div>
-                    {episodeGapStats && (
-                      <div className="flex items-center gap-1.5 pt-0.5 border-t border-amber-500/20 mt-1.5">
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 font-semibold text-amber-800 dark:text-amber-300 tabular-nums">
-                          {episodeGapStats.pct}%
-                        </span>
-                        <span className="text-muted-foreground">
-                          data pada berkas ini ({episodeGapStats.count} dari {episodeGapStats.ofLoaded} record{episodeGapStats.ofLoaded < total ? ' yang dimuat' : ''}) berpotensi pending karena alasan yang sama — field riwayat episode kosong, sama seperti record yang sedang dilihat.
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {/* ─── RV-13 s/d RV-16: silent-valid ────────────────────────
-                  Rule engine (ruleEngine.js) SUDAH silent-valid dari sananya —
-                  cuma push ke errors[] kalau BENAR-BENAR ada masalah, tidak
-                  pernah push entri "valid" untuk rule yang tidak relevan/tidak
-                  ada datanya. Baris ini murni tambahan info ringkas (bukan
-                  checklist per-rule dengan centang hijau) untuk kasus datanya
-                  ADA (hasEpisodeTrackingData true) tapi keempat rule itu bersih
-                  — supaya verifikator tahu itu sudah dicek, bukan cuma diam. */}
+                  Prinsip (disepakati dengan user): "tidak ada data terkait"
+                  = otomatis VALID, TIDAK tampilkan apapun — sebelumnya di sini
+                  ada banner besar "Cek manual diperlukan" untuk kasus data
+                  riwayat episode kosong, yang justru melanggar prinsip itu
+                  (menampilkan peringatan untuk kasus yang seharusnya diam).
+                  Rule engine (ruleEngine.js) sendiri sudah silent-valid dari
+                  sananya — cuma push ke errors[] kalau BENAR-BENAR ada
+                  masalah. Baris ringkas ini HANYA utk kasus datanya ADA
+                  (hasEpisodeTrackingData true) dan keempat rule itu bersih —
+                  bukan checklist per-rule, bukan peringatan. */}
               {hasEpisodeTrackingData(selectedRecord) &&
                 !selectedRecord.errors?.some(e => ['RV-13', 'RV-14', 'RV-15', 'RV-16'].includes(e.rule_id)) && (
                 <p className="mb-4 text-xs text-muted-foreground">
