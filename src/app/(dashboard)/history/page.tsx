@@ -9,6 +9,7 @@ import { ToastContainer, useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Select,
   SelectContent,
@@ -200,23 +201,21 @@ export default function HistoryPage() {
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted-foreground">Dari</label>
-          <Input
-            type="date"
-            className="w-full sm:w-[160px]"
+          <DatePicker
+            className="sm:w-[160px]"
             value={fromDate}
             max={toDate || undefined}
-            onChange={e => { setFromDate(e.target.value); setPage(1); }}
+            onChange={(v) => { setFromDate(v); setPage(1); }}
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted-foreground">Sampai</label>
-          <Input
-            type="date"
-            className="w-full sm:w-[160px]"
+          <DatePicker
+            className="sm:w-[160px]"
             value={toDate}
             min={fromDate || undefined}
-            onChange={e => { setToDate(e.target.value); setPage(1); }}
+            onChange={(v) => { setToDate(v); setPage(1); }}
           />
         </div>
 
