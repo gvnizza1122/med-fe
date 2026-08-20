@@ -29,6 +29,18 @@ const JENIS_KLAIM_OPTIONS = [
   { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: '🚨', accent: '#dc2626' },
 ];
 
+// Kode status keluar (DISCHARGE_STATUS) resmi vClaim BPJS — dicek RV-08 (1-5).
+// Ditampilkan sebagai "1 - Pulang atas persetujuan dokter" dsb, bukan angka
+// polos atau kata mentah hasil salinan dokumen ("Pulang"), supaya verifikator
+// langsung paham artinya tanpa harus hafal kodenya.
+const DISCHARGE_STATUS_LABELS: Record<string, string> = {
+  '1': 'Pulang atas persetujuan dokter (sembuh / kondisi membaik)',
+  '2': 'Dirujuk ke rumah sakit lain',
+  '3': 'Pulang atas permintaan sendiri (APS / menolak nasihat medis)',
+  '4': 'Meninggal dunia',
+  '5': 'Lainnya',
+};
+
 interface FileInfo {
   id: string; file_name: string; period: string; status: string;
   total_records: number; valid_count: number; error_count: number; pending_count: number;
@@ -352,7 +364,9 @@ function RecordFieldsTable({
                           <span className={cn('font-mono text-xs', field.status === 'error' ? 'text-destructive' : 'text-foreground')}>
                             {currentValue === null || currentValue === undefined || currentValue === ''
                               ? <span className="text-muted-foreground italic">(kosong)</span>
-                              : String(currentValue)}
+                              : field.column_name === 'DISCHARGE_STATUS' && DISCHARGE_STATUS_LABELS[String(currentValue)]
+                                ? `${currentValue} - ${DISCHARGE_STATUS_LABELS[String(currentValue)]}`
+                                : String(currentValue)}
                           </span>
                         )}
                       </td>
@@ -416,7 +430,11 @@ function RecordFieldsTable({
                                   <span title={`Hal. ${s.page_number}: "${s.quotation}"${s.reasoning ? ` — ${s.reasoning}` : ''}`} className="cursor-help font-mono">
                                     {s.code}
                                   </span>
-                                  {editing && !isSystem && (
+                                  {/* Tombol ini muncul walau belum masuk mode Edit — klik langsung
+                                      terapkan kode & masuk mode edit otomatis (lihat onEdit di
+                                      pemanggil), supaya verifikator tidak perlu 2 langkah (Edit dulu,
+                                      baru Terapkan) buat aksi yang sudah jelas maksudnya sejak awal. */}
+                                  {!isSystem && (
                                     <Button
                                       type="button"
                                       variant="secondary"
@@ -936,7 +954,7 @@ export default function ResultsPage() {
                         validationErrors={selectedRecord.errors || []}
                         editing={isEditing}
                         editedValues={editedValues}
-                        onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
+                        onEdit={(col, val) => { setIsEditing(true); setEditedValues(prev => ({ ...prev, [col]: val })); }}
                         onlyIssues={onlyIssues}
                         jenisKlaim={fileInfo.jenis_klaim}
                       />

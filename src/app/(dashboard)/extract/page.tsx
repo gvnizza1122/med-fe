@@ -188,6 +188,24 @@ export default function ExtractPage() {
       // endpoint /upload-pdf-batch).
       const res = await api.uploadPdfBatch(files, allowedCategories);
       setBatchDone({ successful: res.successful, failed: res.failed });
+      // Jaring pengaman: kalau event socket 'pdf-batch:file-done' untuk
+      // sebagian file tidak sampai ke klien (race condition koneksi/reconnect),
+      // baris itu akan macet di "Menunggu" walau file sebenarnya sudah selesai
+      // diproses di server. Respons HTTP ini sudah berisi hasil final semua
+      // file, jadi dipakai untuk menyamakan baris yang belum ke-update socket.
+      type BatchResultItem = {
+        original_name: string; success: boolean; error?: string | null;
+        jenis_klaim?: string | null; jenis_klaim_detection?: JenisKlaimDetection | null;
+      };
+      const resultsByName = new Map<string, BatchResultItem>(
+        (res.results as BatchResultItem[] | undefined)?.map(r => [r.original_name, r]) || []
+      );
+      setBatchStatuses(prev => prev.map(s => {
+        if (s.status !== 'waiting') return s;
+        const r = resultsByName.get(s.fileName);
+        if (!r) return s;
+        return { ...s, status: r.success ? 'done' : 'failed', error: r.error, jenisKlaim: r.jenis_klaim, detection: r.jenis_klaim_detection };
+      }));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Batch gagal diunggah. Silakan coba lagi.');
     } finally {
