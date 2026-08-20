@@ -273,7 +273,7 @@ export const api = {
     fd.append('file', file);
     return request('/api/v1/records/pending-import-xlsx', { method: 'POST', body: fd, timeout: 60000 });
   },
-  getPendingList: (params: { status?: string; outcome?: string; jenis_klaim?: string; search?: string; page?: number; limit?: number } = {}) => {
+  getPendingList: (params: { status?: string; outcome?: string; jenis_klaim?: string; search?: string; pending_file_id?: string; page?: number; limit?: number } = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)); });
     const q = qs.toString();
@@ -281,4 +281,13 @@ export const api = {
   },
   generatePendingDraft: (id: string) =>
     request(`/api/v1/records/pending/${id}/generate-draft`, { method: 'POST', timeout: 90000 }),
+
+  // Daftar file Excel rekap pending yang sudah diimpor (tampilan per-file,
+  // seperti Riwayat Upload) — lihat pending-bpjs/page.tsx dan [fileId]/page.tsx.
+  getPendingFiles: (params: { page?: number; limit?: number } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) qs.set(k, String(v)); });
+    const q = qs.toString();
+    return request(`/api/v1/records/pending-files${q ? `?${q}` : ''}`);
+  },
 };
