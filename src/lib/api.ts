@@ -121,11 +121,12 @@ export const api = {
     if (fileId) fd.append('fileId', fileId);
     return request('/api/v1/claim-files/upload', { method: 'POST', body: fd });
   },
-  getFiles: (page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string) => {
+  getFiles: (page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string, search?: string) => {
     const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (jenisKlaim) qs.set('jenis_klaim', jenisKlaim);
     if (fromDate) qs.set('from_date', fromDate);
     if (toDate) qs.set('to_date', toDate);
+    if (search) qs.set('search', search);
     return request(`/api/v1/claim-files?${qs.toString()}`);
   },
   getFile: (id: string) => request(`/api/v1/claim-files/${id}`),
@@ -253,4 +254,15 @@ export const api = {
   // yang bisa diubah jadi blob lalu ditampilkan via <iframe>.
   getPdfFile: (fileId: string): Promise<Response> =>
     request(`/api/v1/claim-files/${fileId}/file`),
+
+  // Jawaban Pending BPJS — upload PDF surat pending, AI ekstrak alasan +
+  // generate draft klarifikasi (dengan few-shot dari kasus sukses sebelumnya).
+  uploadBpjsPending: (recordId: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request(`/api/v1/records/${recordId}/pending-upload`, { method: 'POST', body: fd, timeout: 120000 });
+  },
+  getBpjsPending: (recordId: string) => request(`/api/v1/records/${recordId}/pending`),
+  updateBpjsPendingStatus: (pendingId: string, data: { status?: string; outcome?: string; poin_kunci?: string; draft_klarifikasi?: string }) =>
+    request(`/api/v1/records/pending/${pendingId}/status`, { method: 'PATCH', body: JSON.stringify(data) }),
 };

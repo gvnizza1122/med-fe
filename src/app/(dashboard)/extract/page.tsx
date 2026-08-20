@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useUploadJob } from '@/contexts/UploadJobContext';
 import {
   FileText,
-  Files,
   UploadCloud,
   CheckCircle2,
   XCircle,
@@ -42,10 +41,8 @@ function formatFileSize(bytes: number): string {
 export default function ExtractPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const { job, startSingleUpload, startBatchUpload, dismissJob } = useUploadJob();
+  const { job, startBatchUpload, dismissJob } = useUploadJob();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<'single' | 'batch'>('single');
-  const [jenisKlaim, setJenisKlaim] = useState('');
   const [dragover, setDragover] = useState(false);
   const [error, setError] = useState('');
 
@@ -59,10 +56,9 @@ export default function ExtractPage() {
     ? { successful: job.doneCount, failed: job.failedCount }
     : null;
 
-  // Mode single
-  const [file, setFile] = useState<File | null>(null);
-
-  // Mode batch — verifikator TIDAK pilih kategori per file manual. Sebelum
+  // Halaman ini hanya mendukung mode Batch — upload satu-file dicabut dari UI
+  // (endpoint single-file backend dibiarkan ada, tidak lagi dipanggil dari sini).
+  // Verifikator TIDAK pilih kategori per file manual. Sebelum
   // drag file, toggle kategori mana saja yang MUNGKIN ada di batch ini (bisa
   // 1, 2, atau ke-3nya kalau berkasnya campur RJ/RI/IGD). Backend yang
   // mendeteksi kategori tiap file dari isi dokumennya (dibatasi ke daftar
@@ -96,13 +92,6 @@ export default function ExtractPage() {
     return null;
   };
 
-  const handleFile = (f: File) => {
-    const err = validateFile(f);
-    if (err) { setError(err); return; }
-    setFile(f);
-    setError('');
-  };
-
   const addBatchFiles = (incoming: FileList | File[]) => {
     const incomingArr = Array.from(incoming);
     const errs: string[] = [];
@@ -126,27 +115,6 @@ export default function ExtractPage() {
 
   const removeBatchFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const switchMode = (next: 'single' | 'batch') => {
-    if (uploading) return;
-    setMode(next);
-    setFile(null);
-    setFiles([]);
-    setAllowedCategories([]);
-    dismissJob();
-    setError('');
-  };
-
-  const handleUploadSingle = async () => {
-    if (!file) return;
-    if (!jenisKlaim) { setError('Pilih kategori pelayanan (Rawat Jalan/Rawat Inap/IGD) terlebih dahulu.'); return; }
-    setError('');
-    // Upload dijalankan lewat context global (lihat UploadJobContext) —
-    // navigasi ke halaman hasil ditangani effect di atas, bukan di sini,
-    // supaya tetap bekerja meski verifikator sudah pindah halaman sebelum
-    // proses ini selesai.
-    await startSingleUpload(file, jenisKlaim);
   };
 
   const handleUploadBatch = useCallback(async () => {
@@ -178,65 +146,27 @@ export default function ExtractPage() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-full max-w-2xl">
         <Card className="animate-slide-in-up">
           <CardContent className="space-y-6">
-            {/* ── Mode toggle: Single / Batch ── */}
-            <div
-              role="tablist"
-              aria-label="Mode upload"
-              className="bg-muted text-muted-foreground inline-flex h-10 w-full items-center justify-center rounded-lg p-1"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === 'single'}
-                onClick={() => switchMode('single')}
-                disabled={uploading}
-                className={cn(
-                  'inline-flex h-full flex-1 items-center justify-center gap-2 rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50',
-                  mode === 'single' ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground',
-                )}
-              >
-                <FileText className="size-4" /> Satu File
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === 'batch'}
-                onClick={() => switchMode('batch')}
-                disabled={uploading}
-                className={cn(
-                  'inline-flex h-full flex-1 items-center justify-center gap-2 rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50',
-                  mode === 'batch' ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground',
-                )}
-              >
-                <Files className="size-4" /> Banyak File (Batch)
-              </button>
-            </div>
-
             {/* ── Kategori pelayanan ──
-                Mode single: 1 kategori pasti untuk file itu (radio).
-                Mode batch: BUKAN pilih kategori per file — toggle kategori
-                mana saja yang MUNGKIN ada di batch ini (bisa 1, 2, atau
-                ke-3nya) SEBELUM drag file. Backend yang deteksi otomatis
-                kategori tiap file dari isi dokumennya sendiri, dibatasi ke
-                daftar yang ditoggle di sini — hasilnya tampil sebagai status
-                per file setelah proses/audit selesai. */}
+                BUKAN pilih kategori per file — toggle kategori mana saja yang
+                MUNGKIN ada di batch ini (bisa 1, 2, atau ke-3nya) SEBELUM
+                drag file. Backend yang deteksi otomatis kategori tiap file
+                dari isi dokumennya sendiri, dibatasi ke daftar yang
+                ditoggle di sini — hasilnya tampil sebagai status per file
+                setelah proses/audit selesai. */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                {mode === 'batch' ? 'Kategori yang Mungkin Ada di Batch Ini' : 'Kategori Pelayanan'}
+                Kategori yang Mungkin Ada di Batch Ini
               </label>
               <div role="group" aria-label="Kategori Pelayanan" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {JENIS_KLAIM_OPTIONS.map(opt => {
-                  const isSelected = mode === 'single' ? jenisKlaim === opt.value : allowedCategories.includes(opt.value);
+                  const isSelected = allowedCategories.includes(opt.value);
                   return (
                     <motion.button
                       key={opt.value}
                       type="button"
-                      role={mode === 'single' ? 'radio' : 'checkbox'}
+                      role="checkbox"
                       aria-checked={isSelected}
-                      onClick={() => {
-                        if (mode === 'single') { setJenisKlaim(opt.value); setError(''); }
-                        else toggleAllowedCategory(opt.value);
-                      }}
+                      onClick={() => toggleAllowedCategory(opt.value)}
                       disabled={uploading}
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.97 }}
@@ -268,63 +198,13 @@ export default function ExtractPage() {
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                {mode === 'batch'
-                  ? 'Pilih 1, 2, atau ke-3nya sesuai kategori yang mungkin ada di berkas yang mau diupload — boleh campur RJ/RI/IGD dalam 1 batch. Sistem akan mendeteksi kategori tiap file otomatis dari isi dokumennya, tidak perlu dipilih satu-satu.'
-                  : 'Dipakai supaya AI tidak salah memberi saran (mis. saran ruangan rawat inap untuk klaim rawat jalan) dan untuk memudahkan pencarian di Riwayat Upload.'}
+                Pilih 1, 2, atau ke-3nya sesuai kategori yang mungkin ada di berkas yang mau diupload — boleh campur RJ/RI/IGD dalam 1 batch. Sistem akan mendeteksi kategori tiap file otomatis dari isi dokumennya, tidak perlu dipilih satu-satu.
               </p>
             </div>
 
-            {/* ── Dropzone ── */}
-            {mode === 'single' ? (
-              <>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={e => { e.preventDefault(); setDragover(true); }}
-                  onDragLeave={() => setDragover(false)}
-                  onDrop={e => { e.preventDefault(); setDragover(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
-                  className={cn(
-                    'flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors',
-                    dragover ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 hover:bg-muted/30',
-                  )}
-                >
-                  <AnimatePresence mode="wait">
-                    {file ? (
-                      <motion.div
-                        key="file-selected"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        className="flex flex-col items-center gap-2"
-                      >
-                        <div className="flex items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 px-6 py-4">
-                          <FileText className="size-8 text-primary" />
-                          <div className="text-left">
-                            <h3 className="m-0 text-sm font-semibold break-all">{file.name}</h3>
-                            <p className="m-0 mt-1 text-xs font-medium text-muted-foreground">{formatFileSize(file.size)}</p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Klik atau drag untuk mengganti file</p>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="empty-state"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex flex-col items-center gap-2"
-                      >
-                        <UploadCloud className="size-10 text-muted-foreground" />
-                        <h3 className="m-0 text-sm font-semibold text-foreground">Klik atau drag berkas PDF ke sini</h3>
-                        <p className="m-0 text-xs text-muted-foreground">Mendukung file .PDF (maks 20MB)</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-                <input ref={fileInputRef} type="file" accept=".pdf" hidden onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
-              </>
-            ) : (
-              <>
-                <div
+            {/* ── Dropzone (batch) ── */}
+            <>
+              <div
                   onClick={() => !uploading && fileInputRef.current?.click()}
                   onDragOver={e => { e.preventDefault(); if (!uploading) setDragover(true); }}
                   onDragLeave={() => setDragover(false)}
@@ -441,7 +321,6 @@ export default function ExtractPage() {
                   </Alert>
                 )}
               </>
-            )}
 
             <AnimatePresence>
               {error && (
@@ -459,40 +338,22 @@ export default function ExtractPage() {
             </AnimatePresence>
 
             <div className="flex gap-3">
-              {mode === 'single' ? (
-                <>
-                  <Button
-                    size="lg"
-                    className="flex-1"
-                    onClick={handleUploadSingle}
-                    disabled={!file || !jenisKlaim || uploading}
-                  >
-                    {uploading ? (<><Spinner /> Memproses...</>) : (<><UploadCloud className="size-4" /> Unggah &amp; Ekstrak</>)}
-                  </Button>
-                  {file && !uploading && (
-                    <Button variant="secondary" size="lg" onClick={() => { setFile(null); setError(''); }}>Batal</Button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Button
-                    size="lg"
-                    className="flex-1"
-                    onClick={handleUploadBatch}
-                    disabled={files.length === 0 || uploading}
-                  >
-                    {uploading ? (
-                      <><Spinner /> Memproses {batchProgressDone}/{files.length}...</>
-                    ) : (
-                      <><UploadCloud className="size-4" /> Unggah &amp; Ekstrak Semua ({files.length} file)</>
-                    )}
-                  </Button>
-                  {files.length > 0 && !uploading && (
-                    <Button variant="secondary" size="lg" onClick={() => { setFiles([]); dismissJob(); setError(''); }}>
-                      Kosongkan
-                    </Button>
-                  )}
-                </>
+              <Button
+                size="lg"
+                className="flex-1"
+                onClick={handleUploadBatch}
+                disabled={files.length === 0 || uploading}
+              >
+                {uploading ? (
+                  <><Spinner /> Memproses {batchProgressDone}/{files.length}...</>
+                ) : (
+                  <><UploadCloud className="size-4" /> Unggah &amp; Ekstrak Semua ({files.length} file)</>
+                )}
+              </Button>
+              {files.length > 0 && !uploading && (
+                <Button variant="secondary" size="lg" onClick={() => { setFiles([]); dismissJob(); setError(''); }}>
+                  Kosongkan
+                </Button>
               )}
             </div>
           </CardContent>

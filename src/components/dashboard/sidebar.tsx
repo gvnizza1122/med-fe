@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import {
   LayoutDashboard,
-  Upload,
   FileText,
   History,
   Users,
@@ -43,7 +42,6 @@ const NAV_SECTIONS: NavSection[] = [
     section: "Menu Utama",
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "supervisor", "verifikator"] },
-      { href: "/upload", icon: Upload, label: "Upload File", roles: ["admin", "supervisor", "verifikator"] },
       { href: "/extract", icon: FileText, label: "Extract PDF", roles: ["admin", "supervisor", "verifikator"] },
       { href: "/history", icon: History, label: "Riwayat Upload", roles: ["admin", "supervisor", "verifikator"] },
     ],

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight, ScanSearch } from 'lucide-react';
+import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight, ScanSearch, Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Header } from '@/components/dashboard/header';
 import { ToastContainer, useToast } from '@/components/Toast';
@@ -39,6 +39,7 @@ interface ClaimFile {
   id: string; file_name: string; period: string; status: string;
   total_records: number; valid_count: number; error_count: number; pending_count: number;
   created_at: string; uploaded_by_name: string; jenis_klaim?: string | null;
+  sep?: string | null; nama_pasien?: string | null;
 }
 
 const JENIS_KLAIM_LABELS: Record<string, string> = {
@@ -97,6 +98,8 @@ export default function HistoryPage() {
   const [jenisKlaimFilter, setJenisKlaimFilter] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { toasts, addToast, removeToast } = useToast();
   const [scanPeriode, setScanPeriode] = useState('');
@@ -123,19 +126,25 @@ export default function HistoryPage() {
   const loadFiles = useCallback(async () => {
     try {
       setLoading(true);
-      const d = await api.getFiles(page, 15, jenisKlaimFilter || undefined, fromDate || undefined, toDate || undefined);
+      const d = await api.getFiles(page, 15, jenisKlaimFilter || undefined, fromDate || undefined, toDate || undefined, search || undefined);
       setFiles(d.files); setTotal(d.total);
     } catch (err) { console.error('[History] Gagal memuat file:', err); } finally { setLoading(false); }
-  }, [page, jenisKlaimFilter, fromDate, toDate]);
+  }, [page, jenisKlaimFilter, fromDate, toDate, search]);
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
+
+  // Debounce input pencarian nama pasien/SEP supaya tidak request per-ketikan.
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const handleDelete = async (id: string) => {
     try { await api.deleteFile(id); loadFiles(); } catch (err) { console.error('[History] Gagal hapus file:', err); }
   };
 
   const totalPages = Math.ceil(total / 15);
-  const hasActiveFilters = Boolean(jenisKlaimFilter || fromDate || toDate);
+  const hasActiveFilters = Boolean(jenisKlaimFilter || fromDate || toDate || searchInput);
 
   return (
     <motion.div
@@ -148,7 +157,7 @@ export default function HistoryPage() {
         title="Riwayat Upload"
         description={`${total} file telah diupload`}
         actions={
-          <Button onClick={() => router.push('/upload')} className="gap-2">
+          <Button onClick={() => router.push('/extract')} className="gap-2">
             <Upload className="size-4" />
             Upload Baru
           </Button>
@@ -157,6 +166,20 @@ export default function HistoryPage() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3 md:p-4 animate-slide-in-up">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Cari Nama Pasien / SEP</label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Cari nama pasien atau nomor SEP..."
+              className="w-full pl-8 sm:w-[240px]"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+            />
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-muted-foreground">Kategori</label>
           <Select
@@ -203,7 +226,7 @@ export default function HistoryPage() {
             variant="ghost"
             size="sm"
             className="gap-1.5 text-muted-foreground"
-            onClick={() => { setJenisKlaimFilter(''); setFromDate(''); setToDate(''); setPage(1); }}
+            onClick={() => { setJenisKlaimFilter(''); setFromDate(''); setToDate(''); setSearchInput(''); setPage(1); }}
           >
             <X className="size-3.5" />
             Reset Filter
@@ -252,7 +275,7 @@ export default function HistoryPage() {
                 </motion.div>
                 <h3 className="text-base font-semibold text-foreground">Belum ada file</h3>
                 <p className="text-sm text-muted-foreground">Upload file klaim untuk memulai validasi</p>
-                <Button onClick={() => router.push('/upload')} className="mt-2 gap-2">
+                <Button onClick={() => router.push('/extract')} className="mt-2 gap-2">
                   <Upload className="size-4" />
                   Upload Sekarang
                 </Button>
@@ -269,7 +292,8 @@ export default function HistoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>File</TableHead>
+                    <TableHead>SEP</TableHead>
+                    <TableHead>Nama Pasien</TableHead>
                     <TableHead>Kategori</TableHead>
                     <TableHead>Periode</TableHead>
                     <TableHead className="text-right">Total</TableHead>
@@ -294,10 +318,13 @@ export default function HistoryPage() {
                         exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
                         className="border-b border-border last:border-0"
                       >
-                        <TableCell className="max-w-[220px] truncate font-medium text-foreground">
+                        <TableCell className="max-w-[160px] truncate font-mono text-xs text-foreground" title={f.file_name}>
+                          {f.sep || '-'}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate font-medium text-foreground">
                           <div className="flex items-center gap-2">
                             <FileText className="size-4 shrink-0 text-muted-foreground" />
-                            <span className="truncate">{f.file_name}</span>
+                            <span className="truncate">{f.nama_pasien || '-'}</span>
                           </div>
                         </TableCell>
                         <TableCell>

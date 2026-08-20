@@ -451,7 +451,7 @@ export default function DashboardPage() {
                 <FileText className="h-4 w-4 text-primary" />
                 Upload Terbaru
               </h3>
-              <Button size="sm" className="h-7 gap-1 text-xs" onClick={() => router.push('/upload')}>
+              <Button size="sm" className="h-7 gap-1 text-xs" onClick={() => router.push('/extract')}>
                 <Upload className="h-3.5 w-3.5" />
                 Upload Baru
               </Button>
