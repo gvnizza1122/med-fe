@@ -99,7 +99,12 @@ const FIELD_CATEGORIES: Record<string, string[]> = {
                        'TARIF_SI', 'DESKRIPSI_SD', 'TARIF_SD', 'TOTAL_TARIF'],
   'ICU & Ventilasi': ['ICU_INDIKATOR', 'ICU_LOS', 'VENT_HOUR'],
   'Asuransi & Rujukan': ['SEP', 'NOKARTU', 'PAYOR_ID', 'DPJP', 'KODE_TARIF', 'PTD', 'IN_SP', 'IN_SR', 'IN_SI', 'IN_SD', 'SUBACUTE', 'CHRONIC', 'TARIF_POLI_EKS'],
-  'Sistem (Isi Otomatis oleh vClaim)': ['TARIF_RS', 'CODER_ID', 'VERSI_INACBG', 'VERSI_GROUPER', 'C1', 'C2', 'C3', 'C4'],
+  // 'Sistem (Isi Otomatis oleh vClaim)' (TARIF_RS/CODER_ID/VERSI_INACBG/
+  // VERSI_GROUPER/C1-C4) sengaja DIHAPUS dari tampilan atas permintaan user —
+  // staf tidak paham istilah C1-C4, dan kolomnya (terutama C2) kadang berisi
+  // blob JSON panjang yang merusak layout tabel. Kolom-kolom ini tetap ada
+  // di database/raw_data (diisi otomatis saat submit ke vClaim), cuma tidak
+  // lagi dirender di tabel 60-kolom ini.
 };
 
 interface CodeEvidence {
@@ -379,7 +384,7 @@ function RecordFieldsTable({
                             )}
                           />
                         ) : (
-                          <span className={cn('font-mono text-xs', field.status === 'error' ? 'text-destructive' : 'text-foreground')}>
+                          <span className={cn('font-mono text-xs break-all whitespace-pre-wrap', field.status === 'error' ? 'text-destructive' : 'text-foreground')}>
                             {currentValue === null || currentValue === undefined || currentValue === ''
                               ? <span className="text-muted-foreground italic">(kosong)</span>
                               : field.column_name === 'DISCHARGE_STATUS' && DISCHARGE_STATUS_LABELS[String(currentValue)]
