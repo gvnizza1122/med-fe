@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, Fragment } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -287,7 +287,7 @@ function RecordStatusBadge({ status }: { status: string }) {
 const INPATIENT_ONLY_CATEGORIES = new Set(['ICU & Ventilasi']);
 
 function RecordFieldsTable({
-  recordData, validationErrors, editing, editedValues, onEdit, onlyIssues, jenisKlaim,
+  recordData, validationErrors, editing, editedValues, onEdit, onlyIssues, jenisKlaim, highlightFields,
 }: {
   recordData: Record<string, any>;
   validationErrors: ValidationError[];
@@ -296,8 +296,17 @@ function RecordFieldsTable({
   onEdit: (col: string, val: string) => void;
   onlyIssues: boolean;
   jenisKlaim?: string | null;
+  highlightFields?: Set<string>;
 }) {
   const fieldMap = useMemo(() => buildFieldMap(recordData, validationErrors), [recordData, validationErrors]);
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+
+  useEffect(() => {
+    if (highlightFields && highlightFields.size > 0) {
+      highlightRowRef.current?.scrollIntoView({ block: 'center' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordData, highlightFields]);
 
   const categories = Object.entries(FIELD_CATEGORIES)
     .filter(([category]) => !(jenisKlaim === 'RAWAT_JALAN' && INPATIENT_ONLY_CATEGORIES.has(category)))
@@ -346,8 +355,16 @@ function RecordFieldsTable({
                   // — bukan data dari dokumen INI, ditandai supaya koder tahu
                   // ini perlu dicek/edit kalau ternyata beda.
                   const autofilledFrom = parseRawData(recordData)[`_autofill_${field.column_name}`];
+                  const isHighlighted = !!highlightFields?.has(field.column_name);
                   return (
-                    <tr key={field.column_name} className="border-b last:border-0 hover:bg-muted/40 align-top">
+                    <tr
+                      key={field.column_name}
+                      ref={isHighlighted ? highlightRowRef : undefined}
+                      className={cn(
+                        'border-b last:border-0 hover:bg-muted/40 align-top',
+                        isHighlighted && 'bg-amber-500/15 ring-1 ring-inset ring-amber-500/40'
+                      )}
+                    >
                       <td className="px-3 py-2 font-semibold text-xs">{field.column_name}</td>
                       <td className="px-3 py-2">
                         {editing && !isSystem ? (
@@ -499,6 +516,14 @@ export default function ResultsPage() {
   // record dalam 1 file).
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get('sep') || '';
+  // ?highlight=DIAGLIST,TOTAL_TARIF (dari link Pending BPJS) — kolom vClaim
+  // yang jadi penyebab pending (diekstrak AI, lihat kolom_penyebab di
+  // routes/bpjsPending.js), disorot di RecordFieldsTable supaya staf langsung
+  // tahu penyebabnya tanpa harus baca ulang teks alasan pending.
+  const highlightFields = useMemo(
+    () => new Set((searchParams.get('highlight') || '').split(',').map(s => s.trim()).filter(Boolean)),
+    [searchParams]
+  );
   const { toasts, addToast, removeToast } = useToast();
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [records, setRecords] = useState<ClaimRecord[]>([]);
@@ -1000,6 +1025,7 @@ export default function ResultsPage() {
                         onEdit={(col, val) => { setIsEditing(true); setEditedValues(prev => ({ ...prev, [col]: val })); }}
                         onlyIssues={onlyIssues}
                         jenisKlaim={fileInfo.jenis_klaim}
+                        highlightFields={highlightFields}
                       />
                     </div>
                     <div className="min-w-0" style={{ order: maximizeData ? 2 : 0 }}>
@@ -1045,6 +1071,7 @@ export default function ResultsPage() {
                   onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
                   onlyIssues={onlyIssues}
                   jenisKlaim={fileInfo.jenis_klaim}
+                  highlightFields={highlightFields}
                 />
               )}
 

@@ -305,7 +305,13 @@ export default function PendingBpjsFileDetailPage() {
                         type="button"
                         className="text-primary underline-offset-2 hover:underline"
                         title="Buka halaman detail klaim ini"
-                        onClick={(e) => { e.stopPropagation(); router.push(`/results/${item.claim_file_id}?sep=${encodeURIComponent(item.sep || '')}`); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const highlight = (item.alasan_parsed?.field || []).join(',');
+                          const params = new URLSearchParams({ sep: item.sep || '' });
+                          if (highlight) params.set('highlight', highlight);
+                          router.push(`/results/${item.claim_file_id}?${params.toString()}`);
+                        }}
                       >
                         {item.sep || '-'}
                       </button>
