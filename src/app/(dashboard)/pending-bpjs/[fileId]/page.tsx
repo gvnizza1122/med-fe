@@ -185,7 +185,7 @@ export default function PendingBpjsFileDetailPage() {
         poin_kunci: poinKunci || undefined,
       });
       patchActive(active.id, updated);
-      addToast(outcome === 'approved' ? 'Ditandai diterima BPJS — jawaban ini tersimpan sebagai contoh untuk kasus serupa.' : 'Ditandai ditolak BPJS.', outcome === 'approved' ? 'success' : 'error');
+      addToast(outcome === 'approved' ? 'Ditandai diterima BPJS.' : 'Ditandai ditolak BPJS.', outcome === 'approved' ? 'success' : 'error');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Gagal menyimpan hasil.', 'error');
     }
