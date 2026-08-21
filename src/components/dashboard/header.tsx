@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, type ReactNode } from "react"
-import { Bell } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { MobileNav } from "./mobile-nav"
 
@@ -46,12 +45,7 @@ export function Header({ title, description, actions }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-1.5 md:gap-2">
-          <button className="relative hover:bg-secondary transition-all duration-300 hover:scale-110 h-8 w-8 rounded-md flex items-center justify-center">
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
-          </button>
-
-          <div className="flex items-center gap-2 pl-2 md:pl-3 border-l border-border">
+          <div className="flex items-center gap-2 pl-2 md:pl-3">
             <Avatar className="w-7 h-7 md:w-8 md:h-8 ring-2 ring-primary/20 transition-all duration-300 hover:ring-primary/40">
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
