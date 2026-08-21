@@ -1,21 +1,16 @@
 'use client';
-// Modal konfirmasi RV-20 (kriteria kegawatan IGD) — muncul saat record IGD
-// terdeteksi cuma punya kode diagnosis nyeri generik tanpa kode kegawatan
-// pendamping. RV-20 sifatnya WARNING (tidak blocking submit), tapi
-// verifikator tetap wajib centang checklist ini sekali sebagai audit trail
-// kalau BPJS mempertanyakan klaim ini nanti — bukan gerbang otomatis yang
-// menyimpulkan kegawatan, cuma bukti sudah dicek manual.
+// Checklist konfirmasi RV-20 (kriteria kegawatan IGD) — ditampilkan INLINE di
+// bawah tabel data (bukan modal/dialog lagi) saat record IGD terdeteksi cuma
+// punya kode diagnosis nyeri generik tanpa kode kegawatan pendamping. RV-20
+// sifatnya WARNING (tidak blocking submit), tapi verifikator tetap wajib
+// centang checklist ini sekali sebagai audit trail kalau BPJS mempertanyakan
+// klaim ini nanti — bukan gerbang otomatis yang menyimpulkan kegawatan, cuma
+// bukti sudah dicek manual. Ditaruh di bawah tabel (bukan popup) supaya tidak
+// menghalangi verifikator melihat data sambil mengisi checklist.
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Card } from '@/components/ui/card';
 
 const CHECKLIST_ITEMS: { key: string; label: string }[] = [
   { key: 'ttv_abnormal', label: 'TTV abnormal terdokumentasi' },
@@ -26,12 +21,10 @@ const CHECKLIST_ITEMS: { key: string; label: string }[] = [
 ];
 
 export function Rv20ConfirmationModal({
-  open, recordId, onConfirmed, onEditInstead,
+  recordId, onConfirmed,
 }: {
-  open: boolean;
   recordId: string;
   onConfirmed: () => void;
-  onEditInstead: () => void;
 }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
@@ -52,38 +45,33 @@ export function Rv20ConfirmationModal({
   };
 
   return (
-    <Dialog open={open}>
-      <DialogContent className="sm:max-w-md" showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>Kriteria Kegawatan IGD (RV-20)</DialogTitle>
-          <DialogDescription>
-            Diagnosis pada klaim ini hanya kode nyeri generik tanpa kode kegawatan pendamping — BPJS sering menolak klaim seperti ini dengan alasan &ldquo;tidak memenuhi kriteria gawat darurat&rdquo;. Centang yang sudah dipastikan sebelum lanjut.
-          </DialogDescription>
-        </DialogHeader>
+    <Card className="mb-4 p-4 border-amber-500/40 bg-amber-500/5">
+      <div className="mb-1 text-sm font-semibold text-foreground">Kriteria Kegawatan IGD (RV-20)</div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Diagnosis pada klaim ini hanya kode nyeri generik tanpa kode kegawatan pendamping — BPJS sering menolak klaim seperti ini dengan alasan &ldquo;tidak memenuhi kriteria gawat darurat&rdquo;. Centang yang sudah dipastikan sebelum lanjut.
+      </p>
 
-        <div className="space-y-2.5 py-1">
-          {CHECKLIST_ITEMS.map(item => (
-            <label key={item.key} className="flex items-start gap-2.5 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!checked[item.key]}
-                onChange={() => toggle(item.key)}
-                className="mt-0.5 size-4 rounded border-input"
-              />
-              <span className="text-foreground">{item.label}</span>
-            </label>
-          ))}
-        </div>
+      <div className="space-y-2.5">
+        {CHECKLIST_ITEMS.map(item => (
+          <label key={item.key} className="flex items-start gap-2.5 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!checked[item.key]}
+              onChange={() => toggle(item.key)}
+              className="mt-0.5 size-4 rounded border-input"
+            />
+            <span className="text-foreground">{item.label}</span>
+          </label>
+        ))}
+      </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
 
-        <DialogFooter className="pt-2">
-          <Button type="button" variant="outline" onClick={onEditInstead}>Kembali ke Edit</Button>
-          <Button type="button" onClick={handleConfirm} disabled={saving}>
-            {saving ? 'Menyimpan...' : 'Konfirmasi & Lanjutkan'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <div className="mt-3 flex justify-end">
+        <Button type="button" size="sm" onClick={handleConfirm} disabled={saving}>
+          {saving ? 'Menyimpan...' : 'Konfirmasi'}
+        </Button>
+      </div>
+    </Card>
   );
 }

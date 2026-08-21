@@ -515,7 +515,6 @@ export default function ResultsPage() {
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [onlyIssues, setOnlyIssues] = useState(false);
   const [listCollapsed, setListCollapsed] = useState(false);
-  const [rv20ModalOpen, setRv20ModalOpen] = useState(false);
   const [rv20ConfirmedRecordIds, setRv20ConfirmedRecordIds] = useState<Set<string>>(new Set());
   const [suratKlarifikasiOpen, setSuratKlarifikasiOpen] = useState(false);
 
@@ -564,25 +563,21 @@ export default function ResultsPage() {
     setEditedValues({});
     setShowPdf(false);
     setMaximizeData(false);
-    setRv20ModalOpen(false);
   }, [selectedRecordId]);
 
   // RV-20 (kriteria kegawatan IGD, non-blocking) — kalau record ini kena RV-20
-  // dan BELUM pernah dikonfirmasi, tampilkan modal checklist sekali. Dicek ke
-  // server (bukan cuma local state) supaya tidak muncul ulang kalau
+  // dan BELUM pernah dikonfirmasi, tampilkan checklist inline di bawah tabel
+  // (bukan modal lagi — supaya tidak menghalangi verifikator melihat data).
+  // Dicek ke server (bukan cuma local state) supaya tidak muncul ulang kalau
   // verifikator sebelumnya sudah konfirmasi lalu buka lagi halaman ini nanti.
   useEffect(() => {
     const rec = selectedRecordId ? records.find(r => r.id === selectedRecordId) : null;
     const hasRv20 = rec?.errors?.some(e => e.rule_id === 'RV-20');
-    if (!rec || !hasRv20 || rv20ConfirmedRecordIds.has(rec.id)) { setRv20ModalOpen(false); return; }
+    if (!rec || !hasRv20 || rv20ConfirmedRecordIds.has(rec.id)) return;
     let cancelled = false;
     api.getRv20Confirmation(rec.id).then(res => {
-      if (cancelled) return;
-      if (res.confirmed) {
-        setRv20ConfirmedRecordIds(prev => new Set(prev).add(rec.id));
-      } else {
-        setRv20ModalOpen(true);
-      }
+      if (cancelled || !res.confirmed) return;
+      setRv20ConfirmedRecordIds(prev => new Set(prev).add(rec.id));
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [selectedRecordId, records, rv20ConfirmedRecordIds]);
@@ -1052,6 +1047,16 @@ export default function ResultsPage() {
                   jenisKlaim={fileInfo.jenis_klaim}
                 />
               )}
+
+              {/* ─── RV-20: checklist konfirmasi INLINE di bawah tabel ─── */}
+              {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
+                <div className="mt-4">
+                  <Rv20ConfirmationModal
+                    recordId={selectedRecord.id}
+                    onConfirmed={() => setRv20ConfirmedRecordIds(prev => new Set(prev).add(selectedRecord.id))}
+                  />
+                </div>
+              )}
             </Card>
           ) : (
             <Card className="p-10 text-center text-muted-foreground">
@@ -1069,20 +1074,6 @@ export default function ResultsPage() {
         />
       )}
 
-      {selectedRecord && (
-        <Rv20ConfirmationModal
-          open={rv20ModalOpen}
-          recordId={selectedRecord.id}
-          onConfirmed={() => {
-            setRv20ConfirmedRecordIds(prev => new Set(prev).add(selectedRecord.id));
-            setRv20ModalOpen(false);
-          }}
-          onEditInstead={() => {
-            setRv20ModalOpen(false);
-            setIsEditing(true);
-          }}
-        />
-      )}
     </div>
   );
 }
