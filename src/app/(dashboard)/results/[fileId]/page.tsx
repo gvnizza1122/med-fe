@@ -660,6 +660,7 @@ export default function ResultsPage() {
 
       <Header
         title="Hasil Validasi"
+        description=""
         actions={
           <>
             {kategori && (
@@ -1037,6 +1038,7 @@ export default function ResultsPage() {
                   </div>
                 )}
               </Card>
+            </div>
           ) : (
             <Card className="p-10 text-center text-muted-foreground">
               Pilih data dari tabel untuk melihat detail validasi
