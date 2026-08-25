@@ -77,10 +77,8 @@ export default function PendingBpjsFileDetailPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  // File bisa berisi ratusan baris — jangan langsung tampilkan semua saat
-  // buka halaman ini. Baru dimuat setelah user cari/filter atau klik
-  // "Tampilkan Semua Data".
-  const [hasQueried, setHasQueried] = useState(false);
+  // Langsung tampilkan semua data saat buka halaman ini
+  const [hasQueried, setHasQueried] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -246,29 +244,13 @@ export default function PendingBpjsFileDetailPage() {
 
         {hasActiveFilters && (
           <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
-            onClick={() => { setStatusFilter(''); setJenisFilter(''); setSearchInput(''); setSearch(''); setPage(1); setHasQueried(false); setItems([]); }}>
+            onClick={() => { setStatusFilter(''); setJenisFilter(''); setSearchInput(''); setSearch(''); setPage(1); setItems([]); }}>
             <X className="size-3.5" /> Reset Filter
           </Button>
         )}
       </div>
 
-      {!hasQueried ? (
-        <div className="rounded-xl border border-border bg-card">
-          <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-muted">
-              <Search className="size-7 text-muted-foreground" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground">Cari atau filter data pending</h3>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              File ini bisa berisi banyak baris — gunakan pencarian nama/SEP atau filter status/jenis
-              di atas untuk mempersempit, atau tampilkan semua data sekaligus.
-            </p>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setHasQueried(true)}>
-              Tampilkan Semua Data
-            </Button>
-          </div>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="flex items-center justify-center py-24">
           <div className="size-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
         </div>
@@ -291,8 +273,7 @@ export default function PendingBpjsFileDetailPage() {
                 <TableHead>Nama Peserta</TableHead>
                 <TableHead>Jenis</TableHead>
                 <TableHead>Alasan Pending</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Outcome</TableHead>
+                <TableHead>Jawaban</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -326,20 +307,21 @@ export default function PendingBpjsFileDetailPage() {
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-[320px] truncate text-muted-foreground" title={item.alasan_raw}>
+                  <TableCell className="max-w-[280px] truncate text-muted-foreground text-xs" title={item.alasan_raw}>
                     {item.alasan_raw}
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={statusBadgeClass(item.status)}>{STATUS_LABEL[item.status] || item.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {item.outcome === 'approved' && <CheckCircle2 className="size-4 text-primary" />}
-                    {item.outcome === 'rejected' && <XCircle className="size-4 text-destructive" />}
-                    {!item.outcome && '-'}
+                  <TableCell className="max-w-[240px] truncate text-xs text-muted-foreground">
+                    {item.jawaban_rs_manual ? (
+                      <span title={item.jawaban_rs_manual}>{item.jawaban_rs_manual.substring(0, 50)}...</span>
+                    ) : item.draft_klarifikasi ? (
+                      <span title={item.draft_klarifikasi}>{item.draft_klarifikasi.substring(0, 50)}...</span>
+                    ) : (
+                      <span className="text-muted-foreground/60">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="secondary" size="sm" className="gap-1.5" onClick={(e) => { e.stopPropagation(); openDetail(item); }}>
-                      <Sparkles className="size-3.5" /> Kelola
+                      Lihat Detail
                     </Button>
                   </TableCell>
                 </TableRow>
