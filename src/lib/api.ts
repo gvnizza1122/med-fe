@@ -183,10 +183,13 @@ export const api = {
   },
 
   // PDF Upload — batch (banyak file, 1 kategori pelayanan untuk semua file).
-  // Diproses server-side dengan concurrency terbatas (~3 file bersamaan), jadi
-  // makin banyak file makin lama — timeout digenerosikan (15 menit) supaya
-  // batch berukuran wajar (puluhan file) tidak keburu di-abort padahal masih
-  // diproses. Progress real-time dikirim lewat socket event 'pdf-batch:*'.
+  // Maks 300 file/batch (26 Aug 2026, permintaan klien) — estimasi ~90 menit
+  // untuk 300 file (konsisten dengan hasil testing 50 file = ~15,5 menit dgn
+  // BATCH_AI_CONCURRENCY=20 di server) — timeout digenerosikan ke 2 jam supaya
+  // batch besar tidak keburu di-abort padahal masih diproses server-side.
+  // Progress real-time tetap masuk lewat socket event 'pdf-batch:*' walau
+  // request fetch ini sendiri akhirnya timeout/gagal (lihat UploadJobContext:
+  // status per-file yang sudah dilaporkan via socket TIDAK ditimpa jadi error).
   // allowedJenisKlaim: kategori yang MUNGKIN ada di batch ini (verifikator
   // toggle 1/2/3 kategori sebelum drag file) — BUKAN kategori pasti per file.
   // Backend mendeteksi kategori tiap file dari isi dokumennya sendiri,
@@ -195,7 +198,7 @@ export const api = {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     fd.append('allowed_jenis_klaim', JSON.stringify(allowedJenisKlaim));
-    return request('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 2400000 });
+    return request('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 7200000 });
   },
 
   // Batch Audit (Phase 2)
