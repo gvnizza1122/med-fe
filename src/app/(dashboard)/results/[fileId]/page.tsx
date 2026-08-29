@@ -86,6 +86,31 @@ const FIELD_MAPPING: Record<string, string> = {
   'TARIF_SI': 'tarif_si', 'TARIF_SD': 'tarif_sd',
 };
 
+const FIELD_LABELS: Record<string, string> = {
+  'KODE_RS': 'Kode RS', 'KELAS_RS': 'Kelas RS', 'KELAS_RAWAT': 'Kelas Rawat',
+  'KODE_TARIF': 'Kode Tarif', 'PTD': 'PTD', 'ADMISSION_DATE': 'Tanggal Masuk',
+  'DISCHARGE_DATE': 'Tanggal Keluar', 'BIRTH_DATE': 'Tanggal Lahir',
+  'BIRTH_WEIGHT': 'Berat Lahir (kg)', 'SEX': 'Jenis Kelamin', 'DISCHARGE_STATUS': 'Status Keluar',
+  'DIAGLIST': 'Daftar Diagnosis', 'PROCLIST': 'Daftar Prosedur', 'ADL1': 'ADL1', 'ADL2': 'ADL2',
+  'IN_SP': 'Indikator SP', 'IN_SR': 'Indikator SR', 'IN_SI': 'Indikator SI', 'IN_SD': 'Indikator SD',
+  'SUBACUTE': 'Subakut', 'CHRONIC': 'Kronis', 'SP': 'SP', 'SR': 'SR', 'SI': 'SI', 'SD': 'SD',
+  'TARIF_SUBACUTE': 'Tarif Subakut', 'TARIF_CHRONIC': 'Tarif Kronis',
+  'TOTAL_TARIF': 'Total Tarif', 'TARIF_RS': 'Tarif RS', 'TARIF_POLI_EKS': 'Tarif Poli Eks',
+  'LOS': 'Lama Rawat (hari)', 'ICU_INDIKATOR': 'Indikator ICU', 'ICU_LOS': 'Lama ICU (hari)', 'VENT_HOUR': 'Jam Ventilasi',
+  'NAMA_PASIEN': 'Nama Pasien', 'MRN': 'MRN', 'UMUR_TAHUN': 'Umur (tahun)',
+  'UMUR_HARI': 'Umur (hari)', 'DPJP': 'DPJP', 'SEP': 'SEP', 'NOKARTU': 'Nomor Kartu',
+  'PAYOR_ID': 'Payor ID', 'CODER_ID': 'Coder ID', 'VERSI_INACBG': 'Versi INA-CBG',
+  'VERSI_GROUPER': 'Versi Grouper',
+  'INACBG': 'Kode INA-CBG', 'DESKRIPSI_INACBG': 'Deskripsi INA-CBG', 'TARIF_INACBG': 'Tarif INA-CBG',
+  'DESKRIPSI_SP': 'Deskripsi SP', 'DESKRIPSI_SR': 'Deskripsi SR', 'DESKRIPSI_SI': 'Deskripsi SI',
+  'DESKRIPSI_SD': 'Deskripsi SD', 'TARIF_SP': 'Tarif SP', 'TARIF_SR': 'Tarif SR',
+  'TARIF_SI': 'Tarif SI', 'TARIF_SD': 'Tarif SD',
+};
+
+function getFieldLabel(columnName: string): string {
+  return FIELD_LABELS[columnName] || columnName;
+}
+
 const VCLAIM_FILLED_COLUMNS = new Set([
   'TARIF_RS', 'CODER_ID', 'VERSI_INACBG', 'VERSI_GROUPER', 'C1', 'C2', 'C3', 'C4'
 ]);
@@ -370,7 +395,7 @@ function RecordFieldsTable({
                         isHighlighted && 'bg-amber-500/15 ring-1 ring-inset ring-amber-500/40'
                       )}
                     >
-                      <td className="px-3 py-2 font-semibold text-xs">{field.column_name}</td>
+                      <td className="px-3 py-2 font-semibold text-xs">{getFieldLabel(field.column_name)}</td>
                       <td className="px-3 py-2">
                         {editing && !isSystem ? (
                           <input
