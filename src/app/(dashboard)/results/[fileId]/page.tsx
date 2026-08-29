@@ -637,16 +637,6 @@ export default function ResultsPage() {
     return () => { cancelled = true; };
   }, [selectedRecordId, records, rv20ConfirmedRecordIds]);
 
-  const handleExport = async () => {
-    try {
-      const res = await api.exportFile(fileId, filter === 'all' ? 'all' : filter);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url;
-      a.download = `validasi_${fileInfo?.file_name || 'klaim'}.xlsx`;
-      a.click(); URL.revokeObjectURL(url);
-    } catch { alert('Export gagal'); }
-  };
 
   const handleApprove = async () => {
     if (!confirm('Yakin ingin menyetujui file ini? File yang disetujui siap dikirim ke vClaim.')) return;
@@ -695,7 +685,7 @@ export default function ResultsPage() {
 
       <Header
         title="Hasil Validasi"
-        description={fileInfo.file_name}
+        description=""
         actions={
           <>
             {kategori && (
@@ -706,7 +696,6 @@ export default function ResultsPage() {
                 {kategori.icon} {kategori.label}
               </Badge>
             )}
-            <Button variant="outline" onClick={handleExport}>Ekspor</Button>
             {canApprove && (
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleApprove}>Setujui</Button>
             )}
@@ -714,37 +703,28 @@ export default function ResultsPage() {
         }
       />
 
-      {/* ─── Compact summary bar ─────────────────────────────────────── */}
-      <Card className="p-4 flex flex-row flex-wrap items-center gap-7">
+
+      {/* ─── Statistik keseluruhan file ─────────────────────────── */}
+      <Card className="p-4 grid grid-cols-4 gap-4">
         <div>
           <div className="text-[11px] text-muted-foreground">Total Data</div>
           <div className="text-xl font-bold">{fileInfo.total_records}</div>
         </div>
         <div>
           <div className="text-[11px] text-muted-foreground">Valid</div>
-          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{fileInfo.valid_count}</div>
+          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{((fileInfo.valid_count / fileInfo.total_records) * 100).toFixed(0)}%</div>
+          <div className="text-xs text-muted-foreground">{fileInfo.valid_count} records</div>
         </div>
         <div>
           <div className="text-[11px] text-muted-foreground">Error</div>
-          <div className="text-xl font-bold text-destructive">{fileInfo.error_count}</div>
+          <div className="text-xl font-bold text-destructive">{((fileInfo.error_count / fileInfo.total_records) * 100).toFixed(0)}%</div>
+          <div className="text-xs text-muted-foreground">{fileInfo.error_count} records</div>
         </div>
         <div>
           <div className="text-[11px] text-muted-foreground">Pending</div>
-          <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{fileInfo.pending_count}</div>
+          <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{((fileInfo.pending_count / fileInfo.total_records) * 100).toFixed(0)}%</div>
+          <div className="text-xs text-muted-foreground">{fileInfo.pending_count} records</div>
         </div>
-        {fileInfo.error_summary && fileInfo.error_summary.length > 0 && (
-          <div className="flex flex-wrap gap-2 ml-auto">
-            {fileInfo.error_summary.map(rule => (
-              <Badge
-                key={rule.rule_id}
-                variant={rule.severity === 'critical' ? 'destructive' : 'secondary'}
-                className="text-[10px]"
-              >
-                {rule.rule_id} · {rule.count}
-              </Badge>
-            ))}
-          </div>
-        )}
       </Card>
 
       {/* ─── Toolbar: search / filter (only relevant when there's more than 1 record) ─── */}
@@ -882,84 +862,85 @@ export default function ResultsPage() {
         {/* ─── Right: selected record detail ───────────────────────────── */}
         <div className="min-w-0 flex-1">
           {selectedRecord ? (
-            <Card className="p-5">
-              <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-bold">{selectedRecord.nama_pasien} (SEP: {selectedRecord.sep})</h3>
-                    {kategori && (
-                      <Badge
-                        className="text-[11px] border-transparent"
-                        style={{ background: `color-mix(in srgb, ${kategori.accent} 14%, transparent)`, color: kategori.accent }}
-                      >
-                        {kategori.icon} {kategori.label}
-                      </Badge>
-                    )}
-                    {parseRawData(selectedRecord)._sep_source && (
-                      <Badge
-                        className="text-[11px] border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                        title={
-                          parseRawData(selectedRecord)._sep_source === 'filename'
-                            ? 'Field SEP kosong dari AI ekstraksi — diisi otomatis dari nama file (nama file di RS ini adalah nomor SEP-nya sendiri). Mohon cek ulang.'
-                            : 'Field SEP kosong dari AI ekstraksi — diisi otomatis dari hasil pindai teks dokumen. Mohon cek ulang.'
-                        }
-                      >
-                        ⚠️ SEP dari {parseRawData(selectedRecord)._sep_source === 'filename' ? 'nama file' : 'scan dokumen'} — harap verifikasi
-                      </Badge>
-                    )}
-                    {parseRawData(selectedRecord).POTENSI_PRB_SEP && (
-                      <Badge
-                        className="text-[11px] border-transparent bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300"
-                        title="Flag ini tercetak langsung dari sistem BPJS di halaman SEP, bukan simpulan AI/RS — pertimbangkan cek status PRB pasien ini."
-                      >
-                        🔔 Potensi PRB (BPJS)
-                      </Badge>
-                    )}
-                    {selectedRecord.prb_exempt_reason && (
-                      <Badge
-                        className="text-[11px] border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                        title={`Dikecualikan dari RV-15 (Program Rujuk Balik): ${selectedRecord.prb_exempt_reason}`}
-                      >
-                        ✓ EXEMPT PRB
-                      </Badge>
-                    )}
+            <div className="space-y-4">
+              {/* ─── Card Detail Pasien ─────────────────────────── */}
+              <Card className="p-5">
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <h3 className="text-lg font-bold">{selectedRecord.nama_pasien} (SEP: {selectedRecord.sep})</h3>
+                      {kategori && (
+                        <Badge
+                          className="text-[11px] border-transparent"
+                          style={{ background: `color-mix(in srgb, ${kategori.accent} 14%, transparent)`, color: kategori.accent }}
+                        >
+                          {kategori.icon} {kategori.label}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      MRN: {selectedRecord.mrn || '-'} · Status:
+                      <span className="ml-1"><RecordStatusBadge status={selectedRecord.validation_status} /></span>
+                      {parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP && (
+                        <span className="ml-1.5">· Jenis Kunjungan: {parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
-                    MRN: {selectedRecord.mrn || '-'} · Status:
-                    <RecordStatusBadge status={selectedRecord.validation_status} />
-                    {parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP && (
-                      <span>· Jenis Kunjungan (SEP): <span className="text-foreground">{parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP}</span></span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2 items-center">
-                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <input type="checkbox" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
-                    Tampilkan hanya yang bermasalah
-                  </label>
-                  {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
-                    <Button variant="outline" size="sm" onClick={() => setSuratKlarifikasiOpen(true)}>
-                      Buat Surat Klarifikasi
-                    </Button>
-                  )}
-                  {!isEditing ? (
-                    <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>Edit</Button>
-                  ) : (
-                    <>
-                      <Button variant="secondary" size="sm" onClick={() => { setIsEditing(false); setEditedValues({}); }}>Batal</Button>
-                      <Button
-                        size="sm"
-                        disabled={Object.keys(editedValues).length === 0 || isSavingRecord}
-                        onClick={handleSaveRecord}
-                      >
-                        {isSavingRecord ? 'Menyimpan...' : `Simpan (${Object.keys(editedValues).length})`}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
 
-              {/* ─── RV-13 s/d RV-16: silent-valid ────────────────────────
+                  {/* ─── Pola Pending Risk ───────────────────── */}
+                  {(() => {
+                    const pendingRisks = parseAiReview(selectedRecord)?.pending_risk_notes;
+                    if (!pendingRisks || pendingRisks.length === 0) return null;
+                    return (
+                      <div className="px-3 py-2.5 rounded-lg bg-violet-500/10 border border-violet-500/30 text-xs space-y-2">
+                        <div className="font-semibold text-violet-700 dark:text-violet-300">
+                          <Sparkles className="size-3 inline mr-1" />
+                          Alasan Bisa Pending
+                        </div>
+                        <div className="space-y-1.5">
+                          {pendingRisks.map((risk, i) => (
+                            <div key={i} className="text-muted-foreground">
+                              <strong className="text-foreground">{PENDING_RISK_LABELS[risk.pattern] || risk.pattern}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ─── Controls ──────────────────────────── */}
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <input type="checkbox" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
+                      Tampilkan hanya yang bermasalah
+                    </label>
+                    {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
+                      <Button variant="outline" size="sm" onClick={() => setSuratKlarifikasiOpen(true)}>
+                        Buat Surat Klarifikasi
+                      </Button>
+                    )}
+                    {!isEditing ? (
+                      <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>Edit</Button>
+                    ) : (
+                      <>
+                        <Button variant="secondary" size="sm" onClick={() => { setIsEditing(false); setEditedValues({}); }}>Batal</Button>
+                        <Button
+                          size="sm"
+                          disabled={Object.keys(editedValues).length === 0 || isSavingRecord}
+                          onClick={handleSaveRecord}
+                        >
+                          {isSavingRecord ? 'Menyimpan...' : `Simpan (${Object.keys(editedValues).length})`}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              {/* ─── Card Data Klaim ────────────────────────── */}
+              <Card className="p-5">
+
+                {/* ─── RV-13 s/d RV-16: silent-valid ────────────────────────
                   Prinsip (disepakati dengan user): "tidak ada data terkait"
                   = otomatis VALID, TIDAK tampilkan apapun — sebelumnya di sini
                   ada banner besar "Cek manual diperlukan" untuk kasus data
@@ -970,151 +951,119 @@ export default function ResultsPage() {
                   masalah. Baris ringkas ini HANYA utk kasus datanya ADA
                   (hasEpisodeTrackingData true) dan keempat rule itu bersih —
                   bukan checklist per-rule, bukan peringatan. */}
-              {hasEpisodeTrackingData(selectedRecord) &&
-                !selectedRecord.errors?.some(e => ['RV-13', 'RV-14', 'RV-15', 'RV-16'].includes(e.rule_id)) && (
-                <p className="mb-4 text-xs text-muted-foreground">
-                  RV-13 s/d RV-16: tidak ada isu terdeteksi.
-                </p>
-              )}
+                {hasEpisodeTrackingData(selectedRecord) &&
+                  !selectedRecord.errors?.some(e => ['RV-13', 'RV-14', 'RV-15', 'RV-16'].includes(e.rule_id)) && (
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    RV-13 s/d RV-16: tidak ada isu terdeteksi.
+                  </p>
+                )}
 
-              {/* ─── RV-20 (kegawatan IGD): referensi padanan kode, baca saja ── */}
-              {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
-                <div className="mb-4">
-                  <PadananKodeNyeriCard />
-                </div>
-              )}
-
-              {/* ─── Potensi risiko pending (di luar rule engine) ─────────
-                  Pola administratif/klinis yang paling sering bikin klaim RS
-                  ini di-pending verifikator BPJS (dianalisis dari data
-                  pending riil), dideteksi AI dari bukti dokumen — bukan
-                  error validasi format, jadi ditampilkan terpisah dari tabel
-                  di bawah. Selalu tertaut ke kutipan dokumen; verifikator
-                  yang memutuskan, bukan aplikasi. */}
-              {(() => {
-                const pendingRisks = parseAiReview(selectedRecord)?.pending_risk_notes;
-                if (!pendingRisks || pendingRisks.length === 0) return null;
-                return (
-                  <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-violet-500/10 border border-violet-500/30 text-xs text-foreground space-y-2.5">
-                    <div className="flex items-center gap-2 font-semibold text-violet-700 dark:text-violet-300">
-                      <Sparkles className="size-4 shrink-0" />
-                      Potensi Risiko Pending — {pendingRisks.length} pola terdeteksi AI dari dokumen
-                    </div>
-                    {pendingRisks.map((risk, i) => (
-                      <div key={i} className="pl-6 border-l-2 border-violet-500/30 space-y-1">
-                        <div className="font-semibold">
-                          {PENDING_RISK_LABELS[risk.pattern] || risk.pattern}
-                          <span className="ml-1.5 font-normal text-muted-foreground">(hal. {risk.page_number})</span>
-                        </div>
-                        <div className="text-muted-foreground">{risk.note}</div>
-                        <div className="italic text-muted-foreground/80">&ldquo;{risk.basis}&rdquo;</div>
-                      </div>
-                    ))}
-                    <div className="pt-1 text-muted-foreground/80">
-                      Ini saran untuk dicek verifikator/koder, bukan keputusan final — rule engine tidak menolak klaim karena hal ini.
-                    </div>
+                {/* ─── RV-20 (kegawatan IGD): referensi padanan kode, baca saja ── */}
+                {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
+                  <div className="mb-4">
+                    <PadananKodeNyeriCard />
                   </div>
-                );
-              })()}
+                )}
 
-              {/* ─── Bukti primer: dokumen PDF asli vs data klaim ───────── */}
-              {/* Tampil jika berkas aslinya PDF (via nama file, tidak bergantung
-                  flag has_pdf dari backend) — kalau file ternyata hilang di disk,
-                  PdfViewer menampilkan pesan yang jelas. */}
-              {String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') && (
-                <div className="mb-4">
-                  <Button variant="outline" size="sm" onClick={() => setShowPdf(v => !v)}>
-                    <FileText className="size-3.5" />
-                    {showPdf ? 'Sembunyikan Dokumen PDF Asli' : 'Lihat Dokumen PDF Asli'}
-                  </Button>
-                </div>
-              )}
-
-              {/* ─── The single 60-column table (side-by-side dengan PDF saat dibuka) ─── */}
-              {showPdf ? (
-                <div>
-                  <div className="flex gap-2 mb-2 items-center">
-                    <Button variant="secondary" size="sm" onClick={() => setMaximizeData(v => !v)}>
-                      {maximizeData ? 'Kembali' : 'Perbesar Data'}
+                {/* ─── Bukti primer: dokumen PDF asli vs data klaim ───────── */}
+                {/* Tampil jika berkas aslinya PDF (via nama file, tidak bergantung
+                    flag has_pdf dari backend) — kalau file ternyata hilang di disk,
+                    PdfViewer menampilkan pesan yang jelas. */}
+                {String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') && (
+                  <div className="mb-4">
+                    <Button variant="outline" size="sm" onClick={() => setShowPdf(v => !v)}>
+                      <FileText className="size-3.5" />
+                      {showPdf ? 'Sembunyikan Dokumen PDF Asli' : 'Lihat Dokumen PDF Asli'}
                     </Button>
                   </div>
-                  <div className={cn('grid gap-4', maximizeData ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2')}>
-                    <div
-                      className="min-w-0"
-                      style={{
-                        order: maximizeData ? 1 : 0,
-                        maxHeight: maximizeData ? 'none' : 780,
-                        overflowY: maximizeData ? 'visible' : 'auto',
-                      }}
-                    >
-                      <RecordFieldsTable
-                        recordData={selectedRecord}
-                        validationErrors={selectedRecord.errors || []}
-                        editing={isEditing}
-                        editedValues={editedValues}
-                        onEdit={(col, val) => { setIsEditing(true); setEditedValues(prev => ({ ...prev, [col]: val })); }}
-                        onlyIssues={onlyIssues}
-                        jenisKlaim={fileInfo.jenis_klaim}
-                        highlightFields={highlightFields}
-                      />
+                )}
+
+                {/* ─── The single 60-column table (side-by-side dengan PDF saat dibuka) ─── */}
+                {showPdf ? (
+                  <div>
+                    <div className="flex gap-2 mb-2 items-center">
+                      <Button variant="secondary" size="sm" onClick={() => setMaximizeData(v => !v)}>
+                        {maximizeData ? 'Kembali' : 'Perbesar Data'}
+                      </Button>
                     </div>
-                    <div className="min-w-0" style={{ order: maximizeData ? 2 : 0 }}>
-                      {/* ─── ErrorBoundary lokal, BUKAN global ───────────────
-                          PdfViewer pakai pdf.js (canvas + web worker) yang
-                          perilakunya bisa beda-beda tergantung browser/PC
-                          (versi lama, driver grafis, antivirus yang blok
-                          worker script, dst) — device tim RS pernah crash
-                          total & minta reload, padahal PC lain aman-aman
-                          saja. Sebelum ini TIDAK ADA ErrorBoundary di mana
-                          pun di aplikasi, jadi crash apapun di PdfViewer
-                          menjalar ke seluruh halaman (termasuk tabel 60
-                          kolom yang jauh lebih penting dari sekadar preview
-                          PDF). key={fileId} supaya boundary reset otomatis
-                          kalau pindah record — sekali crash tidak nge-stuck
-                          selamanya. */}
-                      <ErrorBoundary
-                        key={fileId}
-                        fallback={
-                          <div
-                            className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card p-6 text-center"
-                            style={{ height: maximizeData ? 420 : 780 }}
-                          >
-                            <FileText className="size-6 text-muted-foreground" />
-                            <p className="text-sm font-semibold text-foreground">Dokumen PDF tidak dapat ditampilkan</p>
-                            <p className="max-w-xs text-xs text-muted-foreground">
-                              Terjadi kendala teknis saat menampilkan pratinjau PDF di perangkat ini (kadang terjadi di browser versi lama). Data klaim di sebelah tetap bisa dibaca & diedit seperti biasa.
-                            </p>
-                          </div>
-                        }
+                    <div className={cn('grid gap-4', maximizeData ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2')}>
+                      <div
+                        className="min-w-0"
+                        style={{
+                          order: maximizeData ? 1 : 0,
+                          maxHeight: maximizeData ? 'none' : 780,
+                          overflowY: maximizeData ? 'visible' : 'auto',
+                        }}
                       >
-                        <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 420 : 780} />
-                      </ErrorBoundary>
+                        <RecordFieldsTable
+                          recordData={selectedRecord}
+                          validationErrors={selectedRecord.errors || []}
+                          editing={isEditing}
+                          editedValues={editedValues}
+                          onEdit={(col, val) => { setIsEditing(true); setEditedValues(prev => ({ ...prev, [col]: val })); }}
+                          onlyIssues={onlyIssues}
+                          jenisKlaim={fileInfo.jenis_klaim}
+                          highlightFields={highlightFields}
+                        />
+                      </div>
+                      <div className="min-w-0" style={{ order: maximizeData ? 2 : 0 }}>
+                        {/* ─── ErrorBoundary lokal, BUKAN global ───────────────
+                            PdfViewer pakai pdf.js (canvas + web worker) yang
+                            perilakunya bisa beda-beda tergantung browser/PC
+                            (versi lama, driver grafis, antivirus yang blok
+                            worker script, dst) — device tim RS pernah crash
+                            total & minta reload, padahal PC lain aman-aman
+                            saja. Sebelum ini TIDAK ADA ErrorBoundary di mana
+                            pun di aplikasi, jadi crash apapun di PdfViewer
+                            menjalar ke seluruh halaman (termasuk tabel 60
+                            kolom yang jauh lebih penting dari sekadar preview
+                            PDF). key={fileId} supaya boundary reset otomatis
+                            kalau pindah record — sekali crash tidak nge-stuck
+                            selamanya. */}
+                        <ErrorBoundary
+                          key={fileId}
+                          fallback={
+                            <div
+                              className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card p-6 text-center"
+                              style={{ height: maximizeData ? 420 : 780 }}
+                            >
+                              <FileText className="size-6 text-muted-foreground" />
+                              <p className="text-sm font-semibold text-foreground">Dokumen PDF tidak dapat ditampilkan</p>
+                              <p className="max-w-xs text-xs text-muted-foreground">
+                                Terjadi kendala teknis saat menampilkan pratinjau PDF di perangkat ini (kadang terjadi di browser versi lama). Data klaim di sebelah tetap bisa dibaca & diedit seperti biasa.
+                              </p>
+                            </div>
+                          }
+                        >
+                          <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 420 : 780} />
+                        </ErrorBoundary>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <RecordFieldsTable
-                  recordData={selectedRecord}
-                  validationErrors={selectedRecord.errors || []}
-                  editing={isEditing}
-                  editedValues={editedValues}
-                  onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
-                  onlyIssues={onlyIssues}
-                  jenisKlaim={fileInfo.jenis_klaim}
-                  highlightFields={highlightFields}
-                />
-              )}
-
-              {/* ─── RV-20: checklist konfirmasi INLINE di bawah tabel ─── */}
-              {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
-                <div className="mt-4">
-                  <Rv20ConfirmationModal
-                    recordId={selectedRecord.id}
-                    onConfirmed={() => setRv20ConfirmedRecordIds(prev => new Set(prev).add(selectedRecord.id))}
+                ) : (
+                  <RecordFieldsTable
+                    recordData={selectedRecord}
+                    validationErrors={selectedRecord.errors || []}
+                    editing={isEditing}
+                    editedValues={editedValues}
+                    onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
+                    onlyIssues={onlyIssues}
+                    jenisKlaim={fileInfo.jenis_klaim}
+                    highlightFields={highlightFields}
                   />
-                </div>
-              )}
-            </Card>
+                )}
+
+                {/* ─── RV-20: checklist konfirmasi INLINE di bawah tabel ─── */}
+                {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
+                  <div className="mt-4">
+                    <Rv20ConfirmationModal
+                      recordId={selectedRecord.id}
+                      onConfirmed={() => setRv20ConfirmedRecordIds(prev => new Set(prev).add(selectedRecord.id))}
+                    />
+                  </div>
+                )}
+              </Card>
+            </div>
           ) : (
             <Card className="p-10 text-center text-muted-foreground">
               Pilih data dari tabel untuk melihat detail validasi
