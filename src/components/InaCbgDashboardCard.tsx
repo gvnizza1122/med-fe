@@ -62,6 +62,9 @@ export function InaCbgDashboardCard({
   const suggestedDiag = suggestedCodes.filter((c: any) => c.type === 'diagnosis');
   const suggestedProc = suggestedCodes.filter((c: any) => c.type === 'procedure');
 
+  const suggestedInacbg = aiReview?.suggested_inacbg;
+  const suggestedTarif = aiReview?.suggested_tarif;
+
   // State A: ada data diaglist/proclist (dari grouper atau entri manual)
   // State B: tidak ada diaglist/proclist tapi ada suggested codes dari AI
   // State C: tidak ada sama sekali
@@ -236,6 +239,28 @@ export function InaCbgDashboardCard({
                       </div>
                       <div className="col-span-2 flex justify-end">
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-blue-400 border border-blue-800/60 border-dashed bg-blue-950/30">USULAN</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Estimasi Tarif INA-CBG */}
+                {suggestedInacbg && (
+                  <div className="px-4 py-3 border-b border-white/5 bg-white/[0.02]">
+                    <div className="grid grid-cols-12 items-start gap-2">
+                      <div className="col-span-3 font-semibold text-gray-100 pt-0.5">Estimasi INA-CBG</div>
+                      <div className="col-span-7 flex flex-wrap gap-3 items-center">
+                        <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-mono font-bold border bg-purple-900/30 text-purple-400 border-purple-800/50">
+                          {suggestedInacbg}
+                        </span>
+                        {suggestedTarif && (
+                          <span className="text-sm font-mono text-gray-200">
+                            {Number(suggestedTarif).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="col-span-2 flex justify-end">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-blue-400 border border-blue-800/60 border-dashed bg-blue-950/30">ESTIMASI</span>
                       </div>
                     </div>
                   </div>
