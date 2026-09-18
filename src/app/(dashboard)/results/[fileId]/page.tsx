@@ -11,6 +11,8 @@ import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
 import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { Header } from '@/components/dashboard/header';
+import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard';
+import { KegawatdaruratanDashboard } from '@/components/KegawatdaruratanDashboard';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -1005,6 +1007,8 @@ function RecordFieldsTable({
       if (INPATIENT_ONLY_CATEGORIES.has(category) && jenisKlaim !== 'RAWAT_INAP') return false;
       // Hide ICU & Ventilasi if no data exists
       if (category === 'ICU & Ventilasi' && !hasIcuData) return false;
+      // Hide INA-CBG & Tarif as it is rendered separately now
+      if (category === 'INA-CBG & Tarif') return false;
       return true;
     })
     .map(([category, cols]) => ({
@@ -1079,14 +1083,7 @@ function RecordFieldsTable({
                         {category}
                       </td>
                     </tr>
-                    {/* "INA-CBG & Tarif" pakai rendering khusus (lihat InaCbgSection) --
-                        hanya di mode !onlyIssues, karena onlyIssues sudah memfilter rows
-                        jadi subset (bukan 16 field lengkap kategori ini), yang bikin
-                        asumsi Keadaan A/B/C di InaCbgSection tidak berlaku lagi. */}
-                    {category === 'INA-CBG & Tarif' && !onlyIssues ? (
-                      <InaCbgSection rows={rows} editing={editing} editedValues={editedValues} onEdit={onEdit} recordData={recordData} />
-                    ) : (
-                      rows.map(field => {
+                      {rows.map(field => {
                         const isHighlighted = !!highlightFields?.has(field.column_name);
                         const isZebra = rowParity++ % 2 === 1;
                         return (
@@ -1103,8 +1100,7 @@ function RecordFieldsTable({
                             recordData={recordData}
                           />
                         );
-                      })
-                    )}
+                      })}
                   </Fragment>
                 )) })()
               )}
@@ -2437,12 +2433,16 @@ export default function ResultsPage() {
                   // bukan dari jenis_klaim. Komponennya sendiri return null kalau
                   // kosong, jadi tidak perlu gating tambahan di sini.
                   const kegawatdaruratanTable = (
-                    <KegawatdaruratanTable key={selectedRecord.id} recordData={selectedRecord} />
+                    <KegawatdaruratanDashboard key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} />
+                  );
+                  
+                  const inacbgCard = (
+                    <InaCbgDashboardCard key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
                   );
 
                   return fileInfo.jenis_klaim === 'GAWAT_DARURAT'
-                    ? <>{kegawatdaruratanTable}{fieldsTable}</>
-                    : <>{fieldsTable}{kegawatdaruratanTable}</>;
+                    ? <>{inacbgCard}{kegawatdaruratanTable}{fieldsTable}</>
+                    : <>{inacbgCard}{fieldsTable}{kegawatdaruratanTable}</>;
                 })()}
 
                 {/* ─── RV-20: checklist konfirmasi INLINE di bawah tabel ─── */}

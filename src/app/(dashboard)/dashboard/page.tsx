@@ -582,8 +582,15 @@ export default function DashboardPage() {
                                 >
                                   Lihat Error
                                 </button>
+                              ) : f.status === 'uploaded' || f.status === 'validating' ? (
+                                <button
+                                  className="text-xs font-semibold text-amber-600 hover:underline"
+                                  onClick={() => router.push(`/results/${f.id}`)}
+                                >
+                                  {f.status === 'validating' ? 'Memvalidasi...' : 'Lihat Berkas'}
+                                </button>
                               ) : (
-                                <span className="text-xs text-muted-foreground">Memvalidasi...</span>
+                                <span className="text-xs text-muted-foreground">{f.status}</span>
                               )}
                             </TableCell>
                           </motion.tr>
