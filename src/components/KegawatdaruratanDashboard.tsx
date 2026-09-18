@@ -129,7 +129,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
   const neuroParams = getSystemParams(['kesadaran', 'edema', 'defisit_fokal', 'kejang', 'pupil']);
 
   return (
-    <div className="mt-8 rounded-xl bg-[#f8f9fa] border shadow-sm text-sm text-slate-800 font-sans">
+    <div className="mt-8 rounded-xl bg-white dark:bg-gray-800 border shadow-sm text-sm text-slate-800 dark:text-gray-100 font-sans">
       
       {/* HEADER TABS (Mockup style) */}
       <div className="flex border-b bg-white items-center p-3 gap-2 overflow-x-auto rounded-t-xl">

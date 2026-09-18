@@ -12,7 +12,7 @@ import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { Header } from '@/components/dashboard/header';
 import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard';
-import { KegawatdaruratanDashboard } from '@/components/KegawatdaruratanDashboard';
+
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -2433,7 +2433,7 @@ export default function ResultsPage() {
                   // bukan dari jenis_klaim. Komponennya sendiri return null kalau
                   // kosong, jadi tidak perlu gating tambahan di sini.
                   const kegawatdaruratanTable = (
-                    <KegawatdaruratanDashboard key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} />
+                    <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} />
                   );
                   
                   const inacbgCard = (
