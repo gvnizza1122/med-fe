@@ -595,6 +595,114 @@ export function extractCmgPrefix(cbgCode: string): string {
   return cbgCode.split('-').slice(0, 3).join('-');
 }
 
+// ============================================================================
+// CODE FORMAT VALIDATION (ICD-10 / ICD-9)
+// ============================================================================
+
+/**
+ * Validate format kode diagnosis ICD-10 WHO (mis. 'J45.9', 'K25', 'E11.9').
+ * Cek FORMAT saja (huruf awal + 2 digit + optional sub-kategori) -- bukan
+ * validasi keberadaan kode di master ICD-10 lengkap.
+ */
+export function isValidIcd10Code(code: string): boolean {
+  if (!code || typeof code !== 'string') return false;
+  return /^[A-TV-Z][0-9]{2}(\.?[0-9A-Z]{1,4})?$/i.test(code.trim());
+}
+
+/**
+ * Validate format kode prosedur ICD-9-CM (mis. '93.94', '47.09', '54').
+ * Cek FORMAT saja -- bukan validasi keberadaan kode di master ICD-9 lengkap.
+ */
+export function isValidIcd9Code(code: string): boolean {
+  if (!code || typeof code !== 'string') return false;
+  return /^\d{2}(\.?\d{1,2})?$/.test(code.trim());
+}
+
+// ============================================================================
+// GROUPING WRAPPER -- diagnosis + prosedur -> INA-CBG code + tariff-ready output
+// ============================================================================
+
+export interface InaCbgGroupResult {
+  inacbg_code: string;
+  description: string;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface GroupToInaCbgOptions {
+  serviceType?: 'RAWAT_JALAN' | 'RAWAT_INAP';
+  kelasRs?: 'A' | 'B' | 'C' | 'D';
+  clinicalFindings?: ClaimGroupingInput['clinicalFindings'];
+}
+
+/**
+ * Wrapper tingkat-tinggi: validasi format kode diagnosis (ICD-10) + prosedur
+ * (ICD-9), jalankan grouping deterministik, lalu susun hasil siap-pakai
+ * (`inacbg_code`, `description`, `confidence`, `reasoning`) untuk tahap
+ * berikutnya (tariff lookup).
+ */
+export async function groupToInaCbg(
+  diagnosisCodes: string[],
+  procedureCodes: string[],
+  options: GroupToInaCbgOptions = {}
+): Promise<InaCbgGroupResult> {
+  const serviceType = options.serviceType ?? 'RAWAT_INAP';
+  const safeDiagnosisCodes = diagnosisCodes || [];
+  const safeProcedureCodes = procedureCodes || [];
+
+  const invalidDiagnosis = safeDiagnosisCodes.filter((c) => !isValidIcd10Code(c));
+  const invalidProcedure = safeProcedureCodes.filter((c) => !isValidIcd9Code(c));
+
+  const result = await groupClaimToCmg({
+    diagnosisCodes: safeDiagnosisCodes,
+    procedureCodes: safeProcedureCodes,
+    serviceType,
+    kelasRs: options.kelasRs,
+    clinicalFindings: options.clinicalFindings,
+  });
+
+  const matchedRule = result.debugInfo?.matchedRule
+    ? GROUPING_RULES.find((r) => r.id === result.debugInfo!.matchedRule)
+    : undefined;
+
+  const description =
+    matchedRule?.description ?? (result.cmgCode === 'NON-CMG' ? 'Non-CMG / kode tidak dikenali' : result.cmgCode);
+
+  const reasoningParts: string[] = [];
+  reasoningParts.push(
+    matchedRule
+      ? `Cocok dengan aturan grouping "${matchedRule.id}": ${matchedRule.description}.`
+      : 'Tidak ada aturan grouping spesifik yang cocok, menggunakan fallback default.'
+  );
+  if (result.severity) {
+    reasoningParts.push(`Severity level ${result.severity} berdasarkan temuan klinis.`);
+  }
+  if (result.specialCmg?.type) {
+    reasoningParts.push(`Special CMG terdeteksi: ${result.specialCmg.type} (${result.specialCmg.reason}).`);
+  }
+  if (invalidDiagnosis.length > 0) {
+    reasoningParts.push(`Peringatan: kode diagnosis tidak sesuai format ICD-10: ${invalidDiagnosis.join(', ')}.`);
+  }
+  if (invalidProcedure.length > 0) {
+    reasoningParts.push(`Peringatan: kode prosedur tidak sesuai format ICD-9: ${invalidProcedure.join(', ')}.`);
+  }
+
+  // Turunkan confidence kalau ada kode dengan format tidak valid -- hasil
+  // grouping-nya tetap dikembalikan (tidak diblokir), tapi caller tahu untuk
+  // meminta review manual.
+  const confidence =
+    invalidDiagnosis.length > 0 || invalidProcedure.length > 0
+      ? Math.min(result.confidence, 0.4)
+      : result.confidence;
+
+  return {
+    inacbg_code: result.inaCbgCode,
+    description,
+    confidence,
+    reasoning: reasoningParts.join(' '),
+  };
+}
+
 /**
  * Compare with previous/known CMG for verification
  */
