@@ -638,13 +638,13 @@ function FieldRowTr({
             ))}
           </div>
         )}
-        {/* Penjelasan Kode untuk DIAGLIST/PROCLIST dengan status Valid */}
+        {/* Penjelasan Kode untuk DIAGLIST/PROCLIST — tampil bila ada nilai, status apapun */}
         {(field.column_name === 'DIAGLIST' || field.column_name === 'PROCLIST') &&
-         field.status === 'valid' && (
+         !isBlankValue(currentValue) && (
           <CodingExplanationPanel
             codeString={String(currentValue ?? '')}
             fieldType={field.column_name === 'DIAGLIST' ? 'diagnosis' : 'procedure'}
-            status={field.status as 'valid'}
+            status={field.status as any}
             clinicalFindings={recordData}
             pageReference={`Resume Medis`}
           />
@@ -1353,69 +1353,80 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
       </div>
 
       {!showFullDetail ? (
-        <div className="px-6 py-6 space-y-6">
-          {/* Tabel 1 ringkas: hanya parameter yang terdokumentasi + link expand */}
+        <div className="px-6 py-6 space-y-8">
+
+          {/* ── Section 1: Parameter Pemeriksaan Fisik ── */}
           <div>
-            <div className="mb-3 flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">1</div>
-              <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Parameter Pemeriksaan Fisik</h3>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">1</div>
+                <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Parameter Pemeriksaan Fisik</h3>
+              </div>
+              <span className={cn(
+                'text-[11px] font-medium px-2.5 py-1 rounded-full border',
+                abnormalParams.length > 0
+                  ? 'bg-error/5 border-error/30 text-error dark:text-error'
+                  : 'bg-primary/5 border-primary/30 text-primary dark:text-primary'
+              )}>
+                {documentedParams.length}/{parameter_findings.length} tercatat
+                {abnormalParams.length > 0 ? ` · ${abnormalParams.length} abnormal` : ''}
+              </span>
             </div>
-            <div className={cn(
-              'rounded-lg border px-3.5 py-2.5 text-body-sm text-body-sm font-medium mb-3',
-              abnormalParams.length > 0
-                ? 'bg-error/5 border-error/30 text-error dark:text-error'
-                : 'bg-primary/5 border-primary/30 text-on-surface'
-            )}>
-              {documentedParams.length} dari {parameter_findings.length} pemeriksaan terdokumentasi
-              {' — '}
-              {abnormalParams.length > 0
-                ? `${abnormalParams.length} abnormal, cek detail`
-                : documentedParams.length > 0 ? 'Semua yang tercatat normal' : 'Tidak ada yang terdokumentasi di formulir'}
-              {undocumentedParams.length > 0 ? `, ${undocumentedParams.length} lainnya tidak dicatat di formulir` : ''}
-            </div>
-            {/* Permintaan klien 17 Sep 2026: satu poin per baris (bukan grid 2
-                kolom) -- lebih gampang dipindai berurutan dari atas ke bawah. */}
-            {documentedParams.length > 0 && (
-              <ul className="space-y-2">
+
+            {documentedParams.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {documentedParams.map(p => (
-                  <li
+                  <div
                     key={p.key}
                     className={cn(
-                      'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-body-sm text-body-sm',
+                      'rounded-xl border p-3.5 flex flex-col gap-1.5',
                       p.status === 'abnormal'
-                        ? 'border-error/40 bg-error/8 dark:bg-error/5'
-                        : 'border-primary/40 bg-primary/8 dark:bg-primary/5'
+                        ? 'border-error/40 bg-error/5 dark:bg-error/[0.04]'
+                        : 'border-primary/30 bg-primary/5 dark:bg-primary/[0.04]'
                     )}
                   >
-                    {p.status === 'abnormal'
-                      ? <XCircle className="size-4 text-error shrink-0 mt-0.5" />
-                      : <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />}
-                    <div className="min-w-0 flex-1 flex items-baseline justify-between gap-3 flex-wrap">
-                      <span className={cn('font-label-md text-label-md font-medium', p.status === 'abnormal' ? 'text-error' : 'text-on-surface')}>
-                        {p.label}
-                        {p.sumber_dokumen === 'resume_medis' ? (
-                          <span
-                            className="ml-2 text-[9px] font-normal text-tertiary dark:text-tertiary"
-                            title="Dari Resume Medis Rawat Inap (konteks tambahan) — tidak ikut menentukan K1-K5"
-                          >
-                            (Resume Medis)
-                          </span>
-                        ) : null}
-                        {p.retraksi_grade ? (
-                          <span
-                            className="ml-2 text-[9px] font-normal text-error"
-                            title="Retraksi interkostal menandakan distres napas lebih berat dibanding subkostal (PNPK Tatalaksana Pneumonia pada Anak IDAI)"
-                          >
-                            ({p.retraksi_grade})
-                          </span>
-                        ) : null}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {p.status === 'abnormal'
+                          ? <XCircle className="size-3.5 text-error shrink-0" />
+                          : <CheckCircle2 className="size-3.5 text-primary shrink-0" />}
+                        <span className={cn(
+                          'font-label-md text-label-md font-semibold',
+                          p.status === 'abnormal' ? 'text-error' : 'text-on-surface'
+                        )}>
+                          {p.label}
+                        </span>
+                        {p.sumber_dokumen === 'resume_medis' && (
+                          <span className="text-[9px] text-tertiary dark:text-tertiary font-normal" title="Dari Resume Medis">(Resume Medis)</span>
+                        )}
+                        {p.retraksi_grade && (
+                          <span className="text-[9px] text-error font-normal" title="Retraksi interkostal">({p.retraksi_grade})</span>
+                        )}
+                      </div>
+                      <span className={cn(
+                        'text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0',
+                        p.status === 'abnormal'
+                          ? 'bg-error/10 text-error border border-error/20'
+                          : 'bg-primary/10 text-primary border border-primary/20'
+                      )}>
+                        {p.nilai || (p.status === 'abnormal' ? 'Abnormal' : 'Normal')}
                       </span>
-                      <span className="text-label-md text-label-md text-on-surface-variant font-medium">{p.nilai || (p.status === 'abnormal' ? 'Abnormal' : 'Normal')}</span>
                     </div>
-                  </li>
+                    {p.kutipan && (
+                      <p className="text-[10px] text-on-surface-variant leading-relaxed italic border-t border-outline-variant/20 pt-1.5 mt-0.5">
+                        "{p.kutipan}"
+                        {p.page_number ? <span className="not-italic ml-1 text-on-surface-variant/60">hal. {p.page_number}</span> : null}
+                      </p>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-outline-variant/40 px-4 py-6 text-center text-on-surface-variant text-body-sm">
+                Tidak ada parameter yang terdokumentasi di formulir
+              </div>
             )}
+
             {undocumentedParams.length > 0 && (
               <div className="mt-3">
                 <button
@@ -1436,79 +1447,88 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
             )}
           </div>
 
-          {/* Tabel 2 ringkas: chip grid TTV + banner status keseluruhan */}
+          {/* ── Section 2: Tanda Vital ── */}
           <div>
-            <div className="mb-3 flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">2</div>
-              <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                Nilai Vital &amp; Ambang Batas
-                {age_group ? <span className="ml-2 font-normal text-on-surface-variant text-label-sm">(Usia: {AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
-              </h3>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">2</div>
+                <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                  Nilai Vital &amp; Ambang Batas
+                  {age_group ? <span className="ml-2 font-normal text-on-surface-variant text-label-sm">({AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
+                </h3>
+              </div>
+              <span className={cn(
+                'text-[11px] font-medium px-2.5 py-1 rounded-full border',
+                vitalGawatCount > 0
+                  ? 'bg-error/5 border-error/30 text-error dark:text-error'
+                  : (vitalBorderlineCount > 0 || vitalMissingCount > 0)
+                    ? 'bg-tertiary/5 border-tertiary/30 text-tertiary dark:text-tertiary'
+                    : 'bg-primary/5 border-primary/30 text-primary dark:text-primary'
+              )}>
+                {vitalGawatCount > 0 ? `${vitalGawatCount} kritis` : vitalBorderlineCount > 0 ? `${vitalBorderlineCount} borderline` : 'Semua normal'}
+                {vitalMissingCount > 0 ? ` · ${vitalMissingCount} kosong` : ''}
+              </span>
             </div>
-            <div className={cn(
-              'rounded-lg border px-3.5 py-2.5 text-body-sm text-body-sm font-medium mb-3',
-              vitalGawatCount > 0
-                ? 'bg-error/5 border-error/30 text-error dark:text-error'
-                : (vitalBorderlineCount > 0 || vitalMissingCount > 0)
-                  ? 'bg-tertiary/5 border-tertiary/30 text-tertiary dark:text-tertiary'
-                  : 'bg-primary/5 border-primary/30 text-on-surface'
-            )}>
-              {(() => {
-                // SEMUA cabang (gawat/borderline/normal) menyebut jumlah
-                // tidak-tercatat kalau > 0 -- sebelumnya cabang gawat/borderline
-                // TIDAK menyebut sama sekali berapa yang tidak tercatat (cuma
-                // fokus ke gawat/borderline), bikin TTV yang kosong "hilang"
-                // dari kalimat padahal chipnya (abu-abu) tetap tampil di grid
-                // bawah. Ditemukan dari kasus riil: 1 borderline + 3 tidak
-                // tercatat cuma keluar "1 dari 7 TTV borderline" (15-16 Sep 2026).
-                if (vitalGawatCount === 0 && vitalBorderlineCount === 0 && vitalMissingCount === 0) {
-                  return `✅ Semua ${vitalEntries.length} TTV normal`;
-                }
-                const parts: string[] = [];
-                if (vitalGawatCount > 0) parts.push(`${vitalGawatCount} gawat`);
-                if (vitalBorderlineCount > 0) parts.push(`${vitalBorderlineCount} borderline`);
-                if (vitalMissingCount > 0) parts.push(`${vitalMissingCount} tidak tercatat`);
-                const icon = vitalGawatCount > 0 ? '🚨' : '⚠️';
-                const suffix = vitalGawatCount > 0 ? 'cek detail segera' : vitalBorderlineCount > 0 ? 'cek detail' : 'lengkapi';
-                return `${icon} ${parts.join(', ')} dari ${vitalEntries.length} TTV — ${suffix}`;
-              })()}
-            </div>
+
             {spo2Missing && (
-              <div
-                className={cn(
-                  'mb-3 rounded-lg border px-3.5 py-2.5 text-body-sm font-medium',
-                  vitalGawatCount > 0
-                    ? 'border-error/40 bg-error/8 dark:bg-error/5 text-error dark:text-error'
-                    : 'border-tertiary/40 bg-tertiary/8 dark:bg-tertiary/5 text-tertiary dark:text-tertiary'
-                )}
-              >
+              <div className={cn(
+                'mb-3 rounded-lg border px-3.5 py-2.5 text-body-sm font-medium',
+                vitalGawatCount > 0
+                  ? 'border-error/40 bg-error/8 dark:bg-error/5 text-error dark:text-error'
+                  : 'border-tertiary/40 bg-tertiary/8 dark:bg-tertiary/5 text-tertiary dark:text-tertiary'
+              )}>
                 ⚠️ SpO2 tidak tercatat — parameter kunci gangguan pernapasan
               </div>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
               {vitalEntries.map(({ key, meta, vf, isEmpty, level }) => {
                 const instrumenDiharapkan = key === 'Nyeri' ? vf?.instrumen_diharapkan : undefined;
                 const nyeriTip = key === 'Nyeri' && isEmpty
-                  ? `Skala nyeri kertas/PDF biasanya diisi dengan melingkari angka pada skala cetak — tidak terbaca sistem (ekstraksi teks saja, tanpa analisis gambar).${instrumenDiharapkan ? ` Instrumen diharapkan: ${instrumenDiharapkan}.` : ''}`
+                  ? `Skala nyeri kertas/PDF biasanya diisi dengan melingkari angka pada skala cetak — tidak terbaca sistem.${instrumenDiharapkan ? ` Instrumen: ${instrumenDiharapkan}.` : ''}`
                   : undefined;
+                const cardBorder = level === 'gawat'
+                  ? 'border-error/50 bg-error/5 dark:bg-error/[0.04]'
+                  : level === 'borderline'
+                    ? 'border-tertiary/50 bg-tertiary/5 dark:bg-tertiary/[0.04]'
+                    : level === 'missing'
+                      ? 'border-outline-variant/40 bg-surface-container-low/40 opacity-60'
+                      : 'border-primary/30 bg-primary/5 dark:bg-primary/[0.04]';
+                const valueColor = level === 'gawat'
+                  ? 'text-error dark:text-error'
+                  : level === 'borderline'
+                    ? 'text-tertiary dark:text-tertiary'
+                    : level === 'missing'
+                      ? 'text-on-surface-variant italic'
+                      : 'text-on-surface';
                 return (
-                  <div key={key} className="flex items-center gap-2.5 rounded-lg border border-outline-variant/40 px-3 py-2.5 text-label-md text-label-md dark:border-outline-variant/30" title={nyeriTip}>
-                    <SeverityDot level={level} />
-                    <span className="font-medium text-on-surface truncate min-w-0">{meta.label}</span>
-                    <span
-                      className={cn(
-                        'ml-auto shrink-0 font-label-md text-label-md',
-                        level === 'gawat' && 'text-error font-semibold',
-                        level === 'borderline' && 'text-tertiary dark:text-tertiary font-semibold',
-                        level === 'missing' && 'italic text-on-surface-variant'
+                  <div key={key} className={cn('rounded-xl border p-3 flex flex-col gap-1', cardBorder)} title={nyeriTip}>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider truncate">{meta.label}</span>
+                      <SeverityDot level={level} />
+                    </div>
+                    <div className={cn('text-2xl font-light leading-none mt-0.5', valueColor)}>
+                      {isEmpty ? '—' : vf!.nilai}
+                    </div>
+                    <div className="flex items-center justify-between mt-0.5">
+                      {!isEmpty && (
+                        <span className="text-[10px] text-on-surface-variant">{meta.unit}</span>
                       )}
-                    >
-                      {isEmpty ? '—' : `${vf!.nilai}${meta.unit}`}
-                    </span>
+                      <span className={cn(
+                        'text-[9px] font-bold px-1.5 py-0.5 rounded ml-auto',
+                        level === 'gawat'   ? 'bg-error/10 text-error border border-error/20'
+                        : level === 'borderline' ? 'bg-tertiary/10 text-tertiary dark:text-tertiary border border-tertiary/20'
+                        : level === 'missing' ? 'bg-outline-variant/20 text-on-surface-variant border border-outline-variant/30'
+                        : 'bg-primary/10 text-primary border border-primary/20'
+                      )}>
+                        {level === 'gawat' ? 'KRITIS' : level === 'borderline' ? 'BORDERLINE' : level === 'missing' ? 'KOSONG' : '✓ Normal'}
+                      </span>
+                    </div>
                   </div>
                 );
               })}
             </div>
+
             <button
               type="button"
               className="mt-3 text-body-sm text-body-sm text-primary dark:text-primary font-medium hover:underline transition-colors"
@@ -1518,61 +1538,65 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
             </button>
           </div>
 
-          {/* Tabel 3 ringkas: banner verdict + daftar vertikal K1-K5 */}
+          {/* ── Section 3: Kriteria K1–K5 ── */}
           <div>
-            <div className="mb-3 flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">3</div>
-              <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Agregasi Kriteria (K1-K5)</h3>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">3</div>
+                <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Agregasi Kriteria (K1–K5)</h3>
+              </div>
+              <span className={cn(
+                'text-[11px] font-medium px-2.5 py-1 rounded-full border',
+                yaCount > 0
+                  ? 'bg-error/5 border-error/30 text-error dark:text-error'
+                  : borderlineCount > 0
+                    ? 'bg-tertiary/5 border-tertiary/30 text-tertiary dark:text-tertiary'
+                    : 'bg-primary/5 border-primary/30 text-primary dark:text-primary'
+              )}>
+                {yaCount > 0 ? `${yaCount} terpenuhi` : borderlineCount > 0 ? `${borderlineCount} borderline` : 'Tidak ada'}
+              </span>
             </div>
-            <div className={cn(
-              'rounded-lg border px-3.5 py-2.5 text-body-sm text-body-sm font-medium mb-3',
-              yaCount > 0
-                ? 'bg-error/5 border-error/30 text-error dark:text-error'
-                : borderlineCount > 0
-                  ? 'bg-tertiary/5 border-tertiary/30 text-tertiary dark:text-tertiary'
-                  : 'bg-primary/5 border-primary/30 text-on-surface'
-            )}>
-              {yaCount > 0
-                // Sebut JUGA jumlah borderline kalau ADA bersamaan Ya (mis. K4
-                // Ya dari TD gawat, K2 borderline dari RR terpisah) -- sama
-                // spt perbaikan banner Tabel 2, supaya jumlah di banner tidak
-                // diam-diam menyembunyikan kriteria borderline yang tetap
-                // tampil di daftar K1-K5 di bawah.
-                ? `🚨 ${yaCount} terpenuhi${borderlineCount > 0 ? `, ${borderlineCount} borderline` : ''} dari 5 kriteria`
-                : borderlineCount > 0
-                  ? `⚠️ ${borderlineCount} dari 5 kriteria borderline`
-                  : '🚫 0 dari 5 kriteria gawat darurat terpenuhi'}
-            </div>
-            <div className="space-y-2">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {kriteria.map(k => (
                 <div
                   key={k.kriteria}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg border px-3 py-2.5 text-label-md text-label-md',
-                    k.status === 'ya' && 'border-error/40 bg-error/8 dark:bg-error/5',
-                    k.status === 'borderline' && 'border-tertiary/40 bg-tertiary/8 dark:bg-tertiary/5',
-                    k.status === 'tidak' && 'border-primary/40 bg-primary/8 dark:bg-primary/5'
+                    'rounded-xl border-l-[3px] border border-l-current p-3.5 flex flex-col gap-2',
+                    k.status === 'ya'
+                      ? 'border-error/30 border-l-error bg-error/5 dark:bg-error/[0.04]'
+                      : k.status === 'borderline'
+                        ? 'border-tertiary/30 border-l-tertiary bg-tertiary/5 dark:bg-tertiary/[0.04]'
+                        : 'border-primary/30 border-l-primary bg-primary/5 dark:bg-primary/[0.04]'
                   )}
                 >
-                  {k.status === 'ya'
-                    ? <XCircle className="size-4 text-error shrink-0" />
-                    : k.status === 'borderline'
-                      ? <AlertTriangle className="size-4 text-tertiary dark:text-tertiary shrink-0" />
-                      : <CheckCircle2 className="size-4 text-primary shrink-0" />}
-                  <span className="font-label-md text-label-md font-semibold text-on-surface shrink-0" title={`${k.kriteria} ${k.label}`}>
-                    {k.kriteria}
-                  </span>
-                  <span className="hidden sm:inline text-on-surface-variant text-[12px]">—</span>
-                  <span className="hidden sm:inline text-body-sm text-on-surface-variant flex-1 truncate">
-                    {KRITERIA_SHORT_LABEL[k.kriteria] || k.label}
-                  </span>
-                  <span className="ml-auto text-on-surface-variant text-right text-[12px] font-normal">
-                    {k.catatan || (k.evidence.length === 0 ? '—' : '')}
-                  </span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {k.status === 'ya'
+                        ? <XCircle className="size-4 text-error shrink-0" />
+                        : k.status === 'borderline'
+                          ? <AlertTriangle className="size-4 text-tertiary dark:text-tertiary shrink-0" />
+                          : <CheckCircle2 className="size-4 text-primary shrink-0" />}
+                      <span className="font-label-md text-label-md font-bold text-on-surface">{k.kriteria}</span>
+                    </div>
+                    <span className={cn(
+                      'text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0',
+                      k.status === 'ya'      ? 'bg-error/10 text-error border border-error/20'
+                      : k.status === 'borderline' ? 'bg-tertiary/10 text-tertiary dark:text-tertiary border border-tertiary/20'
+                      : 'bg-primary/10 text-primary border border-primary/20'
+                    )}>
+                      {k.status === 'ya' ? 'TERPENUHI' : k.status === 'borderline' ? 'BORDERLINE' : 'TIDAK'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-on-surface leading-snug">{KRITERIA_SHORT_LABEL[k.kriteria] || k.label}</p>
+                  {k.catatan && (
+                    <p className="text-[10px] text-on-surface-variant leading-relaxed border-t border-outline-variant/20 pt-1.5">{k.catatan}</p>
+                  )}
                 </div>
               ))}
             </div>
           </div>
+
         </div>
       ) : (
       <>
