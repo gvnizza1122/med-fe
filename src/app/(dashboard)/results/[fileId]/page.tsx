@@ -1374,50 +1374,50 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
             </div>
 
             {documentedParams.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="flex flex-col gap-2">
                 {documentedParams.map(p => (
                   <div
                     key={p.key}
                     className={cn(
-                      'rounded-xl border p-3.5 flex flex-col gap-1.5',
+                      'flex items-center justify-between py-2 px-3 rounded border',
                       p.status === 'abnormal'
-                        ? 'border-error/40 bg-error/5 dark:bg-error/[0.04]'
-                        : 'border-primary/30 bg-primary/5 dark:bg-primary/[0.04]'
+                        ? 'border-error/30 bg-error/5 dark:bg-error/[0.03]'
+                        : 'border-outline-variant/30 bg-surface-container-low/30'
                     )}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
                         {p.status === 'abnormal'
                           ? <XCircle className="size-3.5 text-error shrink-0" />
                           : <CheckCircle2 className="size-3.5 text-primary shrink-0" />}
                         <span className={cn(
-                          'font-label-md text-label-md font-semibold',
+                          'font-medium text-sm',
                           p.status === 'abnormal' ? 'text-error' : 'text-on-surface'
                         )}>
                           {p.label}
                         </span>
                         {p.sumber_dokumen === 'resume_medis' && (
-                          <span className="text-[9px] text-tertiary dark:text-tertiary font-normal" title="Dari Resume Medis">(Resume Medis)</span>
+                          <span className="text-[10px] text-tertiary ml-1">(Resume Medis)</span>
                         )}
                         {p.retraksi_grade && (
-                          <span className="text-[9px] text-error font-normal" title="Retraksi interkostal">({p.retraksi_grade})</span>
+                          <span className="text-[10px] text-error">({p.retraksi_grade})</span>
                         )}
                       </div>
-                      <span className={cn(
-                        'text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0',
-                        p.status === 'abnormal'
-                          ? 'bg-error/10 text-error border border-error/20'
-                          : 'bg-primary/10 text-primary border border-primary/20'
-                      )}>
-                        {p.nilai || (p.status === 'abnormal' ? 'Abnormal' : 'Normal')}
-                      </span>
+                      {p.kutipan && (
+                        <p className="text-[11px] text-on-surface-variant italic pl-5">
+                          "{p.kutipan}"
+                          {p.page_number ? <span className="not-italic ml-1 opacity-70">hal. {p.page_number}</span> : null}
+                        </p>
+                      )}
                     </div>
-                    {p.kutipan && (
-                      <p className="text-[10px] text-on-surface-variant leading-relaxed italic border-t border-outline-variant/20 pt-1.5 mt-0.5">
-                        "{p.kutipan}"
-                        {p.page_number ? <span className="not-italic ml-1 text-on-surface-variant/60">hal. {p.page_number}</span> : null}
-                      </p>
-                    )}
+                    <span className={cn(
+                      'text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0',
+                      p.status === 'abnormal'
+                        ? 'bg-error/10 text-error border border-error/20'
+                        : 'bg-primary/10 text-primary border border-primary/20'
+                    )}>
+                      {p.nilai || (p.status === 'abnormal' ? 'Abnormal' : 'Normal')}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -2464,9 +2464,13 @@ export default function ResultsPage() {
                     <InaCbgDashboardCard key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
                   );
 
-                  return fileInfo.jenis_klaim === 'GAWAT_DARURAT'
-                    ? <>{inacbgCard}{kegawatdaruratanTable}{fieldsTable}</>
-                    : <>{inacbgCard}{fieldsTable}{kegawatdaruratanTable}</>;
+                  return (
+                    <>
+                      {inacbgCard}
+                      {fieldsTable}
+                      {kegawatdaruratanTable}
+                    </>
+                  );
                 })()}
 
                 {/* ─── RV-20: checklist konfirmasi INLINE di bawah tabel ─── */}
