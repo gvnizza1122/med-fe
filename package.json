@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:regression": "jest tests/regression_runner.test.ts --runInBand"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -64,12 +68,16 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.11",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "jest": "^29.7.0",
+    "jest-environment-node": "^29.7.0",
     "playwright": "^1.62.1",
+    "ts-jest": "^29.1.1",
     "typescript": "^5"
   }
 }

@@ -3,3 +3,16 @@
 .env.local
 .env
 *.tsbuildinfo
+
+# Test outputs
+coverage/
+.nyc_output/
+reports/
+test-results.json
+*.lcov
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

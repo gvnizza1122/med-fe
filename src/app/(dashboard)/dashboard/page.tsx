@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Upload,
   Inbox,
+  RotateCcw,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Header } from '@/components/dashboard/header';
@@ -254,6 +255,8 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState('');
   const [uploadPage, setUploadPage] = useState(1);
   const [contentKey, setContentKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
@@ -265,12 +268,29 @@ export default function DashboardPage() {
       console.error('[Dashboard] Gagal memuat data:', err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [period]);
 
+  // Polling untuk update status validasi otomatis setiap 3 detik
+  // (hanya kalau ada file yang masih "validating")
+  useEffect(() => {
+    if (!autoRefreshEnabled || !data) return;
+
+    const hasValidatingFiles = data.recent_files?.some(f => f.status === 'validating');
+    if (!hasValidatingFiles) return;
+
+    const pollingInterval = setInterval(() => {
+      loadData();
+    }, 3000); // 3 detik
+
+    return () => clearInterval(pollingInterval);
+  }, [data, autoRefreshEnabled, loadData]);
+
+  // Load data saat mount atau period berubah
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [period, loadData]);
 
   if (loading) return <LoadingSkeleton />;
   if (!data)
@@ -305,6 +325,19 @@ export default function DashboardPage() {
         description="Metrik validasi klaim real-time"
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsRefreshing(true);
+                loadData();
+              }}
+              disabled={isRefreshing}
+              className="gap-1.5 h-8"
+            >
+              <RotateCcw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
+              <span className="text-xs">Refresh</span>
+            </Button>
             <span className="text-xs font-medium text-muted-foreground">Periode</span>
             <Select
               value={period || 'all'}

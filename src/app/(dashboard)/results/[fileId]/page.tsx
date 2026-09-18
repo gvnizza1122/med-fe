@@ -330,7 +330,7 @@ function parseAiReview(recordData: Record<string, any>): AiReview | null {
   catch { return null; }
 }
 
-function buildFieldMap(recordData: Record<string, any>, validationErrors: ValidationError[]): Record<string, FieldRow> {
+function buildFieldMap(recordData: Record<string, any>, validationErrors: ValidationError[], editedValues?: Record<string, any>): Record<string, FieldRow> {
   const map: Record<string, FieldRow> = {};
   // raw_data (JSON hasil ekstraksi AI/import asli) selalu berisi ke-60 kolom
   // vClaim dan selalu diperbarui bersamaan dengan kolom DB saat verifikator

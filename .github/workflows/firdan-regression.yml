@@ -1,0 +1,92 @@
+name: Firdan Golden Test — Regression Detection
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/lib/**'
+      - 'src/app/**'
+      - 'tests/**'
+      - 'package.json'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/lib/**'
+      - 'src/app/**'
+      - 'tests/**'
+      - 'package.json'
+
+jobs:
+  regression-test:
+    name: Firdan Case Regression Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Firdan golden tests
+        run: npm test tests/firdan_validation.test.ts -- --coverage
+        env:
+          NODE_ENV: test
+
+      - name: Run regression tests
+        run: npm run test:regression
+        env:
+          NODE_ENV: test
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Read test summary (if available)
+            let summary = '### Firdan Golden Test Results\n\n';
+
+            if (fs.existsSync('./test-results.json')) {
+              const results = JSON.parse(fs.readFileSync('./test-results.json', 'utf-8'));
+              summary += `✓ Tests Passed: ${results.passed}\n`;
+              summary += `✗ Tests Failed: ${results.failed}\n`;
+              summary += `⚠ Tests Skipped: ${results.skipped}\n`;
+            } else {
+              summary += '✓ All tests passed! Regression test suite clean.\n';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Fail if regression detected
+        if: failure()
+        run: |
+          echo "❌ Regression test FAILED"
+          echo "Please review the test output above for field mismatches"
+          exit 1
+
+      - name: Success message
+        if: success()
+        run: |
+          echo "✓ Firdan golden test PASSED"
+          echo "✓ No regressions detected"
+          echo "✓ Safe to merge/deploy"

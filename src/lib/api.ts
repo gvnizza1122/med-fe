@@ -310,4 +310,40 @@ export const api = {
     const q = qs.toString();
     return request(`/api/v1/records/pending-files${q ? `?${q}` : ''}`);
   },
+
+  // Saran Koding — Bukti-Dulu Design (5 langkah)
+  // Step 1: Extract & Cite
+  extractClinicalFacts: (recordId: string, diagnosisSentence: string, procedureSentence: string, jenisKlaim: string) =>
+    request('/api/v1/coding/extract-facts', {
+      method: 'POST',
+      body: JSON.stringify({ record_id: recordId, diagnosis_sentence: diagnosisSentence, procedure_sentence: procedureSentence, jenis_klaim: jenisKlaim })
+    }),
+
+  // Step 2: Suggest codes with citations
+  suggestCodesWithCitations: (clinicalExtract: Record<string, unknown>) =>
+    request('/api/v1/coding/suggest-codes', {
+      method: 'POST',
+      body: JSON.stringify({ clinical_extract: clinicalExtract })
+    }),
+
+  // Step 3: Group codes to INA-CBG (blind to tariff)
+  groupCodesToInaCBG: (diagnosisCodes: string[], procedureCodes: string[], jenisKlaim: string) =>
+    request('/api/v1/coding/group-codes', {
+      method: 'POST',
+      body: JSON.stringify({ diagnosis_codes: diagnosisCodes, procedure_codes: procedureCodes, jenis_klaim: jenisKlaim })
+    }),
+
+  // Step 4: Lookup tariff from PMK 3/2023
+  lookupTariff: (inacbgCode: string, region: string, kelasRs: string) =>
+    request('/api/v1/coding/tariff-lookup', {
+      method: 'POST',
+      body: JSON.stringify({ inacbg_code: inacbgCode, region, kelas_rs: kelasRs })
+    }),
+
+  // Step 5: Generate alternatives with reasoning
+  generateAlternatives: (diagnosisCodes: Record<string, unknown>[], procedureCodes: Record<string, unknown>[], selectedInaCbg: string, clinicalExtract: Record<string, unknown>) =>
+    request('/api/v1/coding/alternatives', {
+      method: 'POST',
+      body: JSON.stringify({ diagnosis_codes: diagnosisCodes, procedure_codes: procedureCodes, selected_inacbg: selectedInaCbg, clinical_extract: clinicalExtract })
+    }),
 };

@@ -1,0 +1,380 @@
+{
+  "metadata": {
+    "sep": "0170R0110926V001417",
+    "patient_name": "FIRDAN",
+    "mrn": "0170-026-01",
+    "birth_date": "2022-09-18",
+    "admission_date": "2024-09-18",
+    "discharge_date": "2024-09-20",
+    "jenis_klaim": "RAWAT_INAP",
+    "dokumen_bundle": [
+      {
+        "tipe": "SEP",
+        "nama": "SEP_0170R0110926V001417.pdf",
+        "halaman": 1,
+        "status": "tersimpan"
+      },
+      {
+        "tipe": "RESUME_MEDIS_IGD",
+        "nama": "Resume_Medis_IGD_Firdan.pdf",
+        "halaman": 2,
+        "status": "tersimpan"
+      },
+      {
+        "tipe": "RESEP",
+        "nama": "Resep_Firdan.pdf",
+        "halaman": 3,
+        "status": "tersimpan"
+      },
+      {
+        "tipe": "TRIAGE",
+        "nama": "Triage_Firdan.pdf",
+        "halaman": 4,
+        "status": "tersimpan"
+      }
+    ]
+  },
+  "extracted_data": {
+    "salin": {
+      "NAMA_PASIEN": {
+        "value": "FIRDAN",
+        "source": "SEP",
+        "confidence": 0.99,
+        "expected": "FIRDAN"
+      },
+      "MRN": {
+        "value": "0170-026-01",
+        "source": "SEP",
+        "confidence": 0.98,
+        "expected": "0170-026-01"
+      },
+      "BIRTH_DATE": {
+        "value": "2022-09-18",
+        "source": "SEP",
+        "confidence": 0.97,
+        "expected": "2022-09-18"
+      },
+      "SEP": {
+        "value": "0170R0110926V001417",
+        "source": "SEP",
+        "confidence": 0.99,
+        "expected": "0170R0110926V001417"
+      },
+      "NOKARTU": {
+        "value": "0000123456789012",
+        "source": "SEP",
+        "confidence": 0.96,
+        "expected": "0000123456789012"
+      },
+      "DPJP": {
+        "value": "dr. Siti Nurhaliza, Sp.A(K)",
+        "source": "Resume_Medis_IGD",
+        "confidence": 0.95,
+        "expected": "dr. Siti Nurhaliza, Sp.A(K)"
+      },
+      "ADMISSION_DATE": {
+        "value": "2024-09-18",
+        "source": "SEP",
+        "confidence": 0.99,
+        "expected": "2024-09-18"
+      },
+      "BERAT_BADAN": {
+        "value": "14.5",
+        "unit": "kg",
+        "source": "Triage",
+        "confidence": 0.94,
+        "expected": "14.5"
+      }
+    },
+    "turunan": {
+      "SEX": {
+        "value": "L",
+        "derived_from": "NAMA_PASIEN",
+        "logic": "Nama FIRDAN diidentifikasi sebagai laki-laki",
+        "confidence": 0.85,
+        "expected": "L"
+      },
+      "UMUR_TAHUN": {
+        "value": 2,
+        "derived_from": "BIRTH_DATE",
+        "logic": "2024-09-18 minus 2022-09-18 = 2 tahun (hitungan pada tanggal masuk)",
+        "confidence": 0.99,
+        "expected": 2
+      },
+      "UMUR_HARI": {
+        "value": 730,
+        "derived_from": "BIRTH_DATE",
+        "logic": "2 tahun x 365 hari/tahun ≈ 730 hari",
+        "confidence": 0.99,
+        "expected": 730
+      },
+      "DISCHARGE_DATE": {
+        "value": "2024-09-20",
+        "derived_from": "ADMISSION_DATE dan dokumen keluar rawat",
+        "logic": "Tercatat di Resume Medis IGD sebagai tanggal pulang",
+        "confidence": 0.98,
+        "expected": "2024-09-20"
+      },
+      "DISCHARGE_STATUS": {
+        "value": "Pulang Membaik",
+        "derived_from": "Resume_Medis_IGD",
+        "logic": "Status kesehatan saat pulang: stabil, vital sign normal",
+        "confidence": 0.96,
+        "expected": "Pulang Membaik"
+      },
+      "LOS": {
+        "value": 2,
+        "derived_from": "ADMISSION_DATE dan DISCHARGE_DATE",
+        "logic": "2024-09-20 minus 2024-09-18 = 2 hari",
+        "confidence": 0.99,
+        "expected": 2
+      },
+      "KELAS_RAWAT": {
+        "value": "III",
+        "derived_from": "SEP",
+        "logic": "Kelas perawatan yang tercatat di SEP",
+        "confidence": 0.97,
+        "expected": "III"
+      },
+      "DESKRIPSI_INACBG": {
+        "value": "Acute Upper Respiratory Infection, age 2 years",
+        "derived_from": "DIAGLIST dan grouper logic",
+        "logic": "INA-CBG grouping dari diagnosis utama + prosedur + usia",
+        "confidence": 0.88,
+        "expected": "Acute Upper Respiratory Infection, age 2 years"
+      },
+      "TARIF_INACBG": {
+        "value": 1750000,
+        "currency": "IDR",
+        "derived_from": "INA-CBG tariff table",
+        "logic": "Standar tarif BPJS untuk kode INA-CBG",
+        "confidence": 0.95,
+        "expected": 1750000
+      },
+      "TOTAL_TARIF": {
+        "value": 1750000,
+        "currency": "IDR",
+        "derived_from": "TARIF_INACBG (no add-ons)",
+        "logic": "Total tarif = TARIF_INACBG + biaya tambahan (tidak ada)",
+        "confidence": 0.97,
+        "expected": 1750000
+      }
+    },
+    "konfigurasi": {
+      "KODE_RS": {
+        "value": "0170",
+        "source": "Profil RS (Hospital Settings)",
+        "confidence": 0.99,
+        "expected": "0170"
+      },
+      "KELAS_RS": {
+        "value": "B",
+        "source": "Profil RS (Hospital Settings)",
+        "confidence": 0.97,
+        "expected": "B"
+      },
+      "PAYOR_ID": {
+        "value": "BPJS_KESEHATAN",
+        "source": "Profil RS (Hospital Settings)",
+        "confidence": 0.99,
+        "expected": "BPJS_KESEHATAN"
+      }
+    },
+    "koding": {
+      "DIAGLIST": {
+        "diagnoses": [
+          {
+            "sequence": 1,
+            "icd10": "J06.9",
+            "deskripsi": "Acute upper respiratory infection, unspecified",
+            "source": "Resume_Medis_IGD",
+            "confidence": 0.92,
+            "expected": "J06.9",
+            "notes": "Diagnosis utama: ISPA, gejala batuk pilek, demam"
+          },
+          {
+            "sequence": 2,
+            "icd10": "R01.1",
+            "deskripsi": "Cardiac murmur, unspecified",
+            "source": "Resume_Medis_IGD",
+            "confidence": 0.88,
+            "expected": "R01.1",
+            "notes": "Diagnosis sekunder: Bising jantung (innocent murmur, normal pada anak)"
+          }
+        ],
+        "source": "Resume_Medis_IGD (clinical notes)",
+        "validation_note": "BUKAN hasil OCR karangan, diambil dari clinical notes terstruktur",
+        "expected": [
+          { "icd10": "J06.9", "sequence": 1 },
+          { "icd10": "R01.1", "sequence": 2 }
+        ]
+      },
+      "PROCLIST": {
+        "procedures": [
+          {
+            "sequence": 1,
+            "icd9": "93.0",
+            "deskripsi": "Physical examination and evaluation",
+            "source": "Resume_Medis_IGD",
+            "confidence": 0.91,
+            "expected": "93.0"
+          },
+          {
+            "sequence": 2,
+            "icd9": "99.04",
+            "deskripsi": "Irrigation of nasal passages",
+            "source": "Resume_Medis_IGD",
+            "confidence": 0.87,
+            "expected": "99.04"
+          }
+        ],
+        "source": "Resume_Medis_IGD (treatment notes)",
+        "validation_note": "Procedures tercatat dalam treatment plan, bukan OCR karangan",
+        "expected": [
+          { "icd9": "93.0", "sequence": 1 },
+          { "icd9": "99.04", "sequence": 2 }
+        ]
+      },
+      "INACBG": {
+        "value": "AAA0149",
+        "deskripsi": "Acute Upper Respiratory Infection without CC",
+        "grouper_version": "52",
+        "source": "Grouper logic (diagnosis + procedure + age)",
+        "confidence": 0.89,
+        "expected": "AAA0149"
+      }
+    },
+    "vital_signs": {
+      "HR": {
+        "value": 130,
+        "unit": "bpm",
+        "source": "Triage",
+        "age_group": "2 years",
+        "is_normal": true,
+        "normal_range": "100-160 bpm (age 2 years)",
+        "confidence": 0.97,
+        "expected": 130,
+        "validation_note": "Normal untuk usia 2 tahun sesuai standar WHO pediatrik"
+      },
+      "RR": {
+        "value": 30,
+        "unit": "breaths/min",
+        "source": "Triage",
+        "age_group": "2 years",
+        "is_normal": true,
+        "normal_range": "25-35 breaths/min (age 2 years)",
+        "confidence": 0.97,
+        "expected": 30,
+        "validation_note": "Normal untuk usia 2 tahun sesuai standar WHO pediatrik"
+      },
+      "TEMPERATURE": {
+        "value": 37.5,
+        "unit": "°C",
+        "source": "Triage",
+        "is_normal": true,
+        "normal_range": "36.5-37.5 °C",
+        "confidence": 0.96,
+        "expected": 37.5
+      },
+      "BP_SYSTOLIC": {
+        "value": 105,
+        "unit": "mmHg",
+        "source": "Triage",
+        "age_group": "2 years",
+        "is_normal": true,
+        "normal_range": "95-110 mmHg (age 2 years)",
+        "confidence": 0.94,
+        "expected": 105
+      },
+      "BP_DIASTOLIC": {
+        "value": 68,
+        "unit": "mmHg",
+        "source": "Triage",
+        "age_group": "2 years",
+        "is_normal": true,
+        "normal_range": "60-75 mmHg (age 2 years)",
+        "confidence": 0.94,
+        "expected": 68
+      }
+    },
+    "fakta_nol": {
+      "ICU_INDIKATOR": {
+        "value": 0,
+        "meaning": "Pasien TIDAK dirawat di ICU",
+        "source": "Resume_Medis_IGD",
+        "confidence": 0.99,
+        "expected": 0
+      },
+      "ICU_LOS": {
+        "value": 0,
+        "unit": "hari",
+        "meaning": "Durasi ICU = 0 hari (tidak ada)",
+        "source": "Perhitungan dari ICU_INDIKATOR = 0",
+        "confidence": 0.99,
+        "expected": 0
+      },
+      "VENT_HOUR": {
+        "value": 0,
+        "unit": "jam",
+        "meaning": "Jam ventilasi mekanik = 0 jam (tidak ada)",
+        "source": "Resume_Medis_IGD (no ventilator use noted)",
+        "confidence": 0.99,
+        "expected": 0
+      },
+      "TARIF_POLI_EKS": {
+        "value": 0,
+        "currency": "IDR",
+        "meaning": "Tidak ada biaya poliklinik eksternal",
+        "source": "Klaim ini adalah rawat inap saja",
+        "confidence": 0.99,
+        "expected": 0
+      }
+    },
+    "wajar_kosong": {
+      "BIRTH_WEIGHT": {
+        "value": null,
+        "reason": "Pasien usia 2 tahun, bukan neonatus",
+        "field_type": "wajar_kosong",
+        "expected": null
+      },
+      "ADL1": { "value": null, "reason": "Tidak digunakan dalam klaim rawat inap anak", "field_type": "wajar_kosong", "expected": null },
+      "ADL2": { "value": null, "reason": "Tidak digunakan dalam klaim rawat inap anak", "field_type": "wajar_kosong", "expected": null },
+      "SP": { "value": null, "reason": "Tidak ada pemeriksaan khusus (SP) terdaftar", "field_type": "wajar_kosong", "expected": null },
+      "SR": { "value": null, "reason": "Tidak ada rujukan (SR) terdaftar", "field_type": "wajar_kosong", "expected": null },
+      "SI": { "value": null, "reason": "Tidak ada intervensi khusus (SI) terdaftar", "field_type": "wajar_kosong", "expected": null },
+      "SD": { "value": null, "reason": "Tidak ada tindakan diagnostic (SD) terdaftar", "field_type": "wajar_kosong", "expected": null },
+      "TARIF_SP": { "value": null, "reason": "SP kosong, otomatis SP tariff = 0", "field_type": "wajar_kosong", "expected": null },
+      "TARIF_SR": { "value": null, "reason": "SR kosong, otomatis SR tariff = 0", "field_type": "wajar_kosong", "expected": null },
+      "TARIF_SI": { "value": null, "reason": "SI kosong, otomatis SI tariff = 0", "field_type": "wajar_kosong", "expected": null },
+      "TARIF_SD": { "value": null, "reason": "SD kosong, otomatis SD tariff = 0", "field_type": "wajar_kosong", "expected": null },
+      "SUBACUTE": { "value": null, "reason": "Tidak ada fase subacute", "field_type": "wajar_kosong", "expected": null },
+      "CHRONIC": { "value": null, "reason": "Tidak ada fase chronic", "field_type": "wajar_kosong", "expected": null }
+    }
+  },
+  "consistency_checks": {
+    "triage_vs_resume": {
+      "vital_signs_match": true,
+      "diagnosis_match": true,
+      "notes": "Vital sign Triage (HR 130, RR 30) konsisten dengan Resume Medis IGD"
+    },
+    "age_thresholds": {
+      "age_2_years": {
+        "UMUR_TAHUN": 2,
+        "normal_hr_range": "100-160 bpm",
+        "extracted_hr": 130,
+        "is_normal": true,
+        "normal_rr_range": "25-35 breaths/min",
+        "extracted_rr": 30,
+        "rr_is_normal": true
+      }
+    }
+  },
+  "regression_test_baseline": {
+    "timestamp": "2026-09-18T00:00:00Z",
+    "version": "1.0",
+    "notes": "Baseline kunci jawaban untuk Firdan case (SEP 0170R0110926V001417). Digunakan sebagai golden test case untuk regression testing setiap kali ekstraksi/feature berubah.",
+    "expected_extraction_count": 8,
+    "expected_coding_count": 3,
+    "expected_error_count": 0
+  }
+}
