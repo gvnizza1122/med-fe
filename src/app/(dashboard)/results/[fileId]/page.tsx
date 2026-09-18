@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { FIELD_TYPE_REGISTRY } from '@/lib/fieldTypeRegistry';
 import { Search, CheckCircle2, XCircle, ChevronLeft, ChevronRight, FileText, Sparkles, Lightbulb, AlertTriangle, PanelLeftOpen, Users } from 'lucide-react';
@@ -1501,8 +1502,8 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     : level === 'missing'
                       ? 'text-gray-400 italic'
                       : 'text-gray-100';
-                return (
-                  <div key={key} className={cn('rounded-xl border p-3 flex flex-col gap-1', cardBorder)} title={nyeriTip}>
+                const CardContent = (
+                  <div className={cn('rounded-xl border p-3 flex flex-col gap-1', cardBorder, level === 'gawat' && 'cursor-pointer hover:bg-red-950/60 transition-colors')} title={nyeriTip}>
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider truncate">{meta.label}</span>
                       <SeverityDot level={level} />
@@ -1526,6 +1527,43 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     </div>
                   </div>
                 );
+
+                if (level === 'gawat') {
+                  return (
+                    <Dialog key={key}>
+                      <DialogTrigger asChild>
+                        {CardContent}
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-gray-100">
+                        <DialogHeader>
+                          <DialogTitle className="text-red-400">Parameter Kritis: {meta.label}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-2">
+                          <ul className="space-y-3 list-none">
+                            <li className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-gray-400">Nilai Tercatat:</span>
+                              <span className="text-lg font-mono text-red-400">{vf!.nilai} {meta.unit}</span>
+                            </li>
+                            {vf!.kutipan && (
+                              <li className="flex flex-col gap-1">
+                                <span className="text-sm font-semibold text-gray-400">Kutipan Dokumen:</span>
+                                <span className="text-sm italic text-gray-300">"{vf!.kutipan}" {vf!.page_number && `(hal. ${vf!.page_number})`}</span>
+                              </li>
+                            )}
+                            <li className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-gray-400">Kenapa Kritis?</span>
+                              <span className="text-sm text-gray-300">
+                                Berdasarkan aturan medis untuk kategori umur <strong>{age_group ? AGE_GROUP_LABELS[age_group] || age_group : 'pasien ini'}</strong>, nilai <span className="text-red-400 font-mono">{vf!.nilai} {meta.unit}</span> berada di luar batas aman (di zona kritis).
+                              </span>
+                            </li>
+                          </ul>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  );
+                }
+
+                return <Fragment key={key}>{CardContent}</Fragment>;
               })}
             </div>
 
@@ -1558,42 +1596,78 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {kriteria.map(k => (
-                <div
-                  key={k.kriteria}
-                  className={cn(
-                    'rounded-xl border-l-[3px] border border-l-current p-3.5 flex flex-col gap-2',
-                    k.status === 'ya'
-                      ? 'border-red-900/50 border-l-red-500 bg-red-950/40 bg-red-950/40'
-                      : k.status === 'borderline'
-                        ? 'border-amber-900/50 border-l-amber-500 bg-amber-950/40 bg-amber-950/40'
-                        : 'border-emerald-800/50 border-l-emerald-500 bg-emerald-900/30 bg-emerald-900/30'
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {k.status === 'ya'
-                        ? <XCircle className="size-4 text-red-400 shrink-0" />
+              {kriteria.map(k => {
+                const CardContent = (
+                  <div
+                    className={cn(
+                      'rounded-xl border-l-[3px] border border-l-current p-3.5 flex flex-col gap-2',
+                      k.status === 'ya'
+                        ? 'border-red-900/50 border-l-red-500 bg-red-950/40 cursor-pointer hover:bg-red-950/60 transition-colors'
                         : k.status === 'borderline'
-                          ? <AlertTriangle className="size-4 text-amber-500 dark:text-amber-500 shrink-0" />
-                          : <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />}
-                      <span className="text-sm font-medium font-bold text-gray-100">{k.kriteria}</span>
+                          ? 'border-amber-900/50 border-l-amber-500 bg-amber-950/40'
+                          : 'border-emerald-800/50 border-l-emerald-500 bg-emerald-900/30'
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {k.status === 'ya'
+                          ? <XCircle className="size-4 text-red-400 shrink-0" />
+                          : k.status === 'borderline'
+                            ? <AlertTriangle className="size-4 text-amber-500 dark:text-amber-500 shrink-0" />
+                            : <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />}
+                        <span className="text-sm font-medium font-bold text-gray-100">{k.kriteria}</span>
+                      </div>
+                      <span className={cn(
+                        'text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0',
+                        k.status === 'ya'      ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                        : k.status === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
+                        : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
+                      )}>
+                        {k.status === 'ya' ? 'TERPENUHI' : k.status === 'borderline' ? 'BORDERLINE' : 'TIDAK'}
+                      </span>
                     </div>
-                    <span className={cn(
-                      'text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0',
-                      k.status === 'ya'      ? 'bg-red-950/60 text-red-400 border border-red-900/50'
-                      : k.status === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
-                      : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
-                    )}>
-                      {k.status === 'ya' ? 'TERPENUHI' : k.status === 'borderline' ? 'BORDERLINE' : 'TIDAK'}
-                    </span>
+                    <p className="text-[11px] font-semibold text-gray-100 leading-snug">{KRITERIA_SHORT_LABEL[k.kriteria] || k.label}</p>
+                    {k.catatan && (
+                      <p className="text-[10px] text-gray-400 leading-relaxed border-t border-white/10 pt-1.5">{k.catatan}</p>
+                    )}
                   </div>
-                  <p className="text-[11px] font-semibold text-gray-100 leading-snug">{KRITERIA_SHORT_LABEL[k.kriteria] || k.label}</p>
-                  {k.catatan && (
-                    <p className="text-[10px] text-gray-400 leading-relaxed border-t border-white/10 pt-1.5">{k.catatan}</p>
-                  )}
-                </div>
-              ))}
+                );
+
+                if (k.status === 'ya') {
+                  return (
+                    <Dialog key={k.kriteria}>
+                      <DialogTrigger asChild>
+                        {CardContent}
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-gray-100">
+                        <DialogHeader>
+                          <DialogTitle className="text-red-400">Kriteria Kritis: {k.kriteria}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-2">
+                          <ul className="space-y-3 list-none">
+                            <li className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-gray-400">Definisi Kriteria:</span>
+                              <span className="text-sm text-gray-100">{k.label}</span>
+                            </li>
+                            <li className="flex flex-col gap-1">
+                              <span className="text-sm font-semibold text-gray-400">Status Sistem:</span>
+                              <span className="text-sm text-red-400 font-medium">TERPENUHI (KRITIS)</span>
+                            </li>
+                            {k.catatan && (
+                              <li className="flex flex-col gap-1">
+                                <span className="text-sm font-semibold text-gray-400">Alasan / Bukti:</span>
+                                <span className="text-sm text-gray-300">- {k.catatan}</span>
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  );
+                }
+
+                return <Fragment key={k.kriteria}>{CardContent}</Fragment>;
+              })}
             </div>
           </div>
 
