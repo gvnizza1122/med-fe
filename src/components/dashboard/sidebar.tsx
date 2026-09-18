@@ -10,8 +10,8 @@ import {
   History,
   Users,
   ShieldCheck,
-  HeartPulse,
   ClipboardList,
+  ScrollText,
   Sun,
   Moon,
   LogOut,
@@ -38,22 +38,26 @@ interface NavSection {
   items: NavItem[]
 }
 
+// 'superadmin' ditambahkan eksplisit di tiap item yang punya 'admin' (superadmin
+// mewarisi semua akses admin, sama seperti ROLE_INHERITANCE di backend
+// middleware/auth.js) — KECUALI "Manajemen User" yang sengaja HANYA
+// superadmin, admin biasa tidak lagi bisa membukanya.
 const NAV_SECTIONS: NavSection[] = [
   {
     section: "Menu Utama",
     items: [
-      { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["admin", "supervisor", "verifikator"] },
-      { href: "/extract", icon: FileText, label: "Extract PDF", roles: ["admin", "supervisor", "verifikator"] },
-      { href: "/history", icon: History, label: "Riwayat Upload", roles: ["admin", "supervisor", "verifikator"] },
-      { href: "/pending-bpjs", icon: ClipboardList, label: "Pending BPJS", roles: ["admin", "supervisor", "verifikator"] },
+      { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
+      { href: "/extract", icon: FileText, label: "Extract PDF", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
+      { href: "/history", icon: History, label: "Riwayat Upload", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
+      { href: "/pending-bpjs", icon: ClipboardList, label: "Pending BPJS", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
     ],
   },
   {
     section: "Administrasi",
     items: [
-      { href: "/users", icon: Users, label: "Manajemen User", roles: ["admin"] },
-      { href: "/rules", icon: ShieldCheck, label: "Aturan Validasi", roles: ["admin"] },
-      { href: "/prb-exempt", icon: HeartPulse, label: "Exempt PRB", roles: ["admin"] },
+      { href: "/users", icon: Users, label: "Manajemen User", roles: ["superadmin"] },
+      { href: "/rules", icon: ShieldCheck, label: "Aturan Validasi", roles: ["superadmin", "admin"] },
+      { href: "/audit-log", icon: ScrollText, label: "Audit Log", roles: ["superadmin", "admin"] },
     ],
   },
 ]

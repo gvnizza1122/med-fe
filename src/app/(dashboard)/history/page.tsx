@@ -9,6 +9,7 @@ import { ToastContainer, useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
   Select,
@@ -39,6 +40,7 @@ import {
 interface ClaimFile {
   id: string; file_name: string; period: string; status: string;
   total_records: number; valid_count: number; error_count: number; pending_count: number;
+  pending_reason?: string | null;
   created_at: string; uploaded_by_name: string; jenis_klaim?: string | null;
   sep?: string | null; nama_pasien?: string | null;
 }
@@ -68,26 +70,6 @@ const pageVariants: Variants = {
 const emptyVariants: Variants = {
   hidden: { opacity: 0, scale: 0.9 },
   visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: 'easeOut' as const } },
-};
-
-const statusLabel = (s: string) =>
-  s === 'completed' ? 'Selesai' :
-  s === 'validating' ? 'Memvalidasi' :
-  s === 'parsing' ? 'Membaca' :
-  s === 'approved' ? 'Disetujui' :
-  s === 'error' ? 'Error' :
-  s.charAt(0).toUpperCase() + s.slice(1);
-
-// Maps backend status to a visual treatment: green (valid/approved), red (error), amber (in progress)
-const statusBadgeClass = (s: string) => {
-  if (s === 'completed' || s === 'approved') {
-    return 'bg-primary/10 text-primary border-primary/20';
-  }
-  if (s === 'error') {
-    return 'bg-destructive/10 text-destructive border-destructive/20';
-  }
-  // validating, parsing, pending, etc.
-  return 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400';
 };
 
 export default function HistoryPage() {
@@ -214,8 +196,21 @@ export default function HistoryPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="size-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex border-b border-border px-4 py-3 gap-6">
+            {['SEP', 'Nama Pasien', 'Kategori', 'Total', 'Pending'].map((h) => (
+              <Skeleton key={h} className="h-3.5 w-16" />
+            ))}
+          </div>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-6 border-b border-border px-4 py-3.5 last:border-0">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-20 rounded-full" />
+              <Skeleton className="h-4 w-8" />
+              <Skeleton className="h-4 w-16 rounded-full" />
+            </div>
+          ))}
         </div>
       ) : (
         <AnimatePresence mode="wait">
@@ -252,7 +247,7 @@ export default function HistoryPage() {
               exit={{ opacity: 0, transition: { duration: 0.2 } }}
               className="overflow-hidden rounded-xl border border-border bg-card"
             >
-              <Table>
+              <Table className="table-zebra">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>SEP</TableHead>
@@ -260,8 +255,8 @@ export default function HistoryPage() {
                     <TableHead>Kategori</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="text-right">Valid</TableHead>
-                    <TableHead className="text-right">Error</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Pending</TableHead>
+                    <TableHead>Alasan Pending</TableHead>
                     <TableHead>Diunggah</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
@@ -298,21 +293,13 @@ export default function HistoryPage() {
                             <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">{f.total_records}</TableCell>
-                        <TableCell className="text-right font-medium text-primary">{f.valid_count}</TableCell>
-                        <TableCell className="text-right font-medium text-destructive">{f.error_count}</TableCell>
-                        <TableCell>
-                          <motion.span
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: i * 0.03 + 0.15, type: 'spring', stiffness: 300, damping: 20 }}
-                            whileHover={{ scale: 1.08 }}
-                            className="inline-block"
-                          >
-                            <Badge variant="outline" className={statusBadgeClass(f.status)}>
-                              {statusLabel(f.status)}
-                            </Badge>
-                          </motion.span>
+                        <TableCell className="font-mono-data text-right">{f.total_records}</TableCell>
+                        <TableCell className="font-mono-data text-right font-medium text-primary">{f.valid_count}</TableCell>
+                        <TableCell className="font-mono-data text-right font-medium text-amber-600 dark:text-amber-400">
+                          {f.pending_count + f.error_count}
+                        </TableCell>
+                        <TableCell className="max-w-[240px] truncate text-xs text-muted-foreground" title={f.pending_reason || undefined}>
+                          {f.pending_reason || (f.pending_count + f.error_count > 0 ? '-' : '')}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           <div>{f.uploaded_by_name}</div>

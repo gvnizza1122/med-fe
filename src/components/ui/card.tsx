@@ -7,7 +7,11 @@ function Card({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card"
       className={cn(
-        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm',
+        // Radius lebih generus dibanding tombol/badge (rounded-xl vs rounded-lg
+        // /rounded-full) — kontras yang disengaja, bukan seragam. Border lebih
+        // jelas + shadow dua-lapis (halus tapi nyata) supaya kartu terasa
+        // "terangkat" dari background, bukan kotak datar bergaris tipis.
+        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border border-border/80 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.3),0_1px_1px_rgba(0,0,0,0.2)]',
         className,
       )}
       {...props}
@@ -32,7 +36,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-title"
-      className={cn('leading-none font-semibold', className)}
+      className={cn('font-display leading-none font-semibold', className)}
       {...props}
     />
   )

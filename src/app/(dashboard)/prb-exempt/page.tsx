@@ -71,7 +71,11 @@ function LoadingSkeleton() {
 }
 
 export default function PrbExemptPage() {
-  const { checking, allowed } = useRequireRole(['admin']);
+  // Fitur Exempt PRB dinonaktifkan sementara (8 Sep 2026, permintaan user) —
+  // data/tabel prb_exemption_list TIDAK dihapus, cuma UI-nya ditutup total
+  // (roles: [] berarti tidak ada role yang lolos, semua diarahkan ke
+  // /dashboard). Hapus baris ini & kembalikan ke ['admin'] untuk mengaktifkan lagi.
+  const { checking, allowed } = useRequireRole([]);
   const [items, setItems] = useState<PrbExemption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -142,7 +146,7 @@ export default function PrbExemptPage() {
       </div>
 
       <Card className="p-0 overflow-hidden">
-        <Table>
+        <Table className="table-zebra">
           <TableHeader>
             <TableRow>
               <TableHead>MRN</TableHead>

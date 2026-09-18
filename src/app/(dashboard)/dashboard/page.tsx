@@ -227,7 +227,7 @@ function StatCard({
     >
       <Card className="gap-3 p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">{label}</span>
+          <span className="text-caption">{label}</span>
           <div
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-lg',
@@ -237,7 +237,7 @@ function StatCard({
             <Icon className={cn('h-4 w-4', iconColor)} />
           </div>
         </div>
-        <div className={cn('text-2xl font-bold', valueColor)}>
+        <div className={cn('font-mono-data text-2xl font-bold', valueColor)}>
           <AnimatedCounter value={value} />
         </div>
         <div className="text-xs text-muted-foreground">{footer}</div>
@@ -385,7 +385,7 @@ export default function DashboardPage() {
         <motion.div variants={columnVariants}>
           <Card className="h-full gap-4 p-5">
             <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <h3 className="font-display flex items-center gap-2 text-sm font-semibold text-foreground">
                 <AlertTriangle className="h-4 w-4 text-destructive" />
                 5 Aturan Error Tertinggi
               </h3>
@@ -447,7 +447,7 @@ export default function DashboardPage() {
         <motion.div variants={columnVariants}>
           <Card className="flex h-full flex-col gap-4 p-5">
             <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <h3 className="font-display flex items-center gap-2 text-sm font-semibold text-foreground">
                 <FileText className="h-4 w-4 text-primary" />
                 Upload Terbaru
               </h3>
@@ -462,7 +462,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-zebra">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="text-xs">Nama File</TableHead>

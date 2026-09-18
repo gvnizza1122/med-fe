@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -51,7 +51,7 @@ const priorityMeta = (p: number) =>
     : { label: 'Minor', className: 'bg-primary/10 text-primary border-primary/20' };
 
 export default function RulesPage() {
-  const { checking, allowed } = useRequireRole(['admin']);
+  const { checking, allowed } = useRequireRole(['superadmin', 'admin']);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
@@ -123,8 +123,31 @@ export default function RulesPage() {
 
   if (checking || !allowed || loading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Spinner className="size-8 text-primary" />
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="mt-2 h-4 w-72" />
+        </div>
+        <Card>
+          <CardContent className="space-y-3 py-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-full max-w-md" />
+            <Skeleton className="h-9 w-32" />
+          </CardContent>
+        </Card>
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="flex items-center justify-between py-3">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-56" />
+                  <Skeleton className="h-3 w-72" />
+                </div>
+                <Skeleton className="h-6 w-11 rounded-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -154,7 +177,7 @@ export default function RulesPage() {
               <Building2 className="size-4" />
             </div>
             <div className="space-y-1">
-              <p className="font-semibold text-foreground text-sm">Profil Rumah Sakit</p>
+              <p className="font-display font-semibold text-foreground text-sm">Profil Rumah Sakit</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 KODE_RS dan KELAS_RS adalah atribut rumah sakit itu sendiri, bukan per-klaim — keduanya
                 tidak pernah tercetak di SEP atau Resume Medis pasien. Isi Kelas RS sekali di sini, sistem
@@ -218,7 +241,7 @@ export default function RulesPage() {
                       <div className="min-w-[220px] flex-1 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="font-mono">{rule.id}</Badge>
-                          <span className="font-semibold text-sm text-foreground">{rule.rule_name}</span>
+                          <span className="font-display font-semibold text-sm text-foreground">{rule.rule_name}</span>
                           <Badge variant="outline" className={meta.className}>{meta.label}</Badge>
                         </div>
 

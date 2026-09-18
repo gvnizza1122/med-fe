@@ -63,7 +63,7 @@ function initialsOf(name: string) {
 }
 
 function roleBadgeVariant(role: string): 'default' | 'secondary' | 'outline' {
-  if (role === 'admin') return 'default';
+  if (role === 'superadmin' || role === 'admin') return 'default';
   if (role === 'supervisor') return 'secondary';
   return 'outline';
 }
@@ -83,7 +83,7 @@ function LoadingSkeleton() {
 }
 
 export default function UsersPage() {
-  const { checking, allowed } = useRequireRole(['admin']);
+  const { checking, allowed } = useRequireRole(['superadmin']);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -154,7 +154,7 @@ export default function UsersPage() {
       />
 
       <Card className="p-0 overflow-hidden">
-        <Table>
+        <Table className="table-zebra">
           <TableHeader>
             <TableRow>
               <TableHead>Nama</TableHead>
@@ -324,6 +324,7 @@ export default function UsersPage() {
                   <SelectItem value="verifikator">Verifikator</SelectItem>
                   <SelectItem value="supervisor">Supervisor</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="superadmin">Superadmin</SelectItem>
                 </SelectContent>
               </Select>
             </motion.div>

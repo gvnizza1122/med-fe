@@ -135,12 +135,12 @@ export default function LoginPage() {
               alt="RS Lestari Raharja"
               className="mb-4 h-14 w-14 rounded-xl object-contain"
             />
-            <h1 className="text-xl font-semibold text-foreground">RS Lestari Raharja</h1>
+            <h1 className="font-display text-xl font-semibold tracking-[-0.01em] text-foreground">RS Lestari Raharja</h1>
             <p className="mt-1 text-sm text-muted-foreground">Sistem Pre-Validasi Klaim BPJS</p>
           </div>
 
           <div className="mb-6 animate-fade-in text-center lg:text-left">
-            <h2 className="text-2xl font-bold text-foreground">Selamat Datang</h2>
+            <h2 className="font-display text-2xl font-bold tracking-[-0.015em] text-foreground">Selamat Datang</h2>
             <p className="mt-1 text-sm text-muted-foreground">Masuk untuk mengakses sistem validasi klaim.</p>
           </div>
 
@@ -299,7 +299,7 @@ export default function LoginPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.5 }}
-            className="mb-3 text-3xl font-bold leading-tight"
+            className="font-display mb-3 text-3xl font-bold tracking-[-0.015em] leading-tight"
           >
             Validasi Klaim BPJS<br />Lebih Cepat & Akurat
           </motion.h2>

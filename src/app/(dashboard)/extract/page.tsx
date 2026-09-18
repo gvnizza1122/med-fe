@@ -14,6 +14,10 @@ import {
   Footprints,
   BedDouble,
   Siren,
+  ScanSearch,
+  ShieldCheck,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Header } from '@/components/dashboard/header';
@@ -31,6 +35,15 @@ const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc
 ];
 
 const MAX_BATCH_FILES = 300; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
+
+// Panel info di samping form — sebelumnya halaman ini cuma satu kartu form
+// polos di tengah, terasa kosong/generik. Konten statis (tidak butuh fetch
+// tambahan), fokus menjawab pertanyaan yang biasanya muncul saat upload.
+const PROCESS_STEPS = [
+  { icon: UploadCloud, title: 'Unggah Berkas', desc: 'Drag atau pilih PDF hasil scan/print dari SIMRS — boleh banyak file sekaligus.' },
+  { icon: ScanSearch, title: 'Ekstraksi Otomatis', desc: 'AI membaca ~60 kolom data vClaim dari tiap dokumen (SEP, diagnosis, prosedur, tarif, dst).' },
+  { icon: ShieldCheck, title: 'Validasi & Audit', desc: 'Dicek terhadap aturan BPJS/INA-CBG, hasilnya langsung terlihat di Riwayat Upload.' },
+];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
@@ -143,7 +156,8 @@ export default function ExtractPage() {
         description="Unggah berkas PDF klaim dari SIMRS — sistem mengekstrak datanya secara otomatis untuk diperiksa dan divalidasi"
       />
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-full max-w-2xl">
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-5 lg:grid-cols-[1fr_320px] lg:items-start">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full">
         <Card className="animate-slide-in-up">
           <CardContent className="space-y-6">
             {/* ── Kategori pelayanan ──
@@ -178,7 +192,7 @@ export default function ExtractPage() {
                       )}
                     >
                       <span className={cn('mb-1', isSelected ? 'text-primary' : 'text-muted-foreground')}>{opt.icon}</span>
-                      <span className="text-sm font-semibold text-foreground">{opt.label}</span>
+                      <span className="font-display text-sm font-semibold text-foreground">{opt.label}</span>
                       <span className="text-xs text-muted-foreground">{opt.desc}</span>
                       <AnimatePresence>
                         {isSelected && (
@@ -217,7 +231,7 @@ export default function ExtractPage() {
                 >
                   <div className="flex flex-col items-center gap-2">
                     <UploadCloud className="size-10 text-muted-foreground" />
-                    <h3 className="m-0 text-sm font-semibold text-foreground">Klik atau drag beberapa berkas PDF ke sini</h3>
+                    <h3 className="font-display m-0 text-sm font-semibold text-foreground">Klik atau drag beberapa berkas PDF ke sini</h3>
                     <p className="m-0 text-xs text-muted-foreground">Maks {MAX_BATCH_FILES} file, masing-masing maks 20MB — kategori terdeteksi otomatis per file</p>
                   </div>
                 </div>
@@ -230,7 +244,7 @@ export default function ExtractPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
                       <span>{files.length} file dipilih ({formatFileSize(files.reduce((s, f) => s + f.size, 0))})</span>
-                      {uploading && <span>{batchProgressDone}/{files.length}</span>}
+                      {uploading && <span className="font-mono-data">{batchProgressDone}/{files.length}</span>}
                     </div>
                     {uploading && <Progress value={batchProgressPct} />}
                     <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-border p-2">
@@ -359,6 +373,58 @@ export default function ExtractPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="space-y-4"
+      >
+        <Card className="p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <Layers className="size-4 text-primary" />
+            <h3 className="font-display text-sm font-semibold text-foreground">Alur Proses</h3>
+          </div>
+          <div className="space-y-4">
+            {PROCESS_STEPS.map((step, i) => (
+              <div key={step.title} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <step.icon className="size-4" />
+                  </div>
+                  {i < PROCESS_STEPS.length - 1 && <div className="mt-1 h-full w-px flex-1 bg-border" />}
+                </div>
+                <div className="pb-1">
+                  <p className="text-xs font-semibold text-foreground">{step.title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <Sparkles className="size-4 text-primary" />
+            <h3 className="font-display text-sm font-semibold text-foreground">Tips</h3>
+          </div>
+          <ul className="space-y-2.5 text-xs leading-relaxed text-muted-foreground">
+            <li className="flex gap-2">
+              <span className="mt-1 size-1 shrink-0 rounded-full bg-primary" />
+              1 file PDF = 1 klaim pasien — gabungkan semua dokumen pendukung (SEP, resume medis, dst) jadi satu berkas per klaim sebelum upload.
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-1 size-1 shrink-0 rounded-full bg-primary" />
+              Boleh campur kategori Rawat Jalan/Rawat Inap/IGD dalam satu batch — sistem mendeteksi kategori tiap file otomatis.
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-1 size-1 shrink-0 rounded-full bg-primary" />
+              Hasil deteksi kategori yang ditandai &ldquo;tidak yakin&rdquo; sebaiknya dicek manual di Riwayat Upload.
+            </li>
+          </ul>
+        </Card>
+      </motion.div>
+      </div>
     </div>
   );
 }

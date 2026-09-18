@@ -14,6 +14,7 @@ import { Header } from '@/components/dashboard/header';
 import { ToastContainer, useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -114,8 +115,21 @@ export default function PendingBpjsFilesPage() {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="size-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex border-b border-border px-4 py-3 gap-6">
+            {['Nama File', 'Total', 'Cocok', 'Status', 'Diimpor'].map((h) => (
+              <Skeleton key={h} className="h-3.5 w-16" />
+            ))}
+          </div>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-6 border-b border-border px-4 py-3.5 last:border-0">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-10" />
+              <Skeleton className="h-4 w-10" />
+              <Skeleton className="h-4 w-24 rounded-full" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+          ))}
         </div>
       ) : files.length === 0 ? (
         <div className="rounded-xl border border-border bg-card">
@@ -123,7 +137,7 @@ export default function PendingBpjsFilesPage() {
             <div className="flex size-16 items-center justify-center rounded-full bg-muted">
               <ClipboardList className="size-7 text-muted-foreground" />
             </div>
-            <h3 className="text-base font-semibold text-foreground">Belum ada rekap pending</h3>
+            <h3 className="font-display text-base font-semibold text-foreground">Belum ada rekap pending</h3>
             <p className="text-sm text-muted-foreground">Import file Excel rekap pending BPJS bulanan untuk memulai.</p>
             <Button onClick={() => fileInputRef.current?.click()} className="mt-2 gap-2" disabled={importing}>
               <UploadCloud className="size-4" />
@@ -133,7 +147,7 @@ export default function PendingBpjsFilesPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <Table>
+          <Table className="table-zebra">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Nama File</TableHead>
@@ -153,8 +167,8 @@ export default function PendingBpjsFilesPage() {
                       <span className="truncate" title={f.file_name}>{f.file_name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">{f.imported_rows}</TableCell>
-                  <TableCell className="text-right text-primary font-medium">{f.matched_claim}</TableCell>
+                  <TableCell className="font-mono-data text-right">{f.imported_rows}</TableCell>
+                  <TableCell className="font-mono-data text-right text-primary font-medium">{f.matched_claim}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {f.draft_count > 0 && <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px]">Draft {f.draft_count}</Badge>}

@@ -168,6 +168,17 @@ export const api = {
   deleteUser: (id: string) =>
     request(`/api/v1/users/${id}`, { method: 'DELETE' }),
 
+  // Audit Log
+  getAuditLogs: (page = 1, limit = 30, filters?: { user_email?: string; action?: string; resource_type?: string; from_date?: string; to_date?: string }) => {
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (filters?.user_email) qs.set('user_email', filters.user_email);
+    if (filters?.action) qs.set('action', filters.action);
+    if (filters?.resource_type) qs.set('resource_type', filters.resource_type);
+    if (filters?.from_date) qs.set('from_date', filters.from_date);
+    if (filters?.to_date) qs.set('to_date', filters.to_date);
+    return request(`/api/v1/audit-logs?${qs.toString()}`);
+  },
+
   // PDF Upload
   uploadPdf: (file: File, jenisKlaim: string) => {
     const fd = new FormData();
@@ -230,6 +241,12 @@ export const api = {
 
   getRecordValidationErrors: (recordId: string) =>
     request(`/api/v1/claim-files/${recordId}/validation-errors`),
+
+  // "Baca Ulang" — jalankan ulang ekstraksi + validasi + AI review untuk 1
+  // record dari PDF asli yang sudah tersimpan (dipakai saat ada field kosong/
+  // error yang dicurigai sebenarnya ada di dokumen).
+  rereadRecord: (recordId: string) =>
+    request(`/api/v1/claim-files/records/${recordId}/reread`, { method: 'POST' }),
 
   // RV-20 (kriteria kegawatan IGD) — audit trail konfirmasi manual checklist.
   getRv20Confirmation: (recordId: string) => request(`/api/v1/records/${recordId}/rv20-confirm`),

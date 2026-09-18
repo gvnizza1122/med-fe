@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // output: 'standalone' dihapus (8 Sep 2026) — Dockerfile CMD-nya pakai
+  // "npm start" -> "next start", yang TIDAK KOMPATIBEL dengan standalone
+  // output (butuh "node .next/standalone/server.js" + copy manual public/
+  // dan .next/static ke dalamnya). Sebelumnya ini cuma memicu warning startup
+  // tanpa standalone-nya benar-benar terpakai. Daripada restrukturisasi
+  // Dockerfile (berisiko untuk deployment yang sudah jalan), config-nya yang
+  // disesuaikan ke cara deploy yang sudah terbukti jalan (next start biasa).
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },

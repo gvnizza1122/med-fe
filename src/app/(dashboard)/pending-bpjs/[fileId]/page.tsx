@@ -18,6 +18,7 @@ import { ToastContainer, useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -251,8 +252,21 @@ export default function PendingBpjsFileDetailPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="size-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex border-b border-border px-4 py-3 gap-6">
+            {['SEP', 'Nama', 'Jenis', 'Alasan', 'Jawaban'].map((h) => (
+              <Skeleton key={h} className="h-3.5 w-16" />
+            ))}
+          </div>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-6 border-b border-border px-4 py-3.5 last:border-0">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-14 rounded-full" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))}
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-border bg-card">
@@ -260,13 +274,13 @@ export default function PendingBpjsFileDetailPage() {
             <div className="flex size-16 items-center justify-center rounded-full bg-muted">
               <ClipboardList className="size-7 text-muted-foreground" />
             </div>
-            <h3 className="text-base font-semibold text-foreground">Tidak ada data yang cocok</h3>
+            <h3 className="font-display text-base font-semibold text-foreground">Tidak ada data yang cocok</h3>
             <p className="text-sm text-muted-foreground">Coba ubah pencarian/filter.</p>
           </div>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <Table>
+          <Table className="table-zebra">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>SEP</TableHead>

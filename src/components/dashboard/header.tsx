@@ -58,7 +58,7 @@ export function Header({ title, description, actions }: HeaderProps) {
       </div>
 
       <div>
-        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground mb-1">{title}</h1>
+        <h1 className="font-display text-xl md:text-2xl lg:text-[1.75rem] font-bold tracking-[-0.015em] text-foreground mb-1">{title}</h1>
         <p className="text-xs md:text-sm text-muted-foreground">{description}</p>
       </div>
 
