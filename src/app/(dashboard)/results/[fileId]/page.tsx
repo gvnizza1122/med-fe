@@ -9,7 +9,6 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
 import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
 import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
-import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { Header } from '@/components/dashboard/header';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -661,18 +660,6 @@ function FieldRowTr({
             ))}
           </div>
         )}
-        {/* Penjelasan Kode untuk DIAGLIST/PROCLIST — tampil bila ada nilai, status apapun */}
-        {(field.column_name === 'DIAGLIST' || field.column_name === 'PROCLIST') &&
-          !isBlankValue(currentValue) && (
-            <CodingExplanationPanel
-              codeString={String(currentValue ?? '')}
-              fieldType={field.column_name === 'DIAGLIST' ? 'diagnosis' : 'procedure'}
-              status={field.status as any}
-              clinicalFindings={recordData}
-              pageReference={`Resume Medis`}
-              codeEvidence={field.codeEvidence}
-            />
-          )}
         {field.suggestedCodes && field.suggestedCodes.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-blue-600 dark:text-blue-400">
             <span className="inline-flex items-center gap-1"><Lightbulb className="size-3" /> Saran kode:</span>
@@ -1418,51 +1405,90 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
 
             {documentedParams.length > 0 ? (
               <div className="flex flex-col gap-2">
-                {documentedParams.map(p => (
-                  <div
-                    key={p.key}
-                    className={cn(
-                      'flex items-center justify-between py-2 px-3 rounded border',
-                      p.status === 'abnormal'
-                        ? 'border-red-900/30 bg-red-950/20'
-                        : 'border-white/10 bg-white/[0.02]'
-                    )}
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-1.5">
-                        {p.status === 'abnormal'
-                          ? <XCircle className="size-3.5 text-red-400 shrink-0" />
-                          : <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />}
-                        <span className={cn(
-                          'font-medium text-sm',
-                          p.status === 'abnormal' ? 'text-red-400' : 'text-gray-200'
-                        )}>
-                          {p.label}
-                        </span>
-                        {p.sumber_dokumen === 'resume_medis' && (
-                          <span className="text-[10px] text-gray-500 ml-1">(Resume Medis)</span>
-                        )}
-                        {p.retraksi_grade && (
-                          <span className="text-[10px] text-red-400">({p.retraksi_grade})</span>
+                {documentedParams.map(p => {
+                  const paramCard = (
+                    <div
+                      className={cn(
+                        'flex items-center justify-between py-2 px-3 rounded border',
+                        p.status === 'abnormal'
+                          ? 'border-red-900/30 bg-red-950/20 cursor-pointer hover:bg-red-950/30 transition-colors'
+                          : 'border-white/10 bg-white/[0.02]'
+                      )}
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          {p.status === 'abnormal'
+                            ? <XCircle className="size-3.5 text-red-400 shrink-0" />
+                            : <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />}
+                          <span className={cn(
+                            'font-medium text-sm',
+                            p.status === 'abnormal' ? 'text-red-400' : 'text-gray-200'
+                          )}>
+                            {p.label}
+                          </span>
+                          {p.sumber_dokumen === 'resume_medis' && (
+                            <span className="text-[10px] text-gray-500 ml-1">(Resume Medis)</span>
+                          )}
+                          {p.retraksi_grade && (
+                            <span className="text-[10px] text-red-400">({p.retraksi_grade})</span>
+                          )}
+                        </div>
+                        {p.kutipan && (
+                          <p className="text-[11px] text-gray-400 italic pl-5">
+                            "{p.kutipan}"
+                            {p.page_number ? <span className="not-italic ml-1 opacity-70">hal. {p.page_number}</span> : null}
+                          </p>
                         )}
                       </div>
-                      {p.kutipan && (
-                        <p className="text-[11px] text-gray-400 italic pl-5">
-                          "{p.kutipan}"
-                          {p.page_number ? <span className="not-italic ml-1 opacity-70">hal. {p.page_number}</span> : null}
-                        </p>
-                      )}
+                      <span className={cn(
+                        'text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0',
+                        p.status === 'abnormal'
+                          ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                          : 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50'
+                      )}>
+                        {p.nilai || (p.status === 'abnormal' ? 'Abnormal' : 'Normal')}
+                      </span>
                     </div>
-                    <span className={cn(
-                      'text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0',
-                      p.status === 'abnormal'
-                        ? 'bg-red-950/60 text-red-400 border border-red-900/50'
-                        : 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50'
-                    )}>
-                      {p.nilai || (p.status === 'abnormal' ? 'Abnormal' : 'Normal')}
-                    </span>
-                  </div>
-                ))}
+                  );
+
+                  if (p.status === 'abnormal') {
+                    return (
+                      <Dialog key={p.key}>
+                        <DialogTrigger asChild>
+                          {paramCard}
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-gray-100">
+                          <DialogHeader>
+                            <DialogTitle className="text-red-400">Parameter Abnormal: {p.label}</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-2">
+                            <ul className="space-y-3 list-none">
+                              <li className="flex flex-col gap-1">
+                                <span className="text-sm font-semibold text-gray-400">Temuan Tercatat:</span>
+                                <span className="text-sm text-gray-100">{p.nilai || 'tercatat abnormal di dokumen'}</span>
+                              </li>
+                              {p.kutipan && (
+                                <li className="flex flex-col gap-1">
+                                  <span className="text-sm font-semibold text-gray-400">Kutipan Dokumen:</span>
+                                  <span className="text-sm italic text-gray-300">&ldquo;{p.kutipan}&rdquo;{p.page_number ? ` (hal. ${p.page_number})` : ''}</span>
+                                </li>
+                              )}
+                              <li className="flex flex-col gap-1">
+                                <span className="text-sm font-semibold text-gray-400">Kenapa Abnormal?</span>
+                                <span className="text-sm text-gray-300">
+                                  {PARAMETER_ABNORMAL_INFO[p.key] || 'Temuan ini tercatat abnormal dan menjadi salah satu parameter yang diperiksa pada penilaian kegawatdaruratan.'}
+                                  {p.retraksi_grade ? <span className="block mt-1">Grade retraksi: <strong className="text-red-400">{p.retraksi_grade}</strong> — retraksi interkostal menandakan distres napas lebih berat dibanding subkostal.</span> : null}
+                                </span>
+                              </li>
+                            </ul>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    );
+                  }
+
+                  return <Fragment key={p.key}>{paramCard}</Fragment>;
+                })}
               </div>
             ) : (
               <div className="rounded border border-white/10 px-4 py-6 text-center text-gray-500 text-sm">
