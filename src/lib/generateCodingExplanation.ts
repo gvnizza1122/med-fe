@@ -9,6 +9,8 @@
  * 4. Generate penjelasan terstruktur dengan bullet points
  */
 
+import { getICD10Description } from './icd10Descriptions';
+
 // ─── ICD-10 Reference Dictionary (WHO 2010 untuk BPJS) ──────────────────────
 // Subset populer untuk testing + expandable
 
@@ -240,15 +242,29 @@ export function generateCodingExplanation(
     const evidenceEntry = codeEvidence?.find(e => e.code === code);
 
     if (!codeData) {
-      // Bangun bullets dari data resume medis jika ada
+      // Lookup deskripsi resmi ICD-10 WHO dari kamus besar (hanya untuk diagnosis)
+      const icd10Description = type === 'diagnosis' ? getICD10Description(code) : null;
+      const hasIcd10Description = !!icd10Description && icd10Description !== '—';
+
+      // Bangun bullets dari deskripsi ICD-10 + data resume medis jika ada
       const bullets: string[] = [];
+      let hasInformativeBullet = false;
+
+      if (hasIcd10Description) {
+        bullets.push(icd10Description as string);
+        hasInformativeBullet = true;
+      } else if (type === 'procedure') {
+        bullets.push('Deskripsi ICD-9-CM tidak tersedia untuk kode ini');
+      }
       if (evidenceEntry?.quotation) {
         bullets.push(`Dari Resume Medis: "${evidenceEntry.quotation}"${evidenceEntry.page_number ? ` (hal. ${evidenceEntry.page_number})` : ''}`);
+        hasInformativeBullet = true;
       }
       if (evidenceEntry?.reasoning) {
         bullets.push(evidenceEntry.reasoning);
+        hasInformativeBullet = true;
       }
-      if (bullets.length === 0) {
+      if (!hasInformativeBullet) {
         bullets.push('Kode ini tidak ada di kamus offline — lihat resume medis untuk konfirmasi');
       }
       bullets.push(`Status: ${status === 'approved' ? 'Disetujui' : 'Valid'}`);
@@ -256,7 +272,9 @@ export function generateCodingExplanation(
       explanations.push({
         code,
         type,
-        description: evidenceEntry?.quotation
+        description: hasIcd10Description
+          ? (icd10Description as string)
+          : evidenceEntry?.quotation
           ? `Ditemukan di resume medis: "${evidenceEntry.quotation}"`
           : 'Lihat resume medis untuk detail',
         layman: '',
