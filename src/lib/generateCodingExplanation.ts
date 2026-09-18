@@ -226,7 +226,20 @@ export function generateCodingExplanation(
 
   for (const code of codes) {
     const codeData = dictionary[code];
-    if (!codeData) continue; // Skip kode yang tidak ada di kamus
+    if (!codeData) {
+      explanations.push({
+        code,
+        type,
+        description: 'Deskripsi tidak tersedia di kamus offline',
+        layman: 'Perlu dicek di buku ICD-10/ICD-9 CM',
+        status,
+        explanationBullets: [
+          'Deskripsi tidak tersedia di kamus offline (belum terhubung API BPJS)',
+          `Status: ${status === 'approved' ? 'Disetujui' : 'Valid'}`
+        ]
+      });
+      continue;
+    }
 
     // Mapping temuan klinis yang relevan
     const supportingFindings: string[] = [];
@@ -252,9 +265,7 @@ export function generateCodingExplanation(
         bullets.push(finding);
       });
     }
-    if (pageReference) {
-      bullets.push(`Tercatat di ${pageReference}`);
-    }
+    if (pageReference) bullets.push(`Tercatat di ${pageReference}`);
     bullets.push(`Status: ${status === 'approved' ? 'Disetujui' : 'Valid'}`);
 
     explanations.push({
@@ -269,10 +280,12 @@ export function generateCodingExplanation(
     });
   }
 
-  // Summary
-  const summary = explanations.length > 0
-    ? `${explanations.length} kode ${type === 'diagnosis' ? 'diagnosis' : 'prosedur'} dengan penjelasan klinis`
-    : 'Tidak ada kode yang ditemukan';
+  // Jika tidak ada kode sama sekali, isComplete false
+  if (explanations.length === 0) {
+    return { codes: [], summary: '', isComplete: false };
+  }
+
+  const summary = `${explanations.length} kode ${type === 'diagnosis' ? 'diagnosis' : 'prosedur'} dengan penjelasan klinis`;
 
   return {
     codes: explanations,
