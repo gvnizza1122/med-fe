@@ -9,6 +9,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
 import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
 import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
+import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { Header } from '@/components/dashboard/header';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -660,6 +661,18 @@ function FieldRowTr({
             ))}
           </div>
         )}
+        {/* Penjelasan Kode untuk DIAGLIST/PROCLIST — tampil bila ada nilai, status apapun */}
+        {(field.column_name === 'DIAGLIST' || field.column_name === 'PROCLIST') &&
+          !isBlankValue(currentValue) && (
+            <CodingExplanationPanel
+              codeString={String(currentValue ?? '')}
+              fieldType={field.column_name === 'DIAGLIST' ? 'diagnosis' : 'procedure'}
+              status={field.status as any}
+              clinicalFindings={recordData}
+              pageReference={`Resume Medis`}
+              codeEvidence={field.codeEvidence}
+            />
+          )}
         {field.suggestedCodes && field.suggestedCodes.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-blue-600 dark:text-blue-400">
             <span className="inline-flex items-center gap-1"><Lightbulb className="size-3" /> Saran kode:</span>
