@@ -266,11 +266,7 @@ export function InaCbgDashboardCard({
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 px-4 pb-4 pt-3">
-                  <button className="px-3 py-1.5 text-xs font-semibold rounded bg-teal-600 hover:bg-teal-500 text-white">Setujui usulan</button>
-                  <button className="px-3 py-1.5 text-xs font-semibold rounded bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300">Isi manual</button>
-                  <button className="px-3 py-1.5 text-xs font-semibold rounded bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400">Tolak — pindai ulang</button>
-                </div>
+
 
                 <div className="flex items-center justify-between px-4 py-3 bg-black/20 border-t border-white/5">
                   <span className="text-xs text-gray-400">Top-Up Special CMG — tidak ada</span>
