@@ -234,8 +234,9 @@ export function InaCbgTarifPending({ className }: { className?: string }) {
     >
       <p className="text-xs font-medium text-amber-200/90">
         <span className="font-bold text-amber-500">Pending verifikasi.</span>{' '}
-        Grouping INA-CBG dan tarif belum bisa ditampilkan — cek kembali kesesuaian
+        Grouping INA-CBG dan tarif belum bisa ditampilkan. Cek kembali kesesuaian
         klinis (diagnosis, prosedur, dan resume medis) sebelum kode ini disetujui.
+        JIKA BELUM TERDETEKSI OLEH SISTEM, DATA MASIH BUG DAN DALAM PERBAIKAN .
       </p>
     </div>
   );
