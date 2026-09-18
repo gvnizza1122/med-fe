@@ -196,6 +196,15 @@ export interface CodingExplanation {
   explanationBullets: string[]; // Point-point penjelasan
 }
 
+export interface CodeEvidenceEntry {
+  code: string;
+  type?: string;
+  found?: boolean;
+  page_number?: number | null;
+  quotation?: string | null;
+  reasoning?: string | null;
+}
+
 export interface CodingExplanationResult {
   codes: CodingExplanation[];
   summary: string; // Ringkasan 1-2 baris
@@ -214,10 +223,11 @@ export function generateCodingExplanation(
   type: 'diagnosis' | 'procedure',
   status: 'valid' | 'approved',
   clinicalFindings?: Record<string, any>, // Temuan klinis dari record
-  pageReference?: string // e.g., "Resume Medis hal. 2"
+  pageReference?: string, // e.g., "Resume Medis hal. 2"
+  codeEvidence?: CodeEvidenceEntry[] // Data dari ai_review.code_evidence
 ): CodingExplanationResult {
   const codes = codesString
-    .split(';')
+    .split(/[;,]/)
     .map(c => c.trim())
     .filter(Boolean);
 
@@ -226,17 +236,32 @@ export function generateCodingExplanation(
 
   for (const code of codes) {
     const codeData = dictionary[code];
+    // Cari data dari ai_review.code_evidence jika tersedia
+    const evidenceEntry = codeEvidence?.find(e => e.code === code);
+
     if (!codeData) {
+      // Bangun bullets dari data resume medis jika ada
+      const bullets: string[] = [];
+      if (evidenceEntry?.quotation) {
+        bullets.push(`Dari Resume Medis: "${evidenceEntry.quotation}"${evidenceEntry.page_number ? ` (hal. ${evidenceEntry.page_number})` : ''}`);
+      }
+      if (evidenceEntry?.reasoning) {
+        bullets.push(evidenceEntry.reasoning);
+      }
+      if (bullets.length === 0) {
+        bullets.push('Kode ini tidak ada di kamus offline — lihat resume medis untuk konfirmasi');
+      }
+      bullets.push(`Status: ${status === 'approved' ? 'Disetujui' : 'Valid'}`);
+
       explanations.push({
         code,
         type,
-        description: 'Deskripsi tidak tersedia di kamus offline',
-        layman: 'Perlu dicek di buku ICD-10/ICD-9 CM',
+        description: evidenceEntry?.quotation
+          ? `Ditemukan di resume medis: "${evidenceEntry.quotation}"`
+          : 'Lihat resume medis untuk detail',
+        layman: '',
         status,
-        explanationBullets: [
-          'Deskripsi tidak tersedia di kamus offline (belum terhubung API BPJS)',
-          `Status: ${status === 'approved' ? 'Disetujui' : 'Valid'}`
-        ]
+        explanationBullets: bullets
       });
       continue;
     }

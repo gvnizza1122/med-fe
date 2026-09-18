@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 import {
   generateCodingExplanation,
   type CodingExplanation,
-  type CodingExplanationResult
+  type CodingExplanationResult,
+  type CodeEvidenceEntry,
 } from '@/lib/generateCodingExplanation';
 
 interface CodingExplanationPanelProps {
@@ -15,6 +16,7 @@ interface CodingExplanationPanelProps {
   status: 'valid' | 'approved' | 'empty' | 'error';
   clinicalFindings?: Record<string, any>;
   pageReference?: string; // e.g., "Resume Medis hal. 2"
+  codeEvidence?: CodeEvidenceEntry[]; // Data dari ai_review.code_evidence
   className?: string;
 }
 
@@ -37,6 +39,7 @@ export function CodingExplanationPanel({
   status,
   clinicalFindings,
   pageReference,
+  codeEvidence,
   className
 }: CodingExplanationPanelProps) {
   const [expanded, setExpanded] = useState(false);
@@ -51,7 +54,8 @@ export function CodingExplanationPanel({
     fieldType,
     status,
     clinicalFindings,
-    pageReference
+    pageReference,
+    codeEvidence
   );
 
   if (!result.isComplete || result.codes.length === 0) return null;

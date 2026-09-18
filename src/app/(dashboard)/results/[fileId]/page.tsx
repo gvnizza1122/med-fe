@@ -151,8 +151,8 @@ const FIELD_CATEGORIES: Record<string, string[]> = {
   'Data Rawatan': ['KODE_RS', 'KELAS_RS', 'KELAS_RAWAT', 'ADMISSION_DATE', 'DISCHARGE_DATE', 'DISCHARGE_STATUS', 'LOS'],
   'Diagnosis & Prosedur': ['DIAGLIST', 'PROCLIST', 'ADL1', 'ADL2'],
   'INA-CBG & Tarif': ['INACBG', 'DESKRIPSI_INACBG', 'TARIF_INACBG', 'SP', 'SR', 'SI', 'SD',
-                       'DESKRIPSI_SP', 'TARIF_SP', 'DESKRIPSI_SR', 'TARIF_SR', 'DESKRIPSI_SI',
-                       'TARIF_SI', 'DESKRIPSI_SD', 'TARIF_SD', 'TOTAL_TARIF'],
+    'DESKRIPSI_SP', 'TARIF_SP', 'DESKRIPSI_SR', 'TARIF_SR', 'DESKRIPSI_SI',
+    'TARIF_SI', 'DESKRIPSI_SD', 'TARIF_SD', 'TOTAL_TARIF'],
   'ICU & Ventilasi': ['ICU_INDIKATOR', 'ICU_LOS', 'VENT_HOUR'],
   'Asuransi & Rujukan': ['SEP', 'NOKARTU', 'PAYOR_ID', 'DPJP', 'KODE_TARIF', 'PTD', 'IN_SP', 'IN_SR', 'IN_SI', 'IN_SD', 'SUBACUTE', 'CHRONIC', 'TARIF_POLI_EKS'],
   // 'Sistem (Isi Otomatis oleh vClaim)' (TARIF_RS/CODER_ID/VERSI_INACBG/
@@ -369,7 +369,7 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
       column_name: colName,
       value: value ?? null,
       status: VCLAIM_FILLED_COLUMNS.has(colName) ? 'system' :
-              isEmptyValue ? (jenis === 'wajar_kosong' ? 'wajar_kosong' : 'empty') : 'valid',
+        isEmptyValue ? (jenis === 'wajar_kosong' ? 'wajar_kosong' : 'empty') : 'valid',
     };
   });
   validationErrors?.forEach(err => {
@@ -641,15 +641,16 @@ function FieldRowTr({
         )}
         {/* Penjelasan Kode untuk DIAGLIST/PROCLIST — tampil bila ada nilai, status apapun */}
         {(field.column_name === 'DIAGLIST' || field.column_name === 'PROCLIST') &&
-         !isBlankValue(currentValue) && (
-          <CodingExplanationPanel
-            codeString={String(currentValue ?? '')}
-            fieldType={field.column_name === 'DIAGLIST' ? 'diagnosis' : 'procedure'}
-            status={field.status as any}
-            clinicalFindings={recordData}
-            pageReference={`Resume Medis`}
-          />
-        )}
+          !isBlankValue(currentValue) && (
+            <CodingExplanationPanel
+              codeString={String(currentValue ?? '')}
+              fieldType={field.column_name === 'DIAGLIST' ? 'diagnosis' : 'procedure'}
+              status={field.status as any}
+              clinicalFindings={recordData}
+              pageReference={`Resume Medis`}
+              codeEvidence={field.codeEvidence}
+            />
+          )}
         {field.suggestedCodes && field.suggestedCodes.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-blue-600 dark:text-blue-400">
             <span className="inline-flex items-center gap-1"><Lightbulb className="size-3" /> Kode disarankan dari dokumen (format ICD-10-CM Amerika — BELUM dicocokkan ke ICD-10 WHO yang dipakai BPJS, ketik manual setelah diverifikasi):</span>
@@ -1077,13 +1078,14 @@ function RecordFieldsTable({
                 // rowParity: dihitung lintas semua kategori (bukan nth-child CSS)
                 // supaya baris judul kategori (yang selang-seling di antara baris
                 // data) tidak ikut kena zebra dan tidak merusak pola genap-ganjil.
-                (() => { let rowParity = 0; return categories.map(({ category, rows }) => (
-                  <Fragment key={category}>
-                    <tr>
-                      <td colSpan={4} className="bg-muted/70 font-bold text-[11px] text-muted-foreground uppercase tracking-wide px-3 py-1.5">
-                        {category}
-                      </td>
-                    </tr>
+                (() => {
+                  let rowParity = 0; return categories.map(({ category, rows }) => (
+                    <Fragment key={category}>
+                      <tr>
+                        <td colSpan={4} className="bg-muted/70 font-bold text-[11px] text-muted-foreground uppercase tracking-wide px-3 py-1.5">
+                          {category}
+                        </td>
+                      </tr>
                       {rows.map(field => {
                         const isHighlighted = !!highlightFields?.has(field.column_name);
                         const isZebra = rowParity++ % 2 === 1;
@@ -1102,8 +1104,9 @@ function RecordFieldsTable({
                           />
                         );
                       })}
-                  </Fragment>
-                )) })()
+                    </Fragment>
+                  ))
+                })()
               )}
             </tbody>
           </table>
@@ -1324,11 +1327,9 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/15 text-emerald-400 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[18px]">gavel</span>
             </div>
             <div>
-              <h2 className="text-sm text-gray-100 font-semibold">Kegawatdaruratan (Permenkes 47/2018 Pasal 3)</h2>
-              <p className="text-xs text-xs text-gray-400 mt-0.5">Penilaian Kriteria Gawat Darurat</p>
+              <h2 className="text-sm text-gray-100 font-semibold">Kegawatdaruratan</h2>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1517,10 +1518,10 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                       )}
                       <span className={cn(
                         'text-[9px] font-bold px-1.5 py-0.5 rounded ml-auto',
-                        level === 'gawat'   ? 'bg-red-950/60 text-red-400 border border-red-900/50'
-                        : level === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
-                        : level === 'missing' ? 'bg-white/[0.05] text-gray-400 border border-white/10'
-                        : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
+                        level === 'gawat' ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                          : level === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
+                            : level === 'missing' ? 'bg-white/[0.05] text-gray-400 border border-white/10'
+                              : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
                       )}>
                         {level === 'gawat' ? 'KRITIS' : level === 'borderline' ? 'BORDERLINE' : level === 'missing' ? 'KOSONG' : '✓ Normal'}
                       </span>
@@ -1619,9 +1620,9 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                       </div>
                       <span className={cn(
                         'text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0',
-                        k.status === 'ya'      ? 'bg-red-950/60 text-red-400 border border-red-900/50'
-                        : k.status === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
-                        : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
+                        k.status === 'ya' ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                          : k.status === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
+                            : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
                       )}>
                         {k.status === 'ya' ? 'TERPENUHI' : k.status === 'borderline' ? 'BORDERLINE' : 'TIDAK'}
                       </span>
@@ -1673,176 +1674,176 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
 
         </div>
       ) : (
-      <>
-      {/* Tabel 1: Parameter pemeriksaan fisik */}
-      <div className="px-6 py-4 border-b border-white/10">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">1</div>
-          <h3 className="text-sm text-gray-100 font-semibold">Parameter Pemeriksaan Fisik</h3>
-        </div>
-        <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-white/[0.02] border-b border-white/10">
-              <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Parameter</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[100px]">Status</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Kutipan Dokumen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {parameter_findings.map((p, idx) => (
-                <tr key={p.key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-100">{p.label}</td>
-                  <td className="px-4 py-3 text-sm" style={p.status ? BAND_COLOR[p.status === 'abnormal' ? 'gawat' : 'normal'] : { color: 'var(--on-surface-variant)' }}>
-                    {p.status === 'abnormal' ? 'Abnormal' : p.status === 'normal' ? 'Normal' : 'Tidak tercatat'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
-                    <QuoteCell kutipan={p.kutipan} page_number={p.page_number} />
-                    {p.nilai ? <span className="block text-label-md">Nilai: {p.nilai}</span> : null}
-                    {p.sumber_dokumen === 'resume_medis' ? (
-                      <span
-                        className="inline-block rounded border border-amber-900/50 px-2 py-0.5 text-label-md text-amber-500 dark:text-amber-500 bg-amber-950/40"
-                        title="Tidak tercatat di formulir Triase IGD — ditampilkan dari Resume Medis Rawat Inap sebagai konteks tambahan. Tidak ikut menentukan Ya/Tidak/Borderline pada Tabel 3 (K1-K5 tetap dihitung khusus dari Triase IGD saja)."
-                      >
-                        Resume Medis
-                      </span>
-                    ) : null}
-                    {p.retraksi_grade ? (
-                      <span
-                        className="inline-block rounded border border-red-900/50 px-2 py-0.5 text-label-md text-red-400 dark:text-red-400 bg-red-950/40 ml-1"
-                        title="Retraksi interkostal menandakan distres napas lebih berat dibanding subkostal (PNPK Tatalaksana Pneumonia pada Anak IDAI)"
-                      >
-                        {p.retraksi_grade}
-                      </span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Tabel 2: Nilai vital + ambang batas (referensi dewasa + hasil per-record) */}
-      <div className="px-6 py-4 border-b border-white/10">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">2</div>
-          <h3 className="text-sm text-gray-100 font-semibold">
-            Nilai Vital &amp; Ambang Batas
-            {age_group ? <span className="ml-2 font-normal text-gray-400 text-label-md">(Usia: {AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
-          </h3>
-        </div>
-        <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-white/[0.02] border-b border-white/10">
-              <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Parameter</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[90px]">Nilai</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[100px]">Band</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Ambang (Dewasa)</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Dokumen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(VITAL_LABELS).map(([key, meta], idx) => {
-                const vf = vital_findings?.[key];
-                const isEmpty = vf?.nilai === null || vf?.nilai === undefined;
-                // Skala Nyeri pada formulir kertas/PDF biasanya berupa skala cetak
-                // 0-10 yang diisi dengan MELINGKARI/mencentang satu angka -- tanda
-                // visual itu tidak pernah bisa terbaca oleh pipeline ini (murni
-                // ekstraksi teks, TIDAK ADA analisis gambar/vision di manapun,
-                // baik untuk halaman native maupun hasil OCR) -- jadi "tidak
-                // tercatat" DI SINI KHUSUS bisa berarti "memang kosong" ATAU
-                // "diisi tapi tandanya tidak terbaca teks", beda dari field lain
-                // yang "tidak tercatat"-nya lebih bisa dipercaya sebagai genuinely
-                // kosong. Verifikator perlu tahu ini supaya tidak salah kira bug.
-                // Instrumen skala nyeri yang diharapkan untuk usia pasien ini
-                // (NIPS neonatus / FLACC <3th / Wong-Baker 3-7th / NRS-VAS
-                // >=8th) -- dihitung server-side dari umur, ditempel apa adanya
-                // ke output, dipakai sbg konteks di sini supaya verifikator
-                // tahu notasi apa yang seharusnya dicari di formulir.
-                const instrumenDiharapkan = key === 'Nyeri' ? vf?.instrumen_diharapkan : undefined;
-                const nyeriCaveat = key === 'Nyeri' && isEmpty
-                  ? `Skala nyeri pada formulir kertas/PDF biasanya diisi dengan melingkari/mencentang satu angka pada skala tercetak 0-10 -- tanda visual seperti itu tidak dapat terbaca oleh sistem ini (ekstraksi murni berbasis teks, tanpa analisis gambar). "Tidak tercatat" di sini bisa berarti field ini memang kosong, ATAU sudah diisi tapi tandanya tidak terbaca sistem -- cek dokumen asli untuk memastikan.${instrumenDiharapkan ? ` Instrumen yang diharapkan untuk usia pasien ini: ${instrumenDiharapkan}.` : ''}`
-                  : undefined;
-                return (
-                  <tr key={key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-100">{meta.label}</td>
-                    <td className="px-4 py-3 text-sm font-mono">{!isEmpty ? `${vf.nilai} ${meta.unit}` : <span className="italic text-gray-400" title={nyeriCaveat}>{nyeriCaveat ? '—' : '—'}</span>}</td>
-                    <td className="px-4 py-3 text-sm font-medium" style={vf?.band ? BAND_COLOR[vf.band] : { color: 'var(--on-surface-variant)' }}>
-                      {vf?.band ? BAND_LABEL[vf.band] : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-label-md text-gray-400">{meta.referensiDewasa}</td>
-                    <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
-                      {nyeriCaveat
-                        ? <span className="italic text-[12px]" title={nyeriCaveat}>Catatan spesial lihat detail</span>
-                        : <>
-                            <QuoteCell kutipan={vf?.kutipan} page_number={vf?.page_number} />
-                            {instrumenDiharapkan ? <span className="block text-label-md italic">Instrumen: {instrumenDiharapkan}</span> : null}
-                          </>}
-                    </td>
+        <>
+          {/* Tabel 1: Parameter pemeriksaan fisik */}
+          <div className="px-6 py-4 border-b border-white/10">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">1</div>
+              <h3 className="text-sm text-gray-100 font-semibold">Parameter Pemeriksaan Fisik</h3>
+            </div>
+            <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-white/[0.02] border-b border-white/10">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Parameter</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[100px]">Status</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Kutipan Dokumen</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-label-md text-gray-400 italic">
-          Ambang untuk Dewasa (Lansia menggunakan ambang sama, kecuali HR &lt;60/&gt;100). Anak/bayi punya ambang per kelompok usia (PALS) — sudah disesuaikan otomatis pada kolom Band berdasarkan usia pasien.
-        </p>
-      </div>
+                </thead>
+                <tbody>
+                  {parameter_findings.map((p, idx) => (
+                    <tr key={p.key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-100">{p.label}</td>
+                      <td className="px-4 py-3 text-sm" style={p.status ? BAND_COLOR[p.status === 'abnormal' ? 'gawat' : 'normal'] : { color: 'var(--on-surface-variant)' }}>
+                        {p.status === 'abnormal' ? 'Abnormal' : p.status === 'normal' ? 'Normal' : 'Tidak tercatat'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
+                        <QuoteCell kutipan={p.kutipan} page_number={p.page_number} />
+                        {p.nilai ? <span className="block text-label-md">Nilai: {p.nilai}</span> : null}
+                        {p.sumber_dokumen === 'resume_medis' ? (
+                          <span
+                            className="inline-block rounded border border-amber-900/50 px-2 py-0.5 text-label-md text-amber-500 dark:text-amber-500 bg-amber-950/40"
+                            title="Tidak tercatat di formulir Triase IGD — ditampilkan dari Resume Medis Rawat Inap sebagai konteks tambahan. Tidak ikut menentukan Ya/Tidak/Borderline pada Tabel 3 (K1-K5 tetap dihitung khusus dari Triase IGD saja)."
+                          >
+                            Resume Medis
+                          </span>
+                        ) : null}
+                        {p.retraksi_grade ? (
+                          <span
+                            className="inline-block rounded border border-red-900/50 px-2 py-0.5 text-label-md text-red-400 dark:text-red-400 bg-red-950/40 ml-1"
+                            title="Retraksi interkostal menandakan distres napas lebih berat dibanding subkostal (PNPK Tatalaksana Pneumonia pada Anak IDAI)"
+                          >
+                            {p.retraksi_grade}
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      {/* Tabel 3: Agregasi kriteria K1-K5 */}
-      <div className="px-6 py-4">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">3</div>
-          <h3 className="text-sm text-gray-100 font-semibold">Agregasi Kriteria (K1-K5)</h3>
-        </div>
-        <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-white/[0.02] border-b border-white/10">
-              <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[240px]">Kriteria</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[120px]">Status</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Bukti</th>
-                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Catatan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {kriteria.map((k, idx) => (
-                <tr key={k.kriteria} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-100">{k.kriteria} <span className="font-normal text-gray-400">{k.label}</span></td>
-                  <td className="px-4 py-3">
-                    <Badge className={cn('text-[10px] font-label-sm px-2.5 py-1', KRITERIA_STATUS_STYLE[k.status])} style={KRITERIA_STATUS_COLOR[k.status]}>
-                      {KRITERIA_STATUS_LABEL[k.status]}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
-                    {k.evidence.length === 0
-                      ? <span className="italic">Tidak ada</span>
-                      : (
-                        <ul className="space-y-1">
-                          {k.evidence.map((e, i) => (
-                            <li key={i} className="text-[12px]">
-                              {e.sumber === 'proclist'
-                                ? <span className="font-mono">Kode {e.kode} — {e.deskripsi}</span>
-                                : <span>{e.label || e.key}{e.nilai !== undefined ? `: ${e.nilai}` : ''}{e.band ? ` (${BAND_LABEL[e.band] || e.band})` : ''} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{k.catatan || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-label-md text-gray-400">
-          K2-K5 dihitung otomatis dari Tabel 1 &amp; 2 (ambang baku) — K5 dari PROCLIST. K1 penilaian bahasa (risiko diri/orang/lingkungan). Ini bahan cek klinis sebelum submit, bukan keputusan final.
-        </p>
-      </div>
-      </>
+          {/* Tabel 2: Nilai vital + ambang batas (referensi dewasa + hasil per-record) */}
+          <div className="px-6 py-4 border-b border-white/10">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">2</div>
+              <h3 className="text-sm text-gray-100 font-semibold">
+                Nilai Vital &amp; Ambang Batas
+                {age_group ? <span className="ml-2 font-normal text-gray-400 text-label-md">(Usia: {AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
+              </h3>
+            </div>
+            <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-white/[0.02] border-b border-white/10">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Parameter</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[90px]">Nilai</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[100px]">Band</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Ambang (Dewasa)</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Dokumen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(VITAL_LABELS).map(([key, meta], idx) => {
+                    const vf = vital_findings?.[key];
+                    const isEmpty = vf?.nilai === null || vf?.nilai === undefined;
+                    // Skala Nyeri pada formulir kertas/PDF biasanya berupa skala cetak
+                    // 0-10 yang diisi dengan MELINGKARI/mencentang satu angka -- tanda
+                    // visual itu tidak pernah bisa terbaca oleh pipeline ini (murni
+                    // ekstraksi teks, TIDAK ADA analisis gambar/vision di manapun,
+                    // baik untuk halaman native maupun hasil OCR) -- jadi "tidak
+                    // tercatat" DI SINI KHUSUS bisa berarti "memang kosong" ATAU
+                    // "diisi tapi tandanya tidak terbaca teks", beda dari field lain
+                    // yang "tidak tercatat"-nya lebih bisa dipercaya sebagai genuinely
+                    // kosong. Verifikator perlu tahu ini supaya tidak salah kira bug.
+                    // Instrumen skala nyeri yang diharapkan untuk usia pasien ini
+                    // (NIPS neonatus / FLACC <3th / Wong-Baker 3-7th / NRS-VAS
+                    // >=8th) -- dihitung server-side dari umur, ditempel apa adanya
+                    // ke output, dipakai sbg konteks di sini supaya verifikator
+                    // tahu notasi apa yang seharusnya dicari di formulir.
+                    const instrumenDiharapkan = key === 'Nyeri' ? vf?.instrumen_diharapkan : undefined;
+                    const nyeriCaveat = key === 'Nyeri' && isEmpty
+                      ? `Skala nyeri pada formulir kertas/PDF biasanya diisi dengan melingkari/mencentang satu angka pada skala tercetak 0-10 -- tanda visual seperti itu tidak dapat terbaca oleh sistem ini (ekstraksi murni berbasis teks, tanpa analisis gambar). "Tidak tercatat" di sini bisa berarti field ini memang kosong, ATAU sudah diisi tapi tandanya tidak terbaca sistem -- cek dokumen asli untuk memastikan.${instrumenDiharapkan ? ` Instrumen yang diharapkan untuk usia pasien ini: ${instrumenDiharapkan}.` : ''}`
+                      : undefined;
+                    return (
+                      <tr key={key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-100">{meta.label}</td>
+                        <td className="px-4 py-3 text-sm font-mono">{!isEmpty ? `${vf.nilai} ${meta.unit}` : <span className="italic text-gray-400" title={nyeriCaveat}>{nyeriCaveat ? '—' : '—'}</span>}</td>
+                        <td className="px-4 py-3 text-sm font-medium" style={vf?.band ? BAND_COLOR[vf.band] : { color: 'var(--on-surface-variant)' }}>
+                          {vf?.band ? BAND_LABEL[vf.band] : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-label-md text-gray-400">{meta.referensiDewasa}</td>
+                        <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
+                          {nyeriCaveat
+                            ? <span className="italic text-[12px]" title={nyeriCaveat}>Catatan spesial lihat detail</span>
+                            : <>
+                              <QuoteCell kutipan={vf?.kutipan} page_number={vf?.page_number} />
+                              {instrumenDiharapkan ? <span className="block text-label-md italic">Instrumen: {instrumenDiharapkan}</span> : null}
+                            </>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-label-md text-gray-400 italic">
+              Ambang untuk Dewasa (Lansia menggunakan ambang sama, kecuali HR &lt;60/&gt;100). Anak/bayi punya ambang per kelompok usia (PALS) — sudah disesuaikan otomatis pada kolom Band berdasarkan usia pasien.
+            </p>
+          </div>
+
+          {/* Tabel 3: Agregasi kriteria K1-K5 */}
+          <div className="px-6 py-4">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">3</div>
+              <h3 className="text-sm text-gray-100 font-semibold">Agregasi Kriteria (K1-K5)</h3>
+            </div>
+            <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-white/[0.02] border-b border-white/10">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[240px]">Kriteria</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[120px]">Status</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Bukti</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Catatan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kriteria.map((k, idx) => (
+                    <tr key={k.kriteria} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-100">{k.kriteria} <span className="font-normal text-gray-400">{k.label}</span></td>
+                      <td className="px-4 py-3">
+                        <Badge className={cn('text-[10px] font-label-sm px-2.5 py-1', KRITERIA_STATUS_STYLE[k.status])} style={KRITERIA_STATUS_COLOR[k.status]}>
+                          {KRITERIA_STATUS_LABEL[k.status]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
+                        {k.evidence.length === 0
+                          ? <span className="italic">Tidak ada</span>
+                          : (
+                            <ul className="space-y-1">
+                              {k.evidence.map((e, i) => (
+                                <li key={i} className="text-[12px]">
+                                  {e.sumber === 'proclist'
+                                    ? <span className="font-mono">Kode {e.kode} — {e.deskripsi}</span>
+                                    : <span>{e.label || e.key}{e.nilai !== undefined ? `: ${e.nilai}` : ''}{e.band ? ` (${BAND_LABEL[e.band] || e.band})` : ''} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-400">{k.catatan || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-label-md text-gray-400">
+              K2-K5 dihitung otomatis dari Tabel 1 &amp; 2 (ambang baku) — K5 dari PROCLIST. K1 penilaian bahasa (risiko diri/orang/lingkungan). Ini bahan cek klinis sebelum submit, bukan keputusan final.
+            </p>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1989,7 +1990,7 @@ export default function ResultsPage() {
     api.getRv20Confirmation(rec.id).then(res => {
       if (cancelled || !res.confirmed) return;
       setRv20ConfirmedRecordIds(prev => new Set(prev).add(rec.id));
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { cancelled = true; };
   }, [selectedRecordId, records, rv20ConfirmedRecordIds]);
 
@@ -2416,10 +2417,10 @@ export default function ResultsPage() {
                   bukan checklist per-rule, bukan peringatan. */}
                 {hasEpisodeTrackingData(selectedRecord) &&
                   !selectedRecord.errors?.some(e => ['RV-13', 'RV-14', 'RV-15', 'RV-16'].includes(e.rule_id)) && (
-                  <p className="mb-4 text-xs text-muted-foreground">
-                    RV-13 s/d RV-16: tidak ada isu terdeteksi.
-                  </p>
-                )}
+                    <p className="mb-4 text-xs text-muted-foreground">
+                      RV-13 s/d RV-16: tidak ada isu terdeteksi.
+                    </p>
+                  )}
 
                 {/* ─── RV-20 (kegawatan IGD): referensi padanan kode, baca saja ── */}
                 {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
@@ -2533,7 +2534,7 @@ export default function ResultsPage() {
                   const kegawatdaruratanTable = (
                     <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} />
                   );
-                  
+
                   const inacbgCard = (
                     <InaCbgDashboardCard key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
                   );
