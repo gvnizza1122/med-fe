@@ -1317,17 +1317,17 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
   );
 
   return (
-    <div className="mt-6 rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-sm overflow-hidden dark:border-outline-variant/30">
+    <div className="mt-6 rounded-xl bg-white/[0.02]est border border-white/10 shadow-sm overflow-hidden dark:border-white/10">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-surface-container via-surface to-surface-container-low px-6 py-4 border-b border-outline-variant/20">
+      <div className="bg-gradient-to-r from-surface-container via-surface to-surface-container-low px-6 py-4 border-b border-white/10">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-primary/15 text-emerald-400 flex items-center justify-center">
               <span className="material-symbols-outlined text-[18px]">gavel</span>
             </div>
             <div>
-              <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Kegawatdaruratan (Permenkes 47/2018 Pasal 3)</h2>
-              <p className="text-label-sm text-label-sm text-on-surface-variant mt-0.5">Penilaian Kriteria Gawat Darurat</p>
+              <h2 className="text-sm text-gray-100 font-semibold">Kegawatdaruratan (Permenkes 47/2018 Pasal 3)</h2>
+              <p className="text-xs text-xs text-gray-400 mt-0.5">Penilaian Kriteria Gawat Darurat</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1335,9 +1335,9 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
               variant="outline"
               className={cn(
                 'text-[10px] font-label-sm px-2.5 py-1.5',
-                yaCount > 0 ? 'border-error/40 bg-error/5 text-error dark:text-error'
-                  : borderlineCount > 0 ? 'border-tertiary/40 bg-tertiary/5 text-tertiary dark:text-tertiary'
-                    : 'border-primary/40 bg-primary/5 text-primary dark:text-primary'
+                yaCount > 0 ? 'border-red-900/50 bg-red-950/40 text-red-400 dark:text-red-400'
+                  : borderlineCount > 0 ? 'border-amber-900/50 bg-amber-950/40 text-amber-500 dark:text-amber-500'
+                    : 'border-primary/40 bg-emerald-900/30 text-emerald-400 dark:text-emerald-400'
               )}
             >
               {yaCount} Ya, {borderlineCount} Borderline
@@ -1348,8 +1348,8 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
       </div>
 
       {/* Ringkasan Section */}
-      <div className="px-6 py-4 bg-surface-container-low/50 border-b border-outline-variant/20">
-        <p className="text-body-sm text-body-sm text-on-surface font-medium leading-relaxed">{ringkasan}</p>
+      <div className="px-6 py-4 bg-white/[0.02] border-b border-white/10">
+        <p className="text-sm text-gray-300 font-medium leading-relaxed">{ringkasan}</p>
       </div>
 
       {!showFullDetail ? (
@@ -1359,14 +1359,14 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
           <div>
             <div className="mb-3 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">1</div>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Parameter Pemeriksaan Fisik</h3>
+                <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">1</div>
+                <h3 className="text-sm text-gray-100 font-semibold">Parameter Pemeriksaan Fisik</h3>
               </div>
               <span className={cn(
                 'text-[11px] font-medium px-2.5 py-1 rounded-full border',
                 abnormalParams.length > 0
-                  ? 'bg-error/5 border-error/30 text-error dark:text-error'
-                  : 'bg-primary/5 border-primary/30 text-primary dark:text-primary'
+                  ? 'bg-red-950/40 border-red-900/50 text-red-400'
+                  : 'bg-emerald-900/30 border-emerald-800/50 text-emerald-400'
               )}>
                 {documentedParams.length}/{parameter_findings.length} tercatat
                 {abnormalParams.length > 0 ? ` · ${abnormalParams.length} abnormal` : ''}
@@ -1381,30 +1381,30 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     className={cn(
                       'flex items-center justify-between py-2 px-3 rounded border',
                       p.status === 'abnormal'
-                        ? 'border-error/30 bg-error/5 dark:bg-error/[0.03]'
-                        : 'border-outline-variant/30 bg-surface-container-low/30'
+                        ? 'border-red-900/30 bg-red-950/20'
+                        : 'border-white/10 bg-white/[0.02]'
                     )}
                   >
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-1.5">
                         {p.status === 'abnormal'
-                          ? <XCircle className="size-3.5 text-error shrink-0" />
-                          : <CheckCircle2 className="size-3.5 text-primary shrink-0" />}
+                          ? <XCircle className="size-3.5 text-red-400 shrink-0" />
+                          : <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />}
                         <span className={cn(
                           'font-medium text-sm',
-                          p.status === 'abnormal' ? 'text-error' : 'text-on-surface'
+                          p.status === 'abnormal' ? 'text-red-400' : 'text-gray-200'
                         )}>
                           {p.label}
                         </span>
                         {p.sumber_dokumen === 'resume_medis' && (
-                          <span className="text-[10px] text-tertiary ml-1">(Resume Medis)</span>
+                          <span className="text-[10px] text-gray-500 ml-1">(Resume Medis)</span>
                         )}
                         {p.retraksi_grade && (
-                          <span className="text-[10px] text-error">({p.retraksi_grade})</span>
+                          <span className="text-[10px] text-red-400">({p.retraksi_grade})</span>
                         )}
                       </div>
                       {p.kutipan && (
-                        <p className="text-[11px] text-on-surface-variant italic pl-5">
+                        <p className="text-[11px] text-gray-400 italic pl-5">
                           "{p.kutipan}"
                           {p.page_number ? <span className="not-italic ml-1 opacity-70">hal. {p.page_number}</span> : null}
                         </p>
@@ -1413,8 +1413,8 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     <span className={cn(
                       'text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0',
                       p.status === 'abnormal'
-                        ? 'bg-error/10 text-error border border-error/20'
-                        : 'bg-primary/10 text-primary border border-primary/20'
+                        ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                        : 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50'
                     )}>
                       {p.nilai || (p.status === 'abnormal' ? 'Abnormal' : 'Normal')}
                     </span>
@@ -1422,7 +1422,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-outline-variant/40 px-4 py-6 text-center text-on-surface-variant text-body-sm">
+              <div className="rounded border border-white/10 px-4 py-6 text-center text-gray-500 text-sm">
                 Tidak ada parameter yang terdokumentasi di formulir
               </div>
             )}
@@ -1431,7 +1431,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
               <div className="mt-3">
                 <button
                   type="button"
-                  className="text-body-sm text-body-sm text-primary dark:text-primary font-medium hover:underline transition-colors"
+                  className="text-sm text-emerald-400 font-medium hover:underline transition-colors"
                   onClick={() => setShowUndocumented(v => !v)}
                 >
                   📋 {showUndocumented ? 'Sembunyikan' : `Lihat ${undocumentedParams.length} parameter tidak tercatat`} →
@@ -1439,7 +1439,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                 {showUndocumented && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {undocumentedParams.map(p => (
-                      <span key={p.key} className="rounded-full border border-outline-variant/40 px-2.5 py-1 text-label-sm text-label-sm text-on-surface-variant bg-surface-container-low dark:bg-surface-container">{p.label}</span>
+                      <span key={p.key} className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-gray-400 bg-white/[0.02]">{p.label}</span>
                     ))}
                   </div>
                 )}
@@ -1451,19 +1451,19 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
           <div>
             <div className="mb-3 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">2</div>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">2</div>
+                <h3 className="text-sm text-gray-100 font-semibold">
                   Nilai Vital &amp; Ambang Batas
-                  {age_group ? <span className="ml-2 font-normal text-on-surface-variant text-label-sm">({AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
+                  {age_group ? <span className="ml-2 font-normal text-gray-400 text-xs">({AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
                 </h3>
               </div>
               <span className={cn(
                 'text-[11px] font-medium px-2.5 py-1 rounded-full border',
                 vitalGawatCount > 0
-                  ? 'bg-error/5 border-error/30 text-error dark:text-error'
+                  ? 'bg-red-950/40 border-red-900/50 text-red-400 dark:text-red-400'
                   : (vitalBorderlineCount > 0 || vitalMissingCount > 0)
-                    ? 'bg-tertiary/5 border-tertiary/30 text-tertiary dark:text-tertiary'
-                    : 'bg-primary/5 border-primary/30 text-primary dark:text-primary'
+                    ? 'bg-amber-950/40 border-amber-900/50 text-amber-500 dark:text-amber-500'
+                    : 'bg-emerald-900/30 border-emerald-800/50 text-emerald-400 dark:text-emerald-400'
               )}>
                 {vitalGawatCount > 0 ? `${vitalGawatCount} kritis` : vitalBorderlineCount > 0 ? `${vitalBorderlineCount} borderline` : 'Semua normal'}
                 {vitalMissingCount > 0 ? ` · ${vitalMissingCount} kosong` : ''}
@@ -1472,10 +1472,10 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
 
             {spo2Missing && (
               <div className={cn(
-                'mb-3 rounded-lg border px-3.5 py-2.5 text-body-sm font-medium',
+                'mb-3 rounded-lg border px-3.5 py-2.5 text-sm font-medium',
                 vitalGawatCount > 0
-                  ? 'border-error/40 bg-error/8 dark:bg-error/5 text-error dark:text-error'
-                  : 'border-tertiary/40 bg-tertiary/8 dark:bg-tertiary/5 text-tertiary dark:text-tertiary'
+                  ? 'border-red-900/50 bg-red-950/40 dark:bg-red-950/40 text-red-400 dark:text-red-400'
+                  : 'border-amber-900/50 bg-amber-950/40 dark:bg-amber-950/40 text-amber-500 dark:text-amber-500'
               )}>
                 ⚠️ SpO2 tidak tercatat — parameter kunci gangguan pernapasan
               </div>
@@ -1488,23 +1488,23 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                   ? `Skala nyeri kertas/PDF biasanya diisi dengan melingkari angka pada skala cetak — tidak terbaca sistem.${instrumenDiharapkan ? ` Instrumen: ${instrumenDiharapkan}.` : ''}`
                   : undefined;
                 const cardBorder = level === 'gawat'
-                  ? 'border-error/50 bg-error/5 dark:bg-error/[0.04]'
+                  ? 'border-red-900/50 bg-red-950/40 bg-red-950/40'
                   : level === 'borderline'
-                    ? 'border-tertiary/50 bg-tertiary/5 dark:bg-tertiary/[0.04]'
+                    ? 'border-amber-900/50 bg-amber-950/40 bg-amber-950/40'
                     : level === 'missing'
-                      ? 'border-outline-variant/40 bg-surface-container-low/40 opacity-60'
-                      : 'border-primary/30 bg-primary/5 dark:bg-primary/[0.04]';
+                      ? 'border-white/10 bg-white/[0.02] opacity-60'
+                      : 'border-emerald-800/50 bg-emerald-900/30 bg-emerald-900/30';
                 const valueColor = level === 'gawat'
-                  ? 'text-error dark:text-error'
+                  ? 'text-red-400 dark:text-red-400'
                   : level === 'borderline'
-                    ? 'text-tertiary dark:text-tertiary'
+                    ? 'text-amber-500 dark:text-amber-500'
                     : level === 'missing'
-                      ? 'text-on-surface-variant italic'
-                      : 'text-on-surface';
+                      ? 'text-gray-400 italic'
+                      : 'text-gray-100';
                 return (
                   <div key={key} className={cn('rounded-xl border p-3 flex flex-col gap-1', cardBorder)} title={nyeriTip}>
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider truncate">{meta.label}</span>
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider truncate">{meta.label}</span>
                       <SeverityDot level={level} />
                     </div>
                     <div className={cn('text-2xl font-light leading-none mt-0.5', valueColor)}>
@@ -1512,14 +1512,14 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
                       {!isEmpty && (
-                        <span className="text-[10px] text-on-surface-variant">{meta.unit}</span>
+                        <span className="text-[10px] text-gray-400">{meta.unit}</span>
                       )}
                       <span className={cn(
                         'text-[9px] font-bold px-1.5 py-0.5 rounded ml-auto',
-                        level === 'gawat'   ? 'bg-error/10 text-error border border-error/20'
-                        : level === 'borderline' ? 'bg-tertiary/10 text-tertiary dark:text-tertiary border border-tertiary/20'
-                        : level === 'missing' ? 'bg-outline-variant/20 text-on-surface-variant border border-outline-variant/30'
-                        : 'bg-primary/10 text-primary border border-primary/20'
+                        level === 'gawat'   ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                        : level === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
+                        : level === 'missing' ? 'bg-white/[0.05] text-gray-400 border border-white/10'
+                        : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
                       )}>
                         {level === 'gawat' ? 'KRITIS' : level === 'borderline' ? 'BORDERLINE' : level === 'missing' ? 'KOSONG' : '✓ Normal'}
                       </span>
@@ -1531,7 +1531,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
 
             <button
               type="button"
-              className="mt-3 text-body-sm text-body-sm text-primary dark:text-primary font-medium hover:underline transition-colors"
+              className="mt-3 text-sm text-emerald-400 dark:text-emerald-400 font-medium hover:underline transition-colors"
               onClick={() => setShowFullDetail(true)}
             >
               📄 Lihat detail lengkap →
@@ -1542,16 +1542,16 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
           <div>
             <div className="mb-3 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">3</div>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Agregasi Kriteria (K1–K5)</h3>
+                <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">3</div>
+                <h3 className="text-sm text-gray-100 font-semibold">Agregasi Kriteria (K1–K5)</h3>
               </div>
               <span className={cn(
                 'text-[11px] font-medium px-2.5 py-1 rounded-full border',
                 yaCount > 0
-                  ? 'bg-error/5 border-error/30 text-error dark:text-error'
+                  ? 'bg-red-950/40 border-red-900/50 text-red-400 dark:text-red-400'
                   : borderlineCount > 0
-                    ? 'bg-tertiary/5 border-tertiary/30 text-tertiary dark:text-tertiary'
-                    : 'bg-primary/5 border-primary/30 text-primary dark:text-primary'
+                    ? 'bg-amber-950/40 border-amber-900/50 text-amber-500 dark:text-amber-500'
+                    : 'bg-emerald-900/30 border-emerald-800/50 text-emerald-400 dark:text-emerald-400'
               )}>
                 {yaCount > 0 ? `${yaCount} terpenuhi` : borderlineCount > 0 ? `${borderlineCount} borderline` : 'Tidak ada'}
               </span>
@@ -1564,33 +1564,33 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                   className={cn(
                     'rounded-xl border-l-[3px] border border-l-current p-3.5 flex flex-col gap-2',
                     k.status === 'ya'
-                      ? 'border-error/30 border-l-error bg-error/5 dark:bg-error/[0.04]'
+                      ? 'border-red-900/50 border-l-red-500 bg-red-950/40 bg-red-950/40'
                       : k.status === 'borderline'
-                        ? 'border-tertiary/30 border-l-tertiary bg-tertiary/5 dark:bg-tertiary/[0.04]'
-                        : 'border-primary/30 border-l-primary bg-primary/5 dark:bg-primary/[0.04]'
+                        ? 'border-amber-900/50 border-l-amber-500 bg-amber-950/40 bg-amber-950/40'
+                        : 'border-emerald-800/50 border-l-emerald-500 bg-emerald-900/30 bg-emerald-900/30'
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
                       {k.status === 'ya'
-                        ? <XCircle className="size-4 text-error shrink-0" />
+                        ? <XCircle className="size-4 text-red-400 shrink-0" />
                         : k.status === 'borderline'
-                          ? <AlertTriangle className="size-4 text-tertiary dark:text-tertiary shrink-0" />
-                          : <CheckCircle2 className="size-4 text-primary shrink-0" />}
-                      <span className="font-label-md text-label-md font-bold text-on-surface">{k.kriteria}</span>
+                          ? <AlertTriangle className="size-4 text-amber-500 dark:text-amber-500 shrink-0" />
+                          : <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />}
+                      <span className="text-sm font-medium font-bold text-gray-100">{k.kriteria}</span>
                     </div>
                     <span className={cn(
                       'text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0',
-                      k.status === 'ya'      ? 'bg-error/10 text-error border border-error/20'
-                      : k.status === 'borderline' ? 'bg-tertiary/10 text-tertiary dark:text-tertiary border border-tertiary/20'
-                      : 'bg-primary/10 text-primary border border-primary/20'
+                      k.status === 'ya'      ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                      : k.status === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
+                      : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
                     )}>
                       {k.status === 'ya' ? 'TERPENUHI' : k.status === 'borderline' ? 'BORDERLINE' : 'TIDAK'}
                     </span>
                   </div>
-                  <p className="text-[11px] font-semibold text-on-surface leading-snug">{KRITERIA_SHORT_LABEL[k.kriteria] || k.label}</p>
+                  <p className="text-[11px] font-semibold text-gray-100 leading-snug">{KRITERIA_SHORT_LABEL[k.kriteria] || k.label}</p>
                   {k.catatan && (
-                    <p className="text-[10px] text-on-surface-variant leading-relaxed border-t border-outline-variant/20 pt-1.5">{k.catatan}</p>
+                    <p className="text-[10px] text-gray-400 leading-relaxed border-t border-white/10 pt-1.5">{k.catatan}</p>
                   )}
                 </div>
               ))}
@@ -1601,33 +1601,33 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
       ) : (
       <>
       {/* Tabel 1: Parameter pemeriksaan fisik */}
-      <div className="px-6 py-4 border-b border-outline-variant/20">
+      <div className="px-6 py-4 border-b border-white/10">
         <div className="mb-4 flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">1</div>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Parameter Pemeriksaan Fisik</h3>
+          <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">1</div>
+          <h3 className="text-sm text-gray-100 font-semibold">Parameter Pemeriksaan Fisik</h3>
         </div>
-        <div className="rounded-xl border border-outline-variant/40 overflow-hidden overflow-x-auto dark:border-outline-variant/30">
-          <table className="w-full text-body-sm border-collapse">
-            <thead className="bg-surface-container-low border-b border-outline-variant/30">
+        <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
+          <table className="w-full text-sm border-collapse">
+            <thead className="bg-white/[0.02] border-b border-white/10">
               <tr>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Parameter</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider w-[100px]">Status</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Kutipan Dokumen</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Parameter</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[100px]">Status</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Kutipan Dokumen</th>
               </tr>
             </thead>
             <tbody>
               {parameter_findings.map((p, idx) => (
-                <tr key={p.key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-surface-container-low/50')}>
-                  <td className="px-4 py-3 text-body-sm font-medium text-on-surface">{p.label}</td>
-                  <td className="px-4 py-3 text-body-sm" style={p.status ? BAND_COLOR[p.status === 'abnormal' ? 'gawat' : 'normal'] : { color: 'var(--on-surface-variant)' }}>
+                <tr key={p.key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-100">{p.label}</td>
+                  <td className="px-4 py-3 text-sm" style={p.status ? BAND_COLOR[p.status === 'abnormal' ? 'gawat' : 'normal'] : { color: 'var(--on-surface-variant)' }}>
                     {p.status === 'abnormal' ? 'Abnormal' : p.status === 'normal' ? 'Normal' : 'Tidak tercatat'}
                   </td>
-                  <td className="px-4 py-3 text-body-sm text-on-surface-variant space-y-1">
+                  <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
                     <QuoteCell kutipan={p.kutipan} page_number={p.page_number} />
                     {p.nilai ? <span className="block text-label-md">Nilai: {p.nilai}</span> : null}
                     {p.sumber_dokumen === 'resume_medis' ? (
                       <span
-                        className="inline-block rounded border border-tertiary/40 px-2 py-0.5 text-label-md text-tertiary dark:text-tertiary bg-tertiary/5"
+                        className="inline-block rounded border border-amber-900/50 px-2 py-0.5 text-label-md text-amber-500 dark:text-amber-500 bg-amber-950/40"
                         title="Tidak tercatat di formulir Triase IGD — ditampilkan dari Resume Medis Rawat Inap sebagai konteks tambahan. Tidak ikut menentukan Ya/Tidak/Borderline pada Tabel 3 (K1-K5 tetap dihitung khusus dari Triase IGD saja)."
                       >
                         Resume Medis
@@ -1635,7 +1635,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     ) : null}
                     {p.retraksi_grade ? (
                       <span
-                        className="inline-block rounded border border-error/40 px-2 py-0.5 text-label-md text-error dark:text-error bg-error/5 ml-1"
+                        className="inline-block rounded border border-red-900/50 px-2 py-0.5 text-label-md text-red-400 dark:text-red-400 bg-red-950/40 ml-1"
                         title="Retraksi interkostal menandakan distres napas lebih berat dibanding subkostal (PNPK Tatalaksana Pneumonia pada Anak IDAI)"
                       >
                         {p.retraksi_grade}
@@ -1650,23 +1650,23 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
       </div>
 
       {/* Tabel 2: Nilai vital + ambang batas (referensi dewasa + hasil per-record) */}
-      <div className="px-6 py-4 border-b border-outline-variant/20">
+      <div className="px-6 py-4 border-b border-white/10">
         <div className="mb-4 flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">2</div>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+          <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">2</div>
+          <h3 className="text-sm text-gray-100 font-semibold">
             Nilai Vital &amp; Ambang Batas
-            {age_group ? <span className="ml-2 font-normal text-on-surface-variant text-label-md">(Usia: {AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
+            {age_group ? <span className="ml-2 font-normal text-gray-400 text-label-md">(Usia: {AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
           </h3>
         </div>
-        <div className="rounded-xl border border-outline-variant/40 overflow-hidden overflow-x-auto dark:border-outline-variant/30">
-          <table className="w-full text-body-sm border-collapse">
-            <thead className="bg-surface-container-low border-b border-outline-variant/30">
+        <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
+          <table className="w-full text-sm border-collapse">
+            <thead className="bg-white/[0.02] border-b border-white/10">
               <tr>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Parameter</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider w-[90px]">Nilai</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider w-[100px]">Band</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Ambang (Dewasa)</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Dokumen</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Parameter</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[90px]">Nilai</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[100px]">Band</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Ambang (Dewasa)</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Dokumen</th>
               </tr>
             </thead>
             <tbody>
@@ -1692,14 +1692,14 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                   ? `Skala nyeri pada formulir kertas/PDF biasanya diisi dengan melingkari/mencentang satu angka pada skala tercetak 0-10 -- tanda visual seperti itu tidak dapat terbaca oleh sistem ini (ekstraksi murni berbasis teks, tanpa analisis gambar). "Tidak tercatat" di sini bisa berarti field ini memang kosong, ATAU sudah diisi tapi tandanya tidak terbaca sistem -- cek dokumen asli untuk memastikan.${instrumenDiharapkan ? ` Instrumen yang diharapkan untuk usia pasien ini: ${instrumenDiharapkan}.` : ''}`
                   : undefined;
                 return (
-                  <tr key={key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-surface-container-low/50')}>
-                    <td className="px-4 py-3 text-body-sm font-medium text-on-surface">{meta.label}</td>
-                    <td className="px-4 py-3 text-body-sm font-mono">{!isEmpty ? `${vf.nilai} ${meta.unit}` : <span className="italic text-on-surface-variant" title={nyeriCaveat}>{nyeriCaveat ? '—' : '—'}</span>}</td>
-                    <td className="px-4 py-3 text-body-sm font-medium" style={vf?.band ? BAND_COLOR[vf.band] : { color: 'var(--on-surface-variant)' }}>
+                  <tr key={key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-100">{meta.label}</td>
+                    <td className="px-4 py-3 text-sm font-mono">{!isEmpty ? `${vf.nilai} ${meta.unit}` : <span className="italic text-gray-400" title={nyeriCaveat}>{nyeriCaveat ? '—' : '—'}</span>}</td>
+                    <td className="px-4 py-3 text-sm font-medium" style={vf?.band ? BAND_COLOR[vf.band] : { color: 'var(--on-surface-variant)' }}>
                       {vf?.band ? BAND_LABEL[vf.band] : '—'}
                     </td>
-                    <td className="px-4 py-3 text-label-md text-on-surface-variant">{meta.referensiDewasa}</td>
-                    <td className="px-4 py-3 text-body-sm text-on-surface-variant space-y-1">
+                    <td className="px-4 py-3 text-label-md text-gray-400">{meta.referensiDewasa}</td>
+                    <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
                       {nyeriCaveat
                         ? <span className="italic text-[12px]" title={nyeriCaveat}>Catatan spesial lihat detail</span>
                         : <>
@@ -1713,7 +1713,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-label-md text-on-surface-variant italic">
+        <p className="mt-3 text-label-md text-gray-400 italic">
           Ambang untuk Dewasa (Lansia menggunakan ambang sama, kecuali HR &lt;60/&gt;100). Anak/bayi punya ambang per kelompok usia (PALS) — sudah disesuaikan otomatis pada kolom Band berdasarkan usia pasien.
         </p>
       </div>
@@ -1721,29 +1721,29 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
       {/* Tabel 3: Agregasi kriteria K1-K5 */}
       <div className="px-6 py-4">
         <div className="mb-4 flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[12px] font-bold">3</div>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Agregasi Kriteria (K1-K5)</h3>
+          <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">3</div>
+          <h3 className="text-sm text-gray-100 font-semibold">Agregasi Kriteria (K1-K5)</h3>
         </div>
-        <div className="rounded-xl border border-outline-variant/40 overflow-hidden overflow-x-auto dark:border-outline-variant/30">
-          <table className="w-full text-body-sm border-collapse">
-            <thead className="bg-surface-container-low border-b border-outline-variant/30">
+        <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
+          <table className="w-full text-sm border-collapse">
+            <thead className="bg-white/[0.02] border-b border-white/10">
               <tr>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider w-[240px]">Kriteria</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider w-[120px]">Status</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Bukti</th>
-                <th className="text-left px-4 py-3 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Catatan</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[240px]">Kriteria</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[120px]">Status</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Bukti</th>
+                <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Catatan</th>
               </tr>
             </thead>
             <tbody>
               {kriteria.map((k, idx) => (
-                <tr key={k.kriteria} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-surface-container-low/50')}>
-                  <td className="px-4 py-3 text-body-sm font-semibold text-on-surface">{k.kriteria} <span className="font-normal text-on-surface-variant">{k.label}</span></td>
+                <tr key={k.kriteria} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
+                  <td className="px-4 py-3 text-sm font-semibold text-gray-100">{k.kriteria} <span className="font-normal text-gray-400">{k.label}</span></td>
                   <td className="px-4 py-3">
                     <Badge className={cn('text-[10px] font-label-sm px-2.5 py-1', KRITERIA_STATUS_STYLE[k.status])} style={KRITERIA_STATUS_COLOR[k.status]}>
                       {KRITERIA_STATUS_LABEL[k.status]}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-body-sm text-on-surface-variant space-y-1">
+                  <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
                     {k.evidence.length === 0
                       ? <span className="italic">Tidak ada</span>
                       : (
@@ -1758,13 +1758,13 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                         </ul>
                       )}
                   </td>
-                  <td className="px-4 py-3 text-body-sm text-on-surface-variant">{k.catatan || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-400">{k.catatan || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-label-md text-on-surface-variant">
+        <p className="mt-3 text-label-md text-gray-400">
           K2-K5 dihitung otomatis dari Tabel 1 &amp; 2 (ambang baku) — K5 dari PROCLIST. K1 penilaian bahasa (risiko diri/orang/lingkungan). Ini bahan cek klinis sebelum submit, bukan keputusan final.
         </p>
       </div>
@@ -2130,7 +2130,7 @@ export default function ResultsPage() {
                           ) : records.map(rec => (
                             <tr
                               key={rec.id}
-                              className={cn('cursor-pointer border-b last:border-0 hover:bg-muted/40', selectedRecordId === rec.id && 'bg-primary/10')}
+                              className={cn('cursor-pointer border-b last:border-0 hover:bg-muted/40', selectedRecordId === rec.id && 'bg-emerald-900/40')}
                               onClick={() => selectRecord(rec.id)}
                             >
                               <td className="px-3 py-2">
