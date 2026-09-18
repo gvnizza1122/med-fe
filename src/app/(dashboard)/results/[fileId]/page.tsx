@@ -11,7 +11,7 @@ import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
 import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { Header } from '@/components/dashboard/header';
-import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard';
+// import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -327,6 +327,25 @@ const PENDING_RISK_LABELS: Record<string, string> = {
   pneumonia_severity_vs_rawat_inap: 'Keparahan pneumonia vs rawat inap/gawat darurat',
 };
 
+/** Pecah teks catatan jadi daftar poin singkat (mendukung format "- ..." /
+ * "• ..." per baris). Kalau teks berupa paragraf tunggal, jadikan 1 poin.
+ * Dipakai di panel "Alasan Bisa Pending" supaya tidak tampil sebagai
+ * paragraf panjang. */
+function toBulletPoints(text: string): string[] {
+  const raw = String(text || '');
+  const lines = raw
+    .split(/\r?\n|•/)
+    .map(l => l.replace(/^[-*•]\s*/, '').trim())
+    .filter(Boolean);
+  return lines.length > 1 ? lines : (raw.trim() ? [raw.trim()] : []);
+}
+
+/** Potong teks jadi maks N karakter, sisipkan "…" kalau kepotong. */
+function truncatePoint(text: string, max = 110): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).replace(/\s+\S*$/, '')}…`;
+}
+
 function parseAiReview(recordData: Record<string, any>): AiReview | null {
   if (!recordData.ai_review) return null;
   try { return typeof recordData.ai_review === 'string' ? JSON.parse(recordData.ai_review) : recordData.ai_review; }
@@ -523,9 +542,12 @@ const JENIS_KLAIM_HIDDEN_FIELDS: Record<string, Set<string>> = {};
 //   Special CMG & poli eksekutif, wajar_kosong utk klaim tanpa top-up (lihat
 //   fieldTypeRegistry) -- klien minta dihilangkan dari tampilan sepenuhnya
 //   drpd ditandai "wajar kosong", supaya tabel lebih ringkas.
+// - BERAT_BADAN: permintaan klien 18 Sep 2026 -- kolom Berat Badan
+//   disembunyikan dari tabel.
 const ALWAYS_HIDDEN_FIELDS = new Set([
   'PTD', 'ADL1', 'ADL2', 'KODE_TARIF',
   'IN_SP', 'IN_SR', 'IN_SI', 'IN_SD', 'SUBACUTE', 'CHRONIC', 'TARIF_POLI_EKS',
+  'BERAT_BADAN',
 ]);
 
 // Satu baris <tr> tabel field — diekstrak dari RecordFieldsTable supaya bisa
@@ -1259,6 +1281,25 @@ const BAND_COLOR: Record<string, CSSProperties> = {
   gawat: { color: 'var(--destructive)', fontWeight: 600 },
 };
 
+// Penjelasan singkat "kenapa abnormal" utk tiap parameter pemeriksaan fisik
+// (Tabel 1) — disesuaikan dengan definisi contoh_abnormal di
+// kegawatdaruratanReference.js (backend). Dipakai di dialog popup yang
+// muncul saat verifikator klik parameter ber-status Abnormal (sama pola
+// dengan dialog "Parameter Kritis" di Nilai Vital / Tabel 2).
+const PARAMETER_ABNORMAL_INFO: Record<string, string> = {
+  ronkhi: 'Temuan ronkhi menandakan adanya cairan/sekret di saluran napas — contoh abnormal: (+/+) kesan tidak normal mlm paru.',
+  wheezing: 'Temuan wheezing menandakan obstruksi jalan napas — contoh abnormal: (+/+).',
+  sdv: 'Suara napas dasar (SDV) menurun/menghilang dari bunyi vesikuler normal.',
+  retraksi: 'Retraksi dinding dada menandakan distres napas. Retraksi interkostal lebih berat daripada subkostal.',
+  sianosis: 'Sianosis menandakan penurunan saturasi oksigen (perioral/perifer/sentral).',
+  akral: 'Akral dingin/basah/pucat menandakan gangguan perfusi perifer.',
+  crt: 'CRT (capillary refill time) memanjang (>=2 detik) menandakan gangguan sirkulasi/perfusi.',
+  edema: 'Edema ekstremitas menandakan kelebihan cairan/gangguan sirkulasi.',
+  bunyi_jantung: 'Bunyi jantung tambahan (gallop/murmur) menandakan kelainan kardiovaskular.',
+  kesadaran_kualitatif: 'Kesadaran menurun (somnolen/sopor/koma) menandakan gangguan neurologis.',
+  deformitas_luka: 'Adanya deformitas/luka menandakan temuan trauma yang perlu ditindaklanjuti.',
+};
+
 function QuoteCell({ kutipan, page_number }: { kutipan: string | null | undefined; page_number: number | null | undefined }) {
   if (!kutipan) return <span className="italic text-muted-foreground">Tidak tercatat di formulir</span>;
   return <>&ldquo;{kutipan}&rdquo;{page_number ? <span className="ml-1 text-[10px] text-muted-foreground">(hal. {page_number})</span> : null}</>;
@@ -1695,7 +1736,46 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     <tr key={p.key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
                       <td className="px-4 py-3 text-sm font-medium text-gray-100">{p.label}</td>
                       <td className="px-4 py-3 text-sm" style={p.status ? BAND_COLOR[p.status === 'abnormal' ? 'gawat' : 'normal'] : { color: 'var(--on-surface-variant)' }}>
-                        {p.status === 'abnormal' ? 'Abnormal' : p.status === 'normal' ? 'Normal' : 'Tidak tercatat'}
+                        {p.status === 'abnormal' ? (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 font-semibold cursor-pointer underline underline-offset-2 hover:opacity-80"
+                                style={{ color: 'var(--destructive)' }}
+                              >
+                                Abnormal
+                                <AlertTriangle className="size-3.5" />
+                              </button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-gray-100">
+                              <DialogHeader>
+                                <DialogTitle className="text-red-400">Parameter Abnormal: {p.label}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-2">
+                                <ul className="space-y-3 list-none">
+                                  <li className="flex flex-col gap-1">
+                                    <span className="text-sm font-semibold text-gray-400">Temuan Tercatat:</span>
+                                    <span className="text-sm text-gray-100">{p.nilai || 'tercatat abnormal di dokumen'}</span>
+                                  </li>
+                                  {p.kutipan && (
+                                    <li className="flex flex-col gap-1">
+                                      <span className="text-sm font-semibold text-gray-400">Kutipan Dokumen:</span>
+                                      <span className="text-sm italic text-gray-300">&ldquo;{p.kutipan}&rdquo;{p.page_number ? ` (hal. ${p.page_number})` : ''}</span>
+                                    </li>
+                                  )}
+                                  <li className="flex flex-col gap-1">
+                                    <span className="text-sm font-semibold text-gray-400">Kenapa Abnormal?</span>
+                                    <span className="text-sm text-gray-300">
+                                      {PARAMETER_ABNORMAL_INFO[p.key] || 'Temuan ini tercatat abnormal dan menjadi salah satu parameter yang diperiksa pada penilaian kegawatdaruratan.'}
+                                      {p.retraksi_grade ? <span className="block mt-1">Grade retraksi: <strong className="text-red-400">{p.retraksi_grade}</strong> — retraksi interkostal menandakan distres napas lebih berat dibanding subkostal.</span> : null}
+                                    </span>
+                                  </li>
+                                </ul>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        ) : p.status === 'normal' ? 'Normal' : 'Tidak tercatat'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
                         <QuoteCell kutipan={p.kutipan} page_number={p.page_number} />
@@ -2330,10 +2410,13 @@ export default function ResultsPage() {
                         </div>
                         <div className="space-y-1.5">
                           {pendingRisks.map((risk, i) => (
-                            <div key={i} className="text-muted-foreground">
-                              <strong className="text-foreground">{PENDING_RISK_LABELS[risk.pattern] || risk.pattern}:</strong>{' '}
-                              {/* whitespace-pre-wrap: catatan AI berformat bullet point, lihat catatan sama di atas */}
-                              <span className="whitespace-pre-wrap">{risk.note}</span>
+                            <div key={i}>
+                              <strong className="text-foreground">{PENDING_RISK_LABELS[risk.pattern] || risk.pattern}:</strong>
+                              <ul className="mt-0.5 list-disc pl-4 space-y-0.5">
+                                {toBulletPoints(risk.note).map((pt, j) => (
+                                  <li key={j} className="text-muted-foreground" title={pt}>{truncatePoint(pt)}</li>
+                                ))}
+                              </ul>
                             </div>
                           ))}
                         </div>
@@ -2535,13 +2618,17 @@ export default function ResultsPage() {
                     <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} />
                   );
 
-                  const inacbgCard = (
-                    <InaCbgDashboardCard key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
-                  );
+                  // INA-CBG & Tarif card — DISEMBUNYIKAN sementara atas
+                  // permintaan klien (18 Sep 2026): "hide dulu tabel INA-CBG dan
+                  // tarif". Kalau mau dikembalikan, tambah baris berikut (dan
+                  // import InaCbgDashboardCard lagi):
+                  //   const inacbgCard = (
+                  //     <InaCbgDashboardCard key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
+                  //   );
+                  // lalu render {inacbgCard} sebelum {fieldsTable}.
 
                   return (
                     <>
-                      {inacbgCard}
                       {fieldsTable}
                       {kegawatdaruratanTable}
                     </>
