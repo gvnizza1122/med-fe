@@ -12,6 +12,8 @@ import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { Header } from '@/components/dashboard/header';
+import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
+import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
 import { Card } from '@/components/ui/card';
@@ -331,6 +333,21 @@ interface DiagnosisConsistencyFlag {
   reason: string;
 }
 
+interface InaCbgResult {
+  code: string;
+  description: string;
+  confidence: number; // 0..1
+  reasoning?: string;
+}
+
+interface TariffResult {
+  inacbg_code: string;
+  tariff_amount: number; // Rp
+  region: string; // e.g. "Regional 1"
+  class: string; // e.g. "D"
+  source: string; // e.g. "PMK 3/2023"
+}
+
 interface AiReview {
   field_notes?: Record<string, string>;
   code_evidence?: CodeEvidence[];
@@ -339,6 +356,9 @@ interface AiReview {
   kegawatdaruratan_assessment?: KegawatdaruratanAssessment | null;
   // Ditambah 19 Sep 2026 (fix item 9) -- lihat diagnosisConsistencyService.js.
   diagnosis_consistency_flags?: DiagnosisConsistencyFlag[];
+  // Ditambah 19 Sep 2026 -- INA-CBG grouping hasil dan tarif lookup
+  inacbg_result?: InaCbgResult;
+  tariff_result?: TariffResult;
 }
 
 // Label ramah-verifikator untuk tiap pola risiko pending — dipetakan dari
@@ -1325,6 +1345,157 @@ function SimplifiedFieldAccordion({
         );
       })}
     </div>
+  );
+}
+
+// ─── INA-CBG & Tarif Display with Clinical Coherence Validation ───────────────
+
+/**
+ * Extract vital signs from kegawatdaruratan assessment
+ */
+function extractVitalSigns(recordData: Record<string, any>): VitalSigns {
+  const assessment = parseAiReview(recordData)?.kegawatdaruratan_assessment;
+  if (!assessment?.vital_findings) return {};
+
+  const vitals = assessment.vital_findings;
+  return {
+    hr: vitals.HR?.nilai ?? undefined,
+    rr: vitals.RR?.nilai ?? undefined,
+    spo2: vitals.SpO2?.nilai ?? undefined,
+    temp: vitals.Suhu?.nilai ?? undefined,
+    bp: vitals.TD_sistolik?.nilai && vitals.TD_diastolik?.nilai
+      ? `${vitals.TD_sistolik.nilai}/${vitals.TD_diastolik.nilai}`
+      : undefined,
+  };
+}
+
+/**
+ * Extract diagnosis codes and evidence from record
+ */
+function extractDiagnosis(recordData: Record<string, any>) {
+  const rawData = parseRawData(recordData);
+  const diagList = rawData.DIAGLIST || recordData.diagnosa_list || '';
+  const diagCodes = String(diagList).split(';').map(c => c.trim()).filter(Boolean);
+  const primaryDiagnosis = diagCodes[0] || '';
+
+  const aiReview = parseAiReview(recordData);
+  const codeEvidence = aiReview?.code_evidence?.filter(e => e.type === 'diagnosis') || [];
+  const primaryEvidence = codeEvidence.find(e => e.code === primaryDiagnosis);
+
+  return {
+    code: primaryDiagnosis,
+    evidence: primaryEvidence
+      ? {
+        quotation: primaryEvidence.quotation || '',
+        page_number: primaryEvidence.page_number || 0,
+      }
+      : undefined,
+    allCodes: diagCodes,
+  };
+}
+
+/**
+ * Extract procedure codes and evidence from record
+ */
+function extractProcedure(recordData: Record<string, any>) {
+  const rawData = parseRawData(recordData);
+  const procList = rawData.PROCLIST || recordData.prosedur_list || '';
+  const procCodes = String(procList).split(';').map(c => c.trim()).filter(Boolean);
+  const primaryProcedure = procCodes[0] || '';
+
+  const aiReview = parseAiReview(recordData);
+  const codeEvidence = aiReview?.code_evidence?.filter(e => e.type === 'procedure') || [];
+  const primaryEvidence = codeEvidence.find(e => e.code === primaryProcedure);
+
+  return {
+    code: primaryProcedure,
+    evidence: primaryEvidence
+      ? {
+        quotation: primaryEvidence.quotation || '',
+        page_number: primaryEvidence.page_number || 0,
+      }
+      : undefined,
+    allCodes: procCodes,
+  };
+}
+
+/**
+ * Component: INA-CBG & Tarif Display with Clinical Coherence Check
+ */
+function InaCbgCoherenceDisplay({ recordData }: { recordData: Record<string, any> }) {
+  const diagnosis = extractDiagnosis(recordData);
+  const procedure = extractProcedure(recordData);
+  const vitals = extractVitalSigns(recordData);
+  const aiReview = parseAiReview(recordData);
+
+  // Coherence validation
+  const coherenceInput: ClinicalCoherenceInput = {
+    diagnosis_utama: diagnosis.allCodes.join(' '),
+    prosedur: procedure.allCodes.join(' '),
+    alasan_masuk: parseRawData(recordData).ALASAN_MASUK || '',
+    vital_signs: vitals,
+    clinical_findings: parseRawData(recordData).CLINICAL_FINDINGS || '',
+  };
+
+  const coherenceResult = validateClinicalCoherence(coherenceInput);
+
+  // If no diagnosis/procedure, show incomplete state
+  if (!diagnosis.code && !procedure.code) {
+    return (
+      <div className="rounded-lg border border-amber-900/50 bg-amber-950/20 px-4 py-3">
+        <p className="text-xs font-medium text-amber-200/90">
+          <span className="font-bold text-amber-500">Data tidak lengkap.</span>{' '}
+          Diagnosis dan prosedur harus diisi terlebih dahulu sebelum dapat menampilkan INA-CBG & tarif.
+        </p>
+      </div>
+    );
+  }
+
+  // If incoherent, show issues
+  if (!coherenceResult.isCoherent) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border border-amber-900/50 bg-amber-950/20 px-4 py-3">
+          <p className="text-xs font-medium text-amber-200/90">
+            <span className="font-bold text-amber-500">Pending verifikasi klinis.</span>{' '}
+            Ditemukan ketidaksesuaian antara diagnosis, prosedur, dan tanda vital. Silakan periksa dan sesuaikan sebelum melanjutkan.
+          </p>
+        </div>
+        {coherenceResult.issues.length > 0 && (
+          <div className="rounded-lg border border-amber-900/30 bg-amber-950/10 px-4 py-3">
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-2">Isu yang ditemukan:</p>
+            <ul className="space-y-1.5 text-xs text-amber-600 dark:text-amber-300">
+              {coherenceResult.issues.map((issue, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="shrink-0 text-amber-500">•</span>
+                  <span>{issue}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // If coherent but no INA-CBG result, show pending
+  const inacbgResult = aiReview?.inacbg_result;
+  const tariffResult = aiReview?.tariff_result;
+
+  if (!inacbgResult || !tariffResult) {
+    return <InaCbgTarifPending />;
+  }
+
+  // Show the full INA-CBG & Tarif display
+  return (
+    <InaCbgTarifDisplay
+      diagnosis_code={diagnosis.code}
+      diagnosis_evidence={diagnosis.evidence}
+      prosedur_code={procedure.code}
+      prosedur_evidence={procedure.evidence}
+      inacbg_result={inacbgResult}
+      tariff_result={tariffResult}
+    />
   );
 }
 
@@ -2768,18 +2939,20 @@ export default function ResultsPage() {
                     <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} />
                   );
 
-                  // INA-CBG & Tarif card — DISEMBUNYIKAN sementara atas
-                  // permintaan klien (18 Sep 2026): "hide dulu tabel INA-CBG dan
-                  // tarif". Kalau mau dikembalikan, tambah baris berikut (dan
-                  // import InaCbgDashboardCard lagi):
-                  //   const inacbgCard = (
-                  //     <InaCbgDashboardCard key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
-                  //   );
-                  // lalu render {inacbgCard} sebelum {fieldsTable}.
+                  // INA-CBG & Tarif card — now integrated with clinical coherence validation (19 Sep 2026)
+                  const inacbgCard = (
+                    <div className="mt-4">
+                      <div className="mb-2">
+                        <h3 className="text-sm font-semibold text-foreground">INA-CBG & Tarif</h3>
+                      </div>
+                      <InaCbgCoherenceDisplay key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
+                    </div>
+                  );
 
                   return (
                     <>
                       {fieldsTable}
+                      {inacbgCard}
                       {kegawatdaruratanTable}
                     </>
                   );
