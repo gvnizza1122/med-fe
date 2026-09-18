@@ -68,13 +68,17 @@ describe('generateCodingExplanation with ICD-10 descriptions', () => {
   });
 
   it('should place the description bullet before the resume medis quotation bullet', () => {
+    // document_type ditambah 19 Sep 2026 (fix item 7, provenance dari
+    // metadata halaman) -- backend sekarang WAJIB mengirim document_type per
+    // entry code_evidence, tanpanya label provenance jadi generik ("dokumen")
+    // alih-alih menebak "Resume Medis" seperti perilaku lama yang salah.
     const result = generateCodingExplanation(
       'A09.9',
       'diagnosis',
       'valid',
       undefined,
       undefined,
-      [{ code: 'A09.9', found: true, page_number: 3, quotation: 'GEA dgn dehidrasi ringan' }]
+      [{ code: 'A09.9', found: true, page_number: 3, quotation: 'GEA dgn dehidrasi ringan', document_type: 'resume_medis' }]
     );
 
     const bullets = result.codes[0].explanationBullets;

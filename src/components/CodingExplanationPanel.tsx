@@ -13,11 +13,22 @@ import {
 interface CodingExplanationPanelProps {
   codeString: string; // e.g., "J45.9;I10"
   fieldType: 'diagnosis' | 'procedure';
-  status: 'valid' | 'approved' | 'empty' | 'error';
+  // 'review' ditambah 19 Sep 2026 (fix item 8/9) -- field DIAGLIST/PROCLIST
+  // yang punya code_evidence dengan review_status perlu_review/evidence_
+  // tidak_terverifikasi (lihat buildFieldMap di halaman hasil).
+  status: 'valid' | 'approved' | 'review' | 'empty' | 'error';
   clinicalFindings?: Record<string, any>;
   pageReference?: string; // e.g., "Resume Medis hal. 2"
   codeEvidence?: CodeEvidenceEntry[]; // Data dari ai_review.code_evidence
   className?: string;
+}
+
+// generateCodingExplanation() hanya menerima status 'valid'|'approved' --
+// 'review' dipetakan ke 'valid' di sini SEBELUM dipanggil (badge/label
+// "Perlu Review" yang sebenarnya ditentukan oleh review_status PER KODE dari
+// codeEvidence, bukan dari status field-level ini, lihat hasReviewFlag di bawah).
+function toExplanationStatus(status: CodingExplanationPanelProps['status']): 'valid' | 'approved' {
+  return status === 'approved' ? 'approved' : 'valid';
 }
 
 /**
@@ -44,15 +55,15 @@ export function CodingExplanationPanel({
 }: CodingExplanationPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Jangan tampilkan panel kalau status bukan valid/approved atau kode kosong
-  if (status !== 'valid' && status !== 'approved') return null;
+  // Jangan tampilkan panel kalau status bukan valid/approved/review atau kode kosong
+  if (status !== 'valid' && status !== 'approved' && status !== 'review') return null;
   if (!codeString || codeString.trim() === '') return null;
 
   // Generate explanation
   const result = generateCodingExplanation(
     codeString,
     fieldType,
-    status,
+    toExplanationStatus(status),
     clinicalFindings,
     pageReference,
     codeEvidence
@@ -60,8 +71,15 @@ export function CodingExplanationPanel({
 
   if (!result.isComplete || result.codes.length === 0) return null;
 
-  const statusLabel = status === 'approved' ? 'Disetujui' : 'Valid';
-  const statusColor = status === 'approved'
+  // Fix item 8/9 (19 Sep 2026): badge header WAJIB ikut review_status
+  // per-kode kalau ADA kode yang backend tandai perlu_review/evidence_tidak_
+  // terverifikasi -- jangan biarkan tetap "Valid" cuma karena `status` prop
+  // (field-level, dari rule engine) belum tahu soal review_flags ini.
+  const hasReviewFlag = result.codes.some(c => c.reviewStatus === 'perlu_review' || c.reviewStatus === 'evidence_tidak_terverifikasi');
+  const statusLabel = hasReviewFlag ? 'Perlu Review' : status === 'approved' ? 'Disetujui' : 'Valid';
+  const statusColor = hasReviewFlag
+    ? 'text-amber-600 dark:text-amber-400'
+    : status === 'approved'
     ? 'text-emerald-600 dark:text-emerald-400'
     : 'text-blue-600 dark:text-blue-400';
 

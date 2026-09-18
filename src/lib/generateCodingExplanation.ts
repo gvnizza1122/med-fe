@@ -196,6 +196,36 @@ export interface CodingExplanation {
   clinicalFindings?: string[]; // Temuan klinis yang mendukung
   sourceReference?: string; // Referensi dokumen (e.g., "Resume Medis hal. 2")
   explanationBullets: string[]; // Point-point penjelasan
+  // Ditambah 19 Sep 2026 (fix item 7/8/9) -- status review per kode dari
+  // backend (code_evidence[].review_status), TERPISAH dari `status` field-level
+  // di atas (yang datang dari rule engine, bukan dari evidence/rules kode ini).
+  reviewStatus?: 'valid' | 'perlu_review' | 'evidence_tidak_terverifikasi';
+  reviewFlags?: CodeReviewFlag[];
+}
+
+// Tipe dokumen sumber evidence -- HARUS SAMA PERSIS dengan enum yang dihasilkan
+// classifyPageDocumentType() di backend (pdfPageClassifier.js). Provenance
+// SEKARANG dari metadata halaman (deterministik), BUKAN teks bebas LLM --
+// lihat DOCUMENT_TYPE_LABELS di bawah utk label tampilan per tipe (fix item 7:
+// SEBELUMNYA label "Dari Resume Medis" di-hardcode utk SEMUA evidence apapun
+// sumber aslinya, mis. kutipan dari Rincian Biaya ikut dilabeli Resume Medis).
+export type DocumentType = 'rincian_biaya' | 'spri' | 'sep' | 'resume_medis' | 'triase_igd' | 'lab' | 'berkas_eklaim' | 'lainnya';
+
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  rincian_biaya: 'Rincian Biaya',
+  spri: 'SPRI (Surat Perintah Rawat Inap)',
+  sep: 'SEP',
+  resume_medis: 'Resume Medis',
+  triase_igd: 'Triase IGD',
+  lab: 'Hasil Laboratorium',
+  berkas_eklaim: 'Berkas e-Klaim',
+  lainnya: 'dokumen lain',
+};
+
+export interface CodeReviewFlag {
+  reason: string;
+  alternative_code?: string | null;
+  action?: string | null;
 }
 
 export interface CodeEvidenceEntry {
@@ -205,6 +235,34 @@ export interface CodeEvidenceEntry {
   page_number?: number | null;
   quotation?: string | null;
   reasoning?: string | null;
+  // Field baru dari backend (fix item 7/8/9, 19 Sep 2026) -- lihat
+  // code_evidence[] di aiReviewService.js.
+  document_type?: DocumentType | null;
+  review_status?: 'valid' | 'perlu_review' | 'evidence_tidak_terverifikasi';
+  review_flags?: CodeReviewFlag[];
+}
+
+/**
+ * "Tercatat di <Tipe Dokumen> hal. N" -- provenance WAJIB dari document_type
+ * (metadata halaman deterministik), fallback ke label generik kalau backend
+ * belum mengirim document_type (data lama/entry tanpa page_number) supaya
+ * TIDAK diam-diam menampilkan label yang salah/menebak.
+ */
+function describeEvidenceSource(evidenceEntry?: CodeEvidenceEntry | null): string | null {
+  if (!evidenceEntry || !evidenceEntry.quotation) return null;
+  const typeLabel = evidenceEntry.document_type ? DOCUMENT_TYPE_LABELS[evidenceEntry.document_type] : 'dokumen';
+  return evidenceEntry.page_number ? `${typeLabel} hal. ${evidenceEntry.page_number}` : typeLabel;
+}
+
+/**
+ * Label bullet "Status: ..." -- WAJIB ikut review_status kode ini kalau ada
+ * (fix item 8/9: "Valid" TIDAK BOLEH lagi ditampilkan begitu saja untuk kode
+ * yang backend sudah tandai perlu_review/evidence_tidak_terverifikasi).
+ */
+function describeStatusLabel(status: 'valid' | 'approved', evidenceEntry?: CodeEvidenceEntry | null): string {
+  if (evidenceEntry?.review_status === 'perlu_review') return 'Perlu Review';
+  if (evidenceEntry?.review_status === 'evidence_tidak_terverifikasi') return 'Evidence Tidak Terverifikasi';
+  return status === 'approved' ? 'Disetujui' : 'Valid';
 }
 
 export interface CodingExplanationResult {
@@ -256,8 +314,11 @@ export function generateCodingExplanation(
       } else if (type === 'procedure') {
         bullets.push('Deskripsi ICD-9-CM tidak tersedia untuk kode ini');
       }
+      const sourceLabel = describeEvidenceSource(evidenceEntry);
       if (evidenceEntry?.quotation) {
-        bullets.push(`Dari Resume Medis: "${evidenceEntry.quotation}"${evidenceEntry.page_number ? ` (hal. ${evidenceEntry.page_number})` : ''}`);
+        // Fix item 7: provenance dari document_type (metadata halaman), BUKAN
+        // hardcode "Dari Resume Medis" untuk semua evidence apapun sumbernya.
+        bullets.push(`Dari ${sourceLabel}: "${evidenceEntry.quotation}"`);
         hasInformativeBullet = true;
       }
       if (evidenceEntry?.reasoning) {
@@ -265,9 +326,18 @@ export function generateCodingExplanation(
         hasInformativeBullet = true;
       }
       if (!hasInformativeBullet) {
-        bullets.push('Kode ini tidak ada di kamus offline — lihat resume medis untuk konfirmasi');
+        bullets.push('Kode ini tidak ada di kamus offline — lihat dokumen sumber untuk konfirmasi');
       }
-      bullets.push(`Status: ${status === 'approved' ? 'Disetujui' : 'Valid'}`);
+      // Fix item 8/9: review_flags (mis. lab rutin perlu review, diagnosis
+      // consistency perlu klarifikasi DPJP) ditampilkan sebagai bullet
+      // terpisah, sebelum bullet Status.
+      evidenceEntry?.review_flags?.forEach(flag => {
+        let line = flag.reason;
+        if (flag.alternative_code) line += ` Pertimbangkan: ${flag.alternative_code}.`;
+        if (flag.action) line += ` Aksi: ${flag.action} (kode TIDAK diubah otomatis).`;
+        bullets.push(line);
+      });
+      bullets.push(`Status: ${describeStatusLabel(status, evidenceEntry)}`);
 
       explanations.push({
         code,
@@ -275,10 +345,12 @@ export function generateCodingExplanation(
         description: hasIcd10Description
           ? (icd10Description as string)
           : evidenceEntry?.quotation
-          ? `Ditemukan di resume medis: "${evidenceEntry.quotation}"`
-          : 'Lihat resume medis untuk detail',
+          ? `Ditemukan di ${sourceLabel}: "${evidenceEntry.quotation}"`
+          : 'Lihat dokumen sumber untuk detail',
         layman: '',
         status,
+        reviewStatus: evidenceEntry?.review_status,
+        reviewFlags: evidenceEntry?.review_flags,
         explanationBullets: bullets
       });
       continue;
@@ -308,8 +380,25 @@ export function generateCodingExplanation(
         bullets.push(finding);
       });
     }
-    if (pageReference) bullets.push(`Tercatat di ${pageReference}`);
-    bullets.push(`Status: ${status === 'approved' ? 'Disetujui' : 'Valid'}`);
+    // Fix item 7: provenance WAJIB dari evidenceEntry.document_type (metadata
+    // halaman) kalau tersedia -- pageReference (prop statis dari caller) HANYA
+    // dipakai sbg fallback terakhir kalau memang tidak ada codeEvidence sama
+    // sekali (mis. pemanggil lama yang belum kirim codeEvidence), supaya TIDAK
+    // diam-diam menampilkan label dokumen yang salah/menebak.
+    const evidenceSourceLabel = describeEvidenceSource(evidenceEntry);
+    if (evidenceEntry?.quotation) {
+      bullets.push(`Dari ${evidenceSourceLabel}: "${evidenceEntry.quotation}"`);
+    } else if (pageReference) {
+      bullets.push(`Tercatat di ${pageReference}`);
+    }
+    if (evidenceEntry?.reasoning) bullets.push(evidenceEntry.reasoning);
+    evidenceEntry?.review_flags?.forEach(flag => {
+      let line = flag.reason;
+      if (flag.alternative_code) line += ` Pertimbangkan: ${flag.alternative_code}.`;
+      if (flag.action) line += ` Aksi: ${flag.action} (kode TIDAK diubah otomatis).`;
+      bullets.push(line);
+    });
+    bullets.push(`Status: ${describeStatusLabel(status, evidenceEntry)}`);
 
     explanations.push({
       code,
@@ -318,7 +407,9 @@ export function generateCodingExplanation(
       layman: codeData.layman,
       status,
       clinicalFindings: supportingFindings,
-      sourceReference: pageReference,
+      sourceReference: evidenceEntry?.quotation ? (evidenceSourceLabel ?? undefined) : pageReference,
+      reviewStatus: evidenceEntry?.review_status,
+      reviewFlags: evidenceEntry?.review_flags,
       explanationBullets: bullets
     });
   }

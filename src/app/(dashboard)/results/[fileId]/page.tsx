@@ -10,6 +10,7 @@ import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
 import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
 import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
+import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { Header } from '@/components/dashboard/header';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -169,6 +170,13 @@ interface CodeEvidence {
   found: boolean;
   page_number: number | null;
   quotation: string | null;
+  // Ditambah 19 Sep 2026 (fix item 7/8/9) -- lihat code_evidence[] di
+  // aiReviewService.js. document_type dari metadata halaman (deterministik),
+  // review_status model status baru per kode (Valid/Perlu review/Evidence
+  // tidak terverifikasi), review_flags alasan + evidence tambahan.
+  document_type?: 'rincian_biaya' | 'spri' | 'sep' | 'resume_medis' | 'triase_igd' | 'lab' | 'berkas_eklaim' | 'lainnya' | null;
+  review_status?: 'valid' | 'perlu_review' | 'evidence_tidak_terverifikasi';
+  review_flags?: { reason: string; alternative_code?: string | null; action?: string | null }[];
 }
 interface SuggestedCode {
   code: string;
@@ -186,7 +194,10 @@ interface FieldRow {
   // 'empty'), padahal maknanya beda total: satu normal, satu perlu ditindak.
   // 'usulan' = field koding kosong TAPI ada suggestedCodes AI menunggu
   // verifikasi manual (bukan blank yang sama sekali tidak ada bahan).
-  status: 'valid' | 'error' | 'empty' | 'system' | 'wajar_kosong' | 'usulan';
+  // 'review' ditambah 19 Sep 2026 (fix item 8/9) -- DIAGLIST/PROCLIST yang
+  // punya code_evidence dengan review_status perlu_review/evidence_tidak_
+  // terverifikasi (lab rutin, diagnosis consistency, kutipan tak terverifikasi).
+  status: 'valid' | 'error' | 'empty' | 'system' | 'wajar_kosong' | 'usulan' | 'review';
   rule_id?: string;
   error_message?: string;
   suggestion?: string;
@@ -266,10 +277,18 @@ interface KegawatdaruratanVitalFinding {
   page_number: number | null;
   kutipan: string | null;
   instrumen_diharapkan?: string | null;
+  // Tri-state (fix item 4, 19 Sep 2026): bedakan "kolomnya ada di form tapi
+  // kosong" (empty_on_form, perlu ditindak) dari "form ini memang tidak
+  // punya kolom itu" (not_in_form, BUKAN masalah). Field lama tanpa data ini
+  // (belum di-generate ulang) akan undefined -- pemanggil WAJIB treat
+  // undefined SAMA seperti 'empty_on_form' (perilaku lama, jangan diam-diam
+  // sembunyikan action item untuk data yang belum diberi form_status).
+  form_status?: 'recorded' | 'empty_on_form' | 'not_in_form';
 }
 
 interface KegawatdaruratanEvidence {
-  sumber: 'parameter_findings' | 'vital_findings' | 'ai_k1' | 'proclist';
+  // 'tindakan_segera'/'esi' ditambah 19 Sep 2026 (fix item 5).
+  sumber: 'parameter_findings' | 'vital_findings' | 'ai_k1' | 'proclist' | 'tindakan_segera' | 'esi';
   key?: string;
   label?: string;
   nilai?: string | number;
@@ -278,6 +297,9 @@ interface KegawatdaruratanEvidence {
   page_number?: number | null;
   kode?: string;
   deskripsi?: string;
+  id?: string;
+  skor?: number;
+  signal?: boolean;
 }
 
 interface KegawatdaruratanKriteria {
@@ -294,6 +316,19 @@ interface KegawatdaruratanAssessment {
   vital_findings: Record<string, KegawatdaruratanVitalFinding>;
   kriteria: KegawatdaruratanKriteria[];
   age_group: string | null;
+  // Ditambah 19 Sep 2026 (fix item 5) -- tindakan keperawatan segera (teks
+  // bebas, quote-validated) & skor ESI dari Triase IGD.
+  tindakan_keperawatan?: { quotation: string; page_number: number }[];
+  esi?: { skor: number | null; page_number: number | null; kutipan: string | null };
+}
+
+interface DiagnosisConsistencyFlag {
+  code: string;
+  status: string;
+  alternative_code: string | null;
+  alternative_label?: string | null;
+  action: string;
+  reason: string;
 }
 
 interface AiReview {
@@ -302,6 +337,8 @@ interface AiReview {
   suggested_codes?: SuggestedCode[];
   pending_risk_notes?: PendingRiskNote[];
   kegawatdaruratan_assessment?: KegawatdaruratanAssessment | null;
+  // Ditambah 19 Sep 2026 (fix item 9) -- lihat diagnosisConsistencyService.js.
+  diagnosis_consistency_flags?: DiagnosisConsistencyFlag[];
 }
 
 // Label ramah-verifikator untuk tiap pola risiko pending — dipetakan dari
@@ -439,6 +476,20 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
     }
   }
 
+  // Status 'review' (fix item 8/9, 19 Sep 2026): field koding yang ISINYA
+  // valid (bukan kosong/error) TAPI ada code_evidence dengan review_status
+  // perlu_review/evidence_tidak_terverifikasi (lab rutin, diagnosis
+  // consistency O21.x, kutipan tak terverifikasi) -- HANYA override status
+  // 'valid' (jangan timpa 'error'/'empty'/'usulan' yang sudah lebih spesifik).
+  for (const col of ['DIAGLIST', 'PROCLIST']) {
+    const hasReviewFlag = map[col]?.codeEvidence?.some(
+      e => e.review_status === 'perlu_review' || e.review_status === 'evidence_tidak_terverifikasi'
+    );
+    if (map[col]?.status === 'valid' && hasReviewFlag) {
+      map[col].status = 'review';
+    }
+  }
+
   return map;
 }
 
@@ -450,7 +501,7 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
 // ditambah manual di 5 tempat berbeda). 'wajar_kosong' SENGAJA tidak masuk
 // sini -- itu tujuan utamanya, field itu memang bukan masalah.
 function isIssueStatus(status: FieldRow['status']): boolean {
-  return status === 'error' || status === 'empty' || status === 'usulan';
+  return status === 'error' || status === 'empty' || status === 'usulan' || status === 'review';
 }
 
 function StatusBadge({ status }: { status: FieldRow['status'] }) {
@@ -466,6 +517,11 @@ function StatusBadge({ status }: { status: FieldRow['status'] }) {
   // koder harus bisa bedakan sekilas mana yang disalin dari dokumen vs
   // disusun sistem & masih menunggu verifikasi manual.
   if (status === 'usulan') return <Badge className="text-[10px] border-dashed border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">Usulan</Badge>;
+  // 'review' ditambah 19 Sep 2026 (fix item 8/9) -- isinya SUDAH ada (bukan
+  // kosong) tapi backend menandai perlu dicek manual (lab rutin, konsistensi
+  // diagnosis, atau evidence yang gagal terverifikasi) -- warna amber beda
+  // dari 'error' (merah, jelas salah) supaya urgensinya tidak disamakan.
+  if (status === 'review') return <Badge className="text-[10px] border-transparent bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Perlu Review</Badge>;
   return <Badge className="text-[10px] border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">Valid</Badge>;
 }
 
@@ -644,21 +700,39 @@ function FieldRowTr({
         )}
         {field.codeEvidence && field.codeEvidence.length > 0 && (
           <div className={cn('flex flex-wrap gap-1', (field.status === 'error' || field.aiNote) ? 'mt-1.5' : '')}>
-            {field.codeEvidence.map(ev => (
-              <span
-                key={ev.code}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono border',
-                  ev.found
-                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30'
-                    : 'bg-destructive/10 text-destructive border-destructive/30',
-                  ev.quotation ? 'cursor-help' : '',
-                )}
-                title={ev.found && ev.quotation ? `Hal. ${ev.page_number}: "${ev.quotation}"` : !ev.found ? 'Tidak ada bukti dokumen — periksa manual' : undefined}
-              >
-                {ev.found ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />} {ev.code}
-              </span>
-            ))}
+            {field.codeEvidence.map(ev => {
+              // Fix item 7/8/9 (19 Sep 2026): warna chip & tooltip WAJIB ikut
+              // review_status per kode (bukan cuma found/tidak) -- lab rutin/
+              // konsistensi diagnosis/kutipan tak terverifikasi harus terlihat
+              // beda dari "Valid" biasa. Provenance ("Hal. N") sekarang
+              // menyertakan tipe dokumen dari document_type (metadata
+              // halaman), BUKAN ditebak/diasumsikan sama untuk semua kode.
+              const needsReview = ev.review_status === 'perlu_review' || ev.review_status === 'evidence_tidak_terverifikasi';
+              const docLabel = ev.document_type ? DOCUMENT_TYPE_LABELS[ev.document_type] : 'dokumen';
+              const reasonText = ev.review_flags?.map(f => f.reason).join(' ');
+              const title = !ev.found
+                ? 'Tidak ada bukti dokumen — periksa manual'
+                : ev.quotation
+                ? `${docLabel} hal. ${ev.page_number}: "${ev.quotation}"${reasonText ? ` — ${reasonText}` : ''}`
+                : reasonText;
+              return (
+                <span
+                  key={ev.code}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono border',
+                    !ev.found
+                      ? 'bg-destructive/10 text-destructive border-destructive/30'
+                      : needsReview
+                      ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30'
+                      : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30',
+                    title ? 'cursor-help' : '',
+                  )}
+                  title={title}
+                >
+                  {ev.found ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />} {ev.code}
+                </span>
+              );
+            })}
           </div>
         )}
         {/* Penjelasan Kode untuk DIAGLIST/PROCLIST — tampil bila ada nilai, status apapun */}
@@ -669,7 +743,12 @@ function FieldRowTr({
               fieldType={field.column_name === 'DIAGLIST' ? 'diagnosis' : 'procedure'}
               status={field.status as any}
               clinicalFindings={recordData}
-              pageReference={`Resume Medis`}
+              // pageReference hardcode "Resume Medis" DIHAPUS 19 Sep 2026 (fix
+              // item 7) -- provenance sekarang WAJIB dari codeEvidence[].
+              // document_type (metadata halaman per kode), BUKAN ditebak sama
+              // untuk semua kode. Tanpa codeEvidence, label fallback ke
+              // generik ("dokumen") di generateCodingExplanation.ts, TIDAK
+              // diam-diam menampilkan "Resume Medis" yang mungkin salah.
               codeEvidence={field.codeEvidence}
             />
           )}
@@ -758,13 +837,31 @@ function ActionChecklist({ categories, recordData }: { categories: { category: s
   pendingRisks?.forEach(risk => actions.push(PENDING_RISK_LABELS[risk.pattern] || risk.pattern));
 
   // SpO2 tidak tercatat -- parameter kunci yang paling langsung dicek
-  // verifikator BPJS utk klaim pernapasan. Deteksi disederhanakan (sesuai
-  // arahan): cukup cek apakah nilai SpO2 di kegawatdaruratan_assessment
-  // kosong, tanpa perlu baca diagnosis -- logic sama dipakai KegawatdaruratanTable.
+  // verifikator BPJS utk klaim pernapasan. FIX ITEM 4 (19 Sep 2026): dulu
+  // cukup cek nilai kosong TANPA tahu apakah form Triase IGD RS ybs memang
+  // punya kolom SpO2 sama sekali -- false positive nyata (RS yang form-nya
+  // tidak mencetak SpO2 selalu dapat action item ini). Sekarang WAJIB cek
+  // form_status (tri-state) juga: HANYA tampilkan kalau kolomnya ADA di form
+  // tapi kosong (empty_on_form) -- bukan kalau form memang tidak punya
+  // kolom itu (not_in_form). form_status undefined (data lama, belum
+  // di-generate ulang) diperlakukan SAMA seperti empty_on_form (perilaku
+  // lama) supaya tidak diam-diam menyembunyikan action item.
   const spo2 = parseAiReview(recordData)?.kegawatdaruratan_assessment?.vital_findings?.SpO2;
-  if (spo2 && (spo2.nilai === null || spo2.nilai === undefined)) {
+  const spo2Missing = spo2 && (spo2.nilai === null || spo2.nilai === undefined);
+  const spo2NotInForm = spo2?.form_status === 'not_in_form';
+  if (spo2Missing && !spo2NotInForm) {
     actions.push('Lengkapi/cek SpO2');
   }
+
+  // Kode diagnosis/prosedur yang backend tandai perlu review (fix item 8/9:
+  // lab rutin, konsistensi diagnosis O21.x, evidence tak terverifikasi) --
+  // BUKAN error, tapi tetap perlu tindakan verifikator sebelum submit.
+  const reviewCodes = allFields
+    .filter(f => f.status === 'review')
+    .flatMap(f => (f.codeEvidence ?? [])
+      .filter(e => e.review_status === 'perlu_review' || e.review_status === 'evidence_tidak_terverifikasi')
+      .map(e => `Cek kode ${e.code}${e.review_flags?.[0]?.reason ? `: ${e.review_flags[0].reason}` : ''}`));
+  actions.push(...reviewCodes);
 
   if (actions.length === 0) return null;
 
@@ -1298,6 +1395,13 @@ const PARAMETER_ABNORMAL_INFO: Record<string, string> = {
   bunyi_jantung: 'Bunyi jantung tambahan (gallop/murmur) menandakan kelainan kardiovaskular.',
   kesadaran_kualitatif: 'Kesadaran menurun (somnolen/sopor/koma) menandakan gangguan neurologis.',
   deformitas_luka: 'Adanya deformitas/luka menandakan temuan trauma yang perlu ditindaklanjuti.',
+  // 5 parameter KEADAAN baru (fix item 6, 19 Sep 2026) -- lihat PARAMETER_TABLE
+  // di kegawatdaruratanReference.js (backend).
+  kepala: 'Temuan abnormal kepala/wajah (mis. mukosa kering/pucat/ikterik, deformitas) bisa jadi tanda dehidrasi atau trauma.',
+  leher: 'Pembesaran KGB/tiroid atau kaku kuduk menandakan temuan yang perlu ditindaklanjuti.',
+  thorak: 'Thorak asimetris/ada jejas/retraksi/nyeri tekan menandakan kemungkinan trauma atau distres napas.',
+  abdomen: 'Abdomen distensi/nyeri tekan/bising usus abnormal menandakan kemungkinan gangguan gastrointestinal.',
+  ekstremitas: 'Kelainan bentuk/gerak/kelemahan ekstremitas menandakan temuan yang perlu ditindaklanjuti.',
 };
 
 function QuoteCell({ kutipan, page_number }: { kutipan: string | null | undefined; page_number: number | null | undefined }) {
@@ -1350,10 +1454,13 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
   const vitalBorderlineCount = vitalEntries.filter(v => v.level === 'borderline').length;
   const vitalMissingCount = vitalEntries.length - vitalPresentCount;
   // SpO2 tidak tercatat = parameter kunci gangguan pernapasan, paling langsung
-  // dicek verifikator BPJS. Deteksi disederhanakan (sesuai arahan): cukup cek
-  // SpO2 termasuk vital yang tidak tercatat, TANPA baca diagnosis/age_group --
-  // reused oleh ActionChecklist (lihat RecordFieldsTable) dari sumber yang sama.
-  const spo2Missing = !!vitalEntries.find(v => v.key === 'SpO2')?.isEmpty;
+  // dicek verifikator BPJS. FIX ITEM 4 (19 Sep 2026): HANYA tampilkan warning
+  // kalau kolom SpO2 ADA di form Triase IGD tapi kosong (empty_on_form) --
+  // BUKAN kalau form-nya memang tidak punya kolom SpO2 sama sekali
+  // (not_in_form, lihat form_status tri-state) -- reused oleh ActionChecklist
+  // (lihat RecordFieldsTable) dari sumber yang sama.
+  const spo2Entry = vitalEntries.find(v => v.key === 'SpO2');
+  const spo2Missing = !!spo2Entry?.isEmpty && spo2Entry?.vf?.form_status !== 'not_in_form';
 
   const toggleButton = (
     <Button variant="outline" size="sm" onClick={() => setShowFullDetail(v => !v)} className="text-[10px] h-7 shrink-0 font-headline-sm">
@@ -1946,6 +2053,10 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                                 <li key={i} className="text-[12px]">
                                   {e.sumber === 'proclist'
                                     ? <span className="font-mono">Kode {e.kode} — {e.deskripsi}</span>
+                                    : e.sumber === 'esi'
+                                    ? <span>ESI: {e.skor}{e.signal ? ' (sinyal konsisten dengan kegawatan)' : ' (sinyal pendukung, tidak menentukan status K5)'} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>
+                                    : e.sumber === 'tindakan_segera'
+                                    ? <span>Tindakan segera: {e.label} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>
                                     : <span>{e.label || e.key}{e.nilai !== undefined ? `: ${e.nilai}` : ''}{e.band ? ` (${BAND_LABEL[e.band] || e.band})` : ''} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>}
                                 </li>
                               ))}
