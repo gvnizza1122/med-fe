@@ -675,7 +675,7 @@ function FieldRowTr({
           )}
         {field.suggestedCodes && field.suggestedCodes.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-blue-600 dark:text-blue-400">
-            <span className="inline-flex items-center gap-1"><Lightbulb className="size-3" /> Kode disarankan dari dokumen (format ICD-10-CM Amerika — BELUM dicocokkan ke ICD-10 WHO yang dipakai BPJS, ketik manual setelah diverifikasi):</span>
+            <span className="inline-flex items-center gap-1"><Lightbulb className="size-3" /> Saran kode:</span>
             {field.suggestedCodes.map((s, i) => {
               const currentCodes = String(currentValue ?? '').split(';').map(c => c.trim()).filter(Boolean);
               const alreadyApplied = currentCodes.includes(s.code);
