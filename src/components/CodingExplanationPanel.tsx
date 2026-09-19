@@ -75,7 +75,7 @@ export function CodingExplanationPanel({
   // per-kode kalau ADA kode yang backend tandai perlu_review/evidence_tidak_
   // terverifikasi -- jangan biarkan tetap "Valid" cuma karena `status` prop
   // (field-level, dari rule engine) belum tahu soal review_flags ini.
-  const hasReviewFlag = result.codes.some(c => c.reviewStatus === 'perlu_review' || c.reviewStatus === 'evidence_tidak_terverifikasi');
+  const hasReviewFlag = result.codes.some(c => c.reviewStatus === 'PENDING');
   const statusLabel = hasReviewFlag ? 'Perlu Review' : status === 'approved' ? 'Disetujui' : 'Valid';
   const statusColor = hasReviewFlag
     ? 'text-amber-600 dark:text-amber-400'
