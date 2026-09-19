@@ -2581,7 +2581,6 @@ export default function ResultsPage() {
               <option value="pending">Pending - Perlu Dicek</option>
             </select>
           </div>
-      )}
 
       <div className={cn('flex gap-4 items-start', !(total > 1 || records.length > 1) && 'block')}>
         {/* ─── Left: records list (multi-record files) — collapses to a rail once a record is picked, so the detail panel gets room to breathe ── */}
