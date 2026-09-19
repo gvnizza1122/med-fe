@@ -77,42 +77,7 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
       statuses: initialStatuses, active: true, error: null,
     });
 
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000');
-    socketRef.current = socket;
-    // Sinyal "mulai diproses" per file — tanpa ini status di UI cuma pernah
-    // 'waiting' lalu langsung loncat ke 'done'/'failed', baris tidak pernah
-    // sempat tampil "Memproses..." walau backend sedang benar-benar
-    // mengerjakannya (antrean concurrency 5 di backend sudah ada duluan).
-    socket.on('pdf-batch:file-start', (data: { fileName: string }) => {
-      setJob(prev => {
-        if (!prev || prev.type !== 'batch') return prev;
-        const statuses = prev.statuses.map(s =>
-          s.fileName === data.fileName && s.status === 'waiting'
-            ? { ...s, status: 'processing' as BatchFileStatus['status'] }
-            : s
-        );
-        return { ...prev, statuses };
-      });
-    });
-    socket.on('pdf-batch:file-done', (data: {
-      fileName: string; success: boolean; error?: string | null;
-      jenis_klaim?: string | null; jenis_klaim_detection?: JenisKlaimDetection | null;
-    }) => {
-      setJob(prev => {
-        if (!prev || prev.type !== 'batch') return prev;
-        const statuses = prev.statuses.map(s =>
-          s.fileName === data.fileName
-            ? { ...s, status: (data.success ? 'done' : 'failed') as BatchFileStatus['status'], error: data.error, jenisKlaim: data.jenis_klaim, detection: data.jenis_klaim_detection }
-            : s
-        );
-        return {
-          ...prev,
-          statuses,
-          doneCount: statuses.filter(s => s.status === 'done').length,
-          failedCount: statuses.filter(s => s.status === 'failed').length,
-        };
-      });
-    });
+    socketRef.current = null;
 
     try {
       const res = await api.uploadPdfBatch(files, allowedCategories);
