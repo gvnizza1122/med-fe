@@ -5,7 +5,6 @@
 // socket & status tidak lagi terikat ke lifecycle halaman Extract PDF saja.
 // Progress ringkas ditampilkan sebagai widget kecil di sidebar.
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
-import { io, type Socket } from 'socket.io-client';
 import { api } from '@/lib/api';
 
 export interface JenisKlaimDetection {
@@ -127,7 +126,6 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
         };
       });
     } finally {
-      socket.disconnect();
       socketRef.current = null;
     }
   }, []);
