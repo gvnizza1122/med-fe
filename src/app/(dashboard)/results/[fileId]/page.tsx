@@ -503,7 +503,7 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
   // 'valid' (jangan timpa 'error'/'empty'/'usulan' yang sudah lebih spesifik).
   for (const col of ['DIAGLIST', 'PROCLIST']) {
     const hasReviewFlag = map[col]?.codeEvidence?.some(
-      e => e.review_status === 'PENDING' || e.review_status === 'PENDING'
+      e => e.review_status === 'PENDING'
     );
     if (map[col]?.status === 'valid' && hasReviewFlag) {
       map[col].status = 'review';
@@ -727,7 +727,7 @@ function FieldRowTr({
               // beda dari "Valid" biasa. Provenance ("Hal. N") sekarang
               // menyertakan tipe dokumen dari document_type (metadata
               // halaman), BUKAN ditebak/diasumsikan sama untuk semua kode.
-              const needsReview = ev.review_status === 'PENDING' || ev.review_status === 'PENDING';
+              const needsReview = ev.review_status === 'PENDING';
               const docLabel = ev.document_type ? DOCUMENT_TYPE_LABELS[ev.document_type] : 'dokumen';
               const reasonText = ev.review_flags?.map(f => f.reason).join(' ');
               const title = !ev.found
@@ -879,7 +879,7 @@ function ActionChecklist({ categories, recordData }: { categories: { category: s
   const reviewCodes = allFields
     .filter(f => f.status === 'review')
     .flatMap(f => (f.codeEvidence ?? [])
-      .filter(e => e.review_status === 'PENDING' || e.review_status === 'PENDING')
+      .filter(e => e.review_status === 'PENDING')
       .map(e => `Cek kode ${e.code}${e.review_flags?.[0]?.reason ? `: ${e.review_flags[0].reason}` : ''}`));
   actions.push(...reviewCodes);
 
