@@ -86,7 +86,7 @@ const FIELD_MAPPING: Record<string, string> = {
   'TOTAL_TARIF': 'total_tarif', 'TARIF_RS': 'tarif_rs', 'TARIF_POLI_EKS': 'tarif_poli_eks',
   'LOS': 'los', 'ICU_INDIKATOR': 'icu_indikator', 'ICU_LOS': 'icu_los', 'VENT_HOUR': 'vent_hour',
   'NAMA_PASIEN': 'nama_pasien', 'MRN': 'mrn', 'UMUR_TAHUN': 'umur_tahun',
-  'UMUR_HARI': 'umur_hari', 'DPJP': 'dpjp_name', 'SEP': 'sep', 'NOKARTU': 'nokartu',
+  'UMUR_HARI': 'umur_hari', 'DPJP': 'dpjp_name', 'NOKARTU': 'nokartu',
   'PAYOR_ID': 'payor_id', 'CODER_ID': 'coder_id', 'VERSI_INACBG': 'versi_inacbg',
   'VERSI_GROUPER': 'versi_grouper',
   'INACBG': 'inacbg_code', 'DESKRIPSI_INACBG': 'deskripsi_inacbg', 'TARIF_INACBG': 'tarif_inacbg',
@@ -107,7 +107,7 @@ const FIELD_LABELS: Record<string, string> = {
   'TOTAL_TARIF': 'Total Tarif', 'TARIF_RS': 'Tarif RS', 'TARIF_POLI_EKS': 'Tarif Poli Eks',
   'LOS': 'Lama Rawat (hari)', 'ICU_INDIKATOR': 'Indikator ICU', 'ICU_LOS': 'Lama ICU (hari)', 'VENT_HOUR': 'Jam Ventilasi',
   'NAMA_PASIEN': 'Nama Pasien', 'MRN': 'MRN', 'UMUR_TAHUN': 'Umur (tahun)',
-  'UMUR_HARI': 'Umur (hari)', 'DPJP': 'DPJP', 'SEP': 'SEP', 'NOKARTU': 'Nomor Kartu',
+  'UMUR_HARI': 'Umur (hari)', 'DPJP': 'DPJP', 'NOKARTU': 'Nomor Kartu',
   'PAYOR_ID': 'Payor ID', 'CODER_ID': 'Coder ID', 'VERSI_INACBG': 'Versi INA-CBG',
   'VERSI_GROUPER': 'Versi Grouper',
   'INACBG': 'Kode INA-CBG', 'DESKRIPSI_INACBG': 'Deskripsi INA-CBG', 'TARIF_INACBG': 'Tarif INA-CBG',
@@ -174,10 +174,10 @@ interface CodeEvidence {
   quotation: string | null;
   // Ditambah 19 Sep 2026 (fix item 7/8/9) -- lihat code_evidence[] di
   // aiReviewService.js. document_type dari metadata halaman (deterministik),
-  // review_status model status baru per kode (Valid/Perlu review/Evidence
+  // review_status model status baru per kode (VALID/PENDING
   // tidak terverifikasi), review_flags alasan + evidence tambahan.
   document_type?: 'rincian_biaya' | 'spri' | 'sep' | 'resume_medis' | 'triase_igd' | 'lab' | 'berkas_eklaim' | 'lainnya' | null;
-  review_status?: 'valid' | 'perlu_review' | 'evidence_tidak_terverifikasi';
+  review_status?: 'VALID' | 'PENDING';
   review_flags?: { reason: string; alternative_code?: string | null; action?: string | null }[];
 }
 interface SuggestedCode {
@@ -503,7 +503,7 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
   // 'valid' (jangan timpa 'error'/'empty'/'usulan' yang sudah lebih spesifik).
   for (const col of ['DIAGLIST', 'PROCLIST']) {
     const hasReviewFlag = map[col]?.codeEvidence?.some(
-      e => e.review_status === 'perlu_review' || e.review_status === 'evidence_tidak_terverifikasi'
+      e => e.review_status === 'PENDING' || e.review_status === 'PENDING'
     );
     if (map[col]?.status === 'valid' && hasReviewFlag) {
       map[col].status = 'review';
@@ -727,7 +727,7 @@ function FieldRowTr({
               // beda dari "Valid" biasa. Provenance ("Hal. N") sekarang
               // menyertakan tipe dokumen dari document_type (metadata
               // halaman), BUKAN ditebak/diasumsikan sama untuk semua kode.
-              const needsReview = ev.review_status === 'perlu_review' || ev.review_status === 'evidence_tidak_terverifikasi';
+              const needsReview = ev.review_status === 'PENDING' || ev.review_status === 'PENDING';
               const docLabel = ev.document_type ? DOCUMENT_TYPE_LABELS[ev.document_type] : 'dokumen';
               const reasonText = ev.review_flags?.map(f => f.reason).join(' ');
               const title = !ev.found
@@ -879,7 +879,7 @@ function ActionChecklist({ categories, recordData }: { categories: { category: s
   const reviewCodes = allFields
     .filter(f => f.status === 'review')
     .flatMap(f => (f.codeEvidence ?? [])
-      .filter(e => e.review_status === 'perlu_review' || e.review_status === 'evidence_tidak_terverifikasi')
+      .filter(e => e.review_status === 'PENDING' || e.review_status === 'PENDING')
       .map(e => `Cek kode ${e.code}${e.review_flags?.[0]?.reason ? `: ${e.review_flags[0].reason}` : ''}`));
   actions.push(...reviewCodes);
 
@@ -1562,7 +1562,7 @@ const KRITERIA_STATUS_COLOR: Record<string, CSSProperties> = {
   borderline: { background: 'color-mix(in srgb, var(--color-amber-500, #f59e0b) 16%, transparent)', color: '#b45309' },
   tidak: { background: 'color-mix(in srgb, var(--color-muted-foreground, #71717a) 14%, transparent)', color: 'var(--muted-foreground)' },
 };
-const KRITERIA_STATUS_LABEL: Record<string, string> = { ya: 'Ya', borderline: 'Borderline / Perlu Review', tidak: 'Tidak' };
+const KRITERIA_STATUS_LABEL: Record<string, string> = { ya: 'Ya', borderline: 'Borderline', tidak: 'Tidak' };
 // Label singkat utk mode ringkas Tabel 3 (mis. "K2 · Napas / sirkulasi") --
 // istilah resmi lengkap (k.label dari backend) tetap ada via tooltip/title,
 // tidak pernah dihilangkan, cuma tidak jadi teks utama supaya cepat dipindai.
@@ -1906,7 +1906,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                       ? 'text-gray-400 italic'
                       : 'text-gray-100';
                 const CardContent = (
-                  <div className={cn('rounded-xl border p-3 flex flex-col gap-1', cardBorder, level === 'gawat' && 'cursor-pointer hover:bg-red-950/60 transition-colors')} title={nyeriTip}>
+                  <div className={cn('rounded-xl border p-3 flex flex-col gap-1', cardBorder, (level === 'gawat' || level === 'borderline') && 'cursor-pointer hover:bg-[color:inherit]/60 transition-colors')} title={nyeriTip}>
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider truncate">{meta.label}</span>
                       <SeverityDot level={level} />
@@ -2569,16 +2569,16 @@ export default function ResultsPage() {
       </Card>
 
       {/* ─── Toolbar: search / filter (only relevant when there's more than 1 record) ─── */}
-      {(total > 1 || search || filter !== 'all') && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[220px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Cari Nama, SEP, atau No. Kartu..."
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-            />
+//       {(total > 1 || search || filter !== 'all') && (
+//         <div className="flex flex-wrap items-center gap-3">
+//           <div className="relative flex-1 min-w-[220px] max-w-sm">
+//             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+//             <Input
+//               className="pl-9"
+//               placeholder="Cari Nama atau No. Kartu..."
+//               value={search}
+//               onChange={e => { setSearch(e.target.value); setPage(1); }}
+//             />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Status:</span>
@@ -2640,7 +2640,6 @@ export default function ResultsPage() {
                         <thead>
                           <tr className="border-b bg-muted/50">
                             <th className="text-left px-3 py-2 text-xs font-semibold">Nama Pasien</th>
-                            <th className="text-left px-3 py-2 text-xs font-semibold">No. SEP</th>
                             <th className="text-left px-3 py-2 text-xs font-semibold">Status</th>
                           </tr>
                         </thead>
@@ -2709,7 +2708,7 @@ export default function ResultsPage() {
                 <div className="flex flex-col gap-4">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <h3 className="text-h2 text-foreground">{selectedRecord.nama_pasien} <span className="font-mono-data font-normal text-muted-foreground text-sm">SEP {selectedRecord.sep}</span></h3>
+                      <h3 className="text-h2 text-foreground">{selectedRecord.nama_pasien}</h3>
                       {kategori && (
                         <Badge
                           className="text-[11px] border-transparent"
