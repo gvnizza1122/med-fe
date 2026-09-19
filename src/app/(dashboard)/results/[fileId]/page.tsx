@@ -2578,7 +2578,7 @@ export default function ResultsPage() {
 //               placeholder="Cari Nama atau No. Kartu..."
 //               value={search}
 //               onChange={e => { setSearch(e.target.value); setPage(1); }}
-            />
+//             />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Status:</span>
