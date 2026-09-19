@@ -623,7 +623,7 @@ const JENIS_KLAIM_HIDDEN_FIELDS: Record<string, Set<string>> = {};
 const ALWAYS_HIDDEN_FIELDS = new Set([
   'PTD', 'ADL1', 'ADL2', 'KODE_TARIF',
   'IN_SP', 'IN_SR', 'IN_SI', 'IN_SD', 'SUBACUTE', 'CHRONIC', 'TARIF_POLI_EKS',
-  'BERAT_BADAN',
+  'BERAT_BADAN', 'BIRTH_WEIGHT',
 ]);
 
 // Satu baris <tr> tabel field — diekstrak dari RecordFieldsTable supaya bisa
@@ -1103,6 +1103,36 @@ function hasIcuVentilasiData(fieldMap: Record<string, FieldRow>, editedValues: R
   });
 }
 
+// Helper: Extract age from record data (either from raw data or DB fields)
+function extractAge(recordData: Record<string, any>): number | null {
+  const rawData = parseRawData(recordData);
+
+  // Try to get age from raw data first
+  const rawAgeYear = rawData?.UMUR_TAHUN;
+  const rawAgeDay = rawData?.UMUR_HARI;
+
+  // Try to get age from DB fields
+  const dbAgeYear = recordData?.umur_tahun;
+
+  // Prefer year-based age, fallback to day-based
+  const ageYear = rawAgeYear !== undefined && rawAgeYear !== null ? rawAgeYear : dbAgeYear;
+  const ageDay = rawAgeDay !== undefined && rawAgeDay !== null ? rawAgeDay : null;
+
+  // If we have year-based age, use it
+  if (ageYear !== undefined && ageYear !== null && ageYear !== '') {
+    const age = Number(ageYear);
+    if (!isNaN(age)) return age;
+  }
+
+  // If we have day-based age and no year, convert days to years
+  if (ageDay !== undefined && ageDay !== null && ageDay !== '') {
+    const age = Math.floor(Number(ageDay) / 365);
+    if (!isNaN(age)) return age;
+  }
+
+  return null;
+}
+
 function RecordFieldsTable({
   recordData, validationErrors, editing, editedValues, onEdit, onlyIssues, jenisKlaim, highlightFields,
 }: {
@@ -1142,6 +1172,9 @@ function RecordFieldsTable({
   // Check if ICU & Ventilasi category should be hidden due to no data
   const hasIcuData = useMemo(() => hasIcuVentilasiData(fieldMap, editedValues), [fieldMap, editedValues]);
 
+  // Extract patient age for conditional field visibility
+  const patientAge = useMemo(() => extractAge(recordData), [recordData]);
+
   const categories = Object.entries(FIELD_CATEGORIES)
     .filter(([category]) => {
       // Hide if INPATIENT_ONLY and not RAWAT_INAP
@@ -1155,7 +1188,18 @@ function RecordFieldsTable({
     .map(([category, cols]) => ({
       category,
       rows: cols
-        .filter(c => !ALWAYS_HIDDEN_FIELDS.has(c) && !(jenisKlaim && JENIS_KLAIM_HIDDEN_FIELDS[jenisKlaim]?.has(c)))
+        .filter(c => {
+          // Hide if in ALWAYS_HIDDEN_FIELDS or JENIS_KLAIM_HIDDEN_FIELDS
+          if (ALWAYS_HIDDEN_FIELDS.has(c)) return false;
+          if (jenisKlaim && JENIS_KLAIM_HIDDEN_FIELDS[jenisKlaim]?.has(c)) return false;
+
+          // Conditional: Hide UMUR (age) fields if age >= 17
+          if ((c === 'UMUR_TAHUN' || c === 'UMUR_HARI') && patientAge !== null && patientAge >= 17) {
+            return false;
+          }
+
+          return true;
+        })
         .map(c => fieldMap[c])
         .filter(f => !onlyIssues || isIssueStatus(f.status)),
     }));
