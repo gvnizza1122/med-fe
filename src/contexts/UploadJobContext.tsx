@@ -83,18 +83,24 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
       // Jaring pengaman: sama seperti alur sebelumnya — baris yang belum
       // ke-update via socket (event terlewat) disamakan dari respons HTTP,
       // yang sudah pasti berisi hasil final semua file.
+      // PENTING: dicocokkan lewat INDEX array, bukan nama file — backend
+      // (runWithConcurrencyLimit) menjamin urutan results[] persis sama
+      // dengan urutan req.files[], yang persis sama dengan urutan `files`
+      // yang dikirim di sini. Mencocokkan lewat Map<nama, hasil> salah kalau
+      // ada 2 file dengan NAMA SAMA dalam satu batch (skenario nyata: scan
+      // "SEP.pdf" dari pasien berbeda) — Map hanya menyimpan hasil TERAKHIR
+      // untuk nama itu, jadi file yang sebenarnya berhasil bisa ikut
+      // tertimpa status "gagal" milik file lain bernama sama.
       type BatchResultItem = {
         original_name: string; success: boolean; error?: string | null;
         jenis_klaim?: string | null; jenis_klaim_detection?: JenisKlaimDetection | null;
       };
-      const resultsByName = new Map<string, BatchResultItem>(
-        (res.results as BatchResultItem[] | undefined)?.map((r) => [r.original_name, r]) || []
-      );
+      const resultsList = (res.results as BatchResultItem[] | undefined) || [];
       setJob(prev => {
         if (!prev || prev.type !== 'batch') return prev;
-        const statuses = prev.statuses.map(s => {
+        const statuses = prev.statuses.map((s, i) => {
           if (s.status !== 'waiting') return s;
-          const r = resultsByName.get(s.fileName);
+          const r = resultsList[i];
           if (!r) return s;
           return { ...s, status: (r.success ? 'done' : 'failed') as BatchFileStatus['status'], error: r.error, jenisKlaim: r.jenis_klaim, detection: r.jenis_klaim_detection };
         });
