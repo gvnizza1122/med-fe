@@ -2800,7 +2800,7 @@ export default function ResultsPage() {
                       <input type="checkbox" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
                       Tampilkan hanya yang bermasalah
                     </label>
-                    {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
+                    {false && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
                       <Button variant="outline" size="sm" onClick={() => setSuratKlarifikasiOpen(true)}>
                         Buat Surat Klarifikasi
                       </Button>
@@ -2856,7 +2856,7 @@ export default function ResultsPage() {
                   )}
 
                 {/* ─── RV-20 (kegawatan IGD): referensi padanan kode, baca saja ── */}
-                {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
+                {false && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
                   <div className="mb-4">
                     <PadananKodeNyeriCard />
                   </div>
@@ -2988,7 +2988,7 @@ export default function ResultsPage() {
                 })()}
 
                 {/* ─── RV-20: checklist konfirmasi INLINE di bawah tabel ─── */}
-                {selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
+                {false && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
                   <div className="mt-4">
                     <Rv20ConfirmationModal
                       recordId={selectedRecord.id}
