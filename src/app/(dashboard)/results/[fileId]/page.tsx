@@ -2056,7 +2056,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                               <span className="text-sm font-semibold text-gray-400">Status Sistem:</span>
                               <span className="text-sm text-red-400 font-medium">TERPENUHI (KRITIS)</span>
                             </li>
-                            {k.catatan && (
+                            {k.catatan && k.catatan.trim() && k.catatan.toLowerCase() !== 'null' && k.catatan.toLowerCase() !== 'undefined' && (
                               <li className="flex flex-col gap-1">
                                 <span className="text-sm font-semibold text-gray-400">Alasan / Bukti:</span>
                                 <span className="text-sm text-gray-300">- {k.catatan}</span>
