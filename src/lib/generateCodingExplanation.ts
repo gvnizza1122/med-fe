@@ -199,7 +199,7 @@ export interface CodingExplanation {
   // Ditambah 19 Sep 2026 (fix item 7/8/9) -- status review per kode dari
   // backend (code_evidence[].review_status), TERPISAH dari `status` field-level
   // di atas (yang datang dari rule engine, bukan dari evidence/rules kode ini).
-  reviewStatus?: 'valid' | 'perlu_review' | 'evidence_tidak_terverifikasi';
+  reviewStatus?: 'VALID' | 'PENDING';
   reviewFlags?: CodeReviewFlag[];
 }
 
@@ -238,7 +238,7 @@ export interface CodeEvidenceEntry {
   // Field baru dari backend (fix item 7/8/9, 19 Sep 2026) -- lihat
   // code_evidence[] di aiReviewService.js.
   document_type?: DocumentType | null;
-  review_status?: 'valid' | 'perlu_review' | 'evidence_tidak_terverifikasi';
+  review_status?: 'VALID' | 'PENDING';
   review_flags?: CodeReviewFlag[];
 }
 
@@ -260,8 +260,7 @@ function describeEvidenceSource(evidenceEntry?: CodeEvidenceEntry | null): strin
  * yang backend sudah tandai perlu_review/evidence_tidak_terverifikasi).
  */
 function describeStatusLabel(status: 'valid' | 'approved', evidenceEntry?: CodeEvidenceEntry | null): string {
-  if (evidenceEntry?.review_status === 'perlu_review') return 'Perlu Review';
-  if (evidenceEntry?.review_status === 'evidence_tidak_terverifikasi') return 'Evidence Tidak Terverifikasi';
+  if (evidenceEntry?.review_status === 'PENDING') return 'Perlu Review';
   return status === 'approved' ? 'Disetujui' : 'Valid';
 }
 
