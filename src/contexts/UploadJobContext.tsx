@@ -44,7 +44,7 @@ const UploadJobContext = createContext<UploadJobContextValue | null>(null);
 
 export function UploadJobProvider({ children }: { children: ReactNode }) {
   const [job, setJob] = useState<UploadJob | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<unknown>(null);
 
   const dismissJob = useCallback(() => setJob(null), []);
 
