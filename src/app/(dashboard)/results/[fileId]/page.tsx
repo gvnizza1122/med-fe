@@ -2568,18 +2568,6 @@ export default function ResultsPage() {
         </div>
       </Card>
 
-      {/* ─── Toolbar: search / filter (only relevant when there's more than 1 record) ─── */}
-//       {(total > 1 || search || filter !== 'all') && (
-//         <div className="flex flex-wrap items-center gap-3">
-//           <div className="relative flex-1 min-w-[220px] max-w-sm">
-//             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-//             <Input
-//               className="pl-9"
-//               placeholder="Cari Nama atau No. Kartu..."
-//               value={search}
-//               onChange={e => { setSearch(e.target.value); setPage(1); }}
-//             />
-          </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Status:</span>
             <select
