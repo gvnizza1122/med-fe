@@ -1599,6 +1599,31 @@ const BAND_COLOR: Record<string, CSSProperties> = {
   gawat: { color: 'var(--destructive)', fontWeight: 600 },
 };
 
+// Label band untuk tekanan darah memakai istilah ESH/ESC 2023, bukan
+// "Normal". Sejak band borderline disembunyikan (21 Sep 2026), rentang
+// 140-179 sistolik akan tampil sebagai "Normal" padahal menurut ESH itu
+// hipertensi grade 1-2 -- angka 165/100 berlabel Normal jelas menyesatkan
+// koder. Kata "Borderline" tetap tidak dipakai di mana pun.
+//
+// Band borderline TD punya DUA sisi: rentang tinggi (hipertensi) dan
+// rentang rendah (mendekati hipotensi, sistolik 80-89). Hanya sisi tinggi
+// yang boleh dilabeli hipertensi -- sisi rendah ikut perilaku vital lain.
+const TD_GRADE_ESH: Record<string, [number, number][]> = {
+  TD_sistolik: [[140, 159], [160, 179]],
+  TD_diastolik: [[90, 99], [100, 109]],
+};
+function labelBand(key: string | undefined, nilai: string | number | null | undefined, band: string | null | undefined): string {
+  if (!band) return '—';
+  const grades = key ? TD_GRADE_ESH[key] : undefined;
+  if (grades && band === 'borderline' && typeof nilai === 'number') {
+    for (let g = 0; g < grades.length; g++) {
+      const [min, max] = grades[g];
+      if (nilai >= min && nilai <= max) return `Hipertensi ${g + 1}`;
+    }
+  }
+  return BAND_LABEL[band] || band;
+}
+
 // Penjelasan singkat "kenapa abnormal" utk tiap parameter pemeriksaan fisik
 // (Tabel 1) — disesuaikan dengan definisi contoh_abnormal di
 // kegawatdaruratanReference.js (backend). Dipakai di dialog popup yang
@@ -1938,7 +1963,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                             : level === 'missing' ? 'bg-white/[0.05] text-gray-400 border border-white/10'
                               : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
                       )}>
-                        {level === 'gawat' ? 'KRITIS' : level === 'borderline' ? 'BORDERLINE' : level === 'missing' ? (tercatatNol ? 'TIDAK DIUKUR' : 'KOSONG') : '✓ Normal'}
+                        {level === 'gawat' ? 'KRITIS' : level === 'borderline' ? labelBand(key, vf?.nilai, 'borderline').toUpperCase() : level === 'missing' ? (tercatatNol ? 'TIDAK DIUKUR' : 'KOSONG') : '✓ Normal'}
                       </span>
                     </div>
                     {tercatatNol && (
@@ -2233,7 +2258,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                         <td className="px-4 py-3 text-sm font-medium text-gray-100">{meta.label}</td>
                         <td className="px-4 py-3 text-sm font-mono">{!isEmpty ? `${vf.nilai} ${meta.unit}` : <span className="italic text-gray-400" title={nyeriCaveat}>{nyeriCaveat ? '—' : '—'}</span>}</td>
                         <td className="px-4 py-3 text-sm font-medium" style={vf?.band ? BAND_COLOR[vf.band] : { color: 'var(--on-surface-variant)' }}>
-                          {vf?.band ? BAND_LABEL[vf.band] : '—'}
+                          {labelBand(key, vf?.nilai, vf?.band)}
                         </td>
                         <td className="px-4 py-3 text-label-md text-gray-400">{meta.referensiDewasa}</td>
                         <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
@@ -2293,7 +2318,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                                     ? <span>ESI: {e.skor}{e.signal ? ' (sinyal konsisten dengan kegawatan)' : ' (sinyal pendukung, tidak menentukan status K5)'} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>
                                     : e.sumber === 'tindakan_segera'
                                     ? <span>Tindakan segera: {e.label} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>
-                                    : <span>{e.label || e.key}{e.nilai !== undefined ? `: ${e.nilai}` : ''}{e.band ? ` (${BAND_LABEL[e.band] || e.band})` : ''} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>}
+                                    : <span>{e.label || e.key}{e.nilai !== undefined ? `: ${e.nilai}` : ''}{e.band ? ` (${labelBand(e.key, e.nilai, e.band)})` : ''} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>}
                                 </li>
                               ))}
                             </ul>
