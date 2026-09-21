@@ -25,8 +25,13 @@ interface InaCbgResult {
 }
 
 interface TariffResult {
-  inacbg_code: string;
-  tariff_amount: number; // Rp
+  // Nama field WAJIB sama persis dengan yang dikirim backend
+  // (aiReviewService.js: tarifResult). Sebelumnya di sini tertulis
+  // tariff_amount, padahal backend tidak pernah mengirim nama itu --
+  // akibatnya hasTariff SELALU false dan panel ini SELALU menampilkan
+  // "Tidak ditemukan", berapa pun tarif yang berhasil dihitung backend.
+  amount: number | null; // Rp, null kalau tarif tidak berlaku
+  note?: string; // alasan spesifik saat amount null
   region: string; // e.g. "Regional 1"
   class: string; // e.g. "D"
   source: string; // e.g. "PMK 3/2023"
@@ -141,7 +146,7 @@ function TariffSection({
   const isHighConfidence = confidence >= CONFIDENCE_HIGH;
   const isLowConfidence = confidence < CONFIDENCE_LOW;
 
-  const hasTariff = !!tariff_result && Number(tariff_result.tariff_amount) > 0;
+  const hasTariff = !!tariff_result && Number(tariff_result.amount) > 0;
 
   return (
     <div className="flex items-start justify-between gap-4 bg-white/[0.02] px-4 py-3">
@@ -170,13 +175,18 @@ function TariffSection({
 
       <div className="shrink-0 text-right">
         <div className="font-mono text-base font-bold text-gray-100">
-          {hasTariff ? formatRupiah(tariff_result.tariff_amount) : 'Tidak ditemukan'}
+          {hasTariff ? formatRupiah(Number(tariff_result.amount)) : 'Tidak ditemukan'}
         </div>
         {hasTariff && (
           <div className="mt-0.5 text-[11px] text-gray-500">
             {shortenRegion(tariff_result.region)}
             {tariff_result.class ? ` - Kelas ${tariff_result.class}` : ''}
             {tariff_result.source ? ` · ${tariff_result.source}` : ''}
+          </div>
+        )}
+        {!hasTariff && tariff_result?.note && (
+          <div className="mt-0.5 max-w-[260px] text-[11px] leading-snug text-gray-500">
+            {tariff_result.note}
           </div>
         )}
       </div>

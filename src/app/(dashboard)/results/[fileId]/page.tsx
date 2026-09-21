@@ -352,8 +352,11 @@ interface InaCbgResult {
 }
 
 interface TariffResult {
-  inacbg_code: string;
-  tariff_amount: number; // Rp
+  // Disamakan dengan bentuk yang dikirim backend (aiReviewService.js:
+  // tarifResult). Salinan tipe ini sempat berbeda dari komponennya dan
+  // sama-sama salah menamai field-nya tariff_amount.
+  amount: number | null; // Rp, null kalau tarif tidak berlaku
+  note?: string; // alasan spesifik saat amount null
   region: string; // e.g. "Regional 1"
   class: string; // e.g. "D"
   source: string; // e.g. "PMK 3/2023"
