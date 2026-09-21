@@ -496,19 +496,12 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
     }
   }
 
-  // Status 'review' (fix item 8/9, 19 Sep 2026): field koding yang ISINYA
-  // valid (bukan kosong/error) TAPI ada code_evidence dengan review_status
-  // perlu_review/evidence_tidak_terverifikasi (lab rutin, diagnosis
-  // consistency O21.x, kutipan tak terverifikasi) -- HANYA override status
-  // 'valid' (jangan timpa 'error'/'empty'/'usulan' yang sudah lebih spesifik).
-  for (const col of ['DIAGLIST', 'PROCLIST']) {
-    const hasReviewFlag = map[col]?.codeEvidence?.some(
-      e => e.review_status === 'PENDING'
-    );
-    if (map[col]?.status === 'valid' && hasReviewFlag) {
-      map[col].status = 'review';
-    }
-  }
+  // DIHAPUS 21 Sep 2026 (permintaan klien): kode yang isinya valid tapi
+  // backend tandai review_status PENDING kini diperlakukan valid penuh.
+  // Blok upgrade 'valid' -> 'review' sengaja tidak dijalankan lagi -- ini
+  // SATU-SATUNYA tempat status itu di-set, jadi mematikannya di sini ikut
+  // menghilangkan badge "Perlu Review", hitungan banner "N masalah",
+  // section merah, dan filter "hanya yang bermasalah" sekaligus.
 
   return map;
 }
@@ -727,7 +720,10 @@ function FieldRowTr({
               // beda dari "Valid" biasa. Provenance ("Hal. N") sekarang
               // menyertakan tipe dokumen dari document_type (metadata
               // halaman), BUKAN ditebak/diasumsikan sama untuk semua kode.
-              const needsReview = ev.review_status === 'PENDING';
+              // review_status sengaja TIDAK lagi mewarnai chip (status
+              // "Perlu Review" dihapus 21 Sep 2026) -- chip cuma bedakan
+              // ada-bukti vs tidak-ada-bukti.
+              const needsReview = false;
               const docLabel = ev.document_type ? DOCUMENT_TYPE_LABELS[ev.document_type] : 'dokumen';
               const reasonText = ev.review_flags?.map(f => f.reason).join(' ');
               const title = !ev.found
@@ -876,12 +872,7 @@ function ActionChecklist({ categories, recordData }: { categories: { category: s
   // Kode diagnosis/prosedur yang backend tandai perlu review (fix item 8/9:
   // lab rutin, konsistensi diagnosis O21.x, evidence tak terverifikasi) --
   // BUKAN error, tapi tetap perlu tindakan verifikator sebelum submit.
-  const reviewCodes = allFields
-    .filter(f => f.status === 'review')
-    .flatMap(f => (f.codeEvidence ?? [])
-      .filter(e => e.review_status === 'PENDING')
-      .map(e => `Cek kode ${e.code}${e.review_flags?.[0]?.reason ? `: ${e.review_flags[0].reason}` : ''}`));
-  actions.push(...reviewCodes);
+  // Butir "Cek kode ..." dihapus 21 Sep 2026 bersama status "Perlu Review".
 
   if (actions.length === 0) return null;
 
@@ -2323,6 +2314,12 @@ function LoadingSpinner() {
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
+// Bagian RV-20 disembunyikan 19 Sep 2026 atas permintaan klien. Anotasi
+// `: boolean` WAJIB -- kalau ditulis literal `false`, sisa ekspresi jadi
+// unreachable dan TypeScript berhenti menyempitkan `selectedRecord` di
+// dalamnya (TS18049), sehingga `npm run build` gagal.
+const SHOW_RV20: boolean = false;
+
 export default function ResultsPage() {
   const params = useParams();
   const fileId = params.fileId as string;
@@ -2800,7 +2797,7 @@ export default function ResultsPage() {
                       <input type="checkbox" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
                       Tampilkan hanya yang bermasalah
                     </label>
-                    {false && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
+                    {SHOW_RV20 && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
                       <Button variant="outline" size="sm" onClick={() => setSuratKlarifikasiOpen(true)}>
                         Buat Surat Klarifikasi
                       </Button>
@@ -2856,7 +2853,7 @@ export default function ResultsPage() {
                   )}
 
                 {/* ─── RV-20 (kegawatan IGD): referensi padanan kode, baca saja ── */}
-                {false && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
+                {SHOW_RV20 && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
                   <div className="mb-4">
                     <PadananKodeNyeriCard />
                   </div>
@@ -2988,7 +2985,7 @@ export default function ResultsPage() {
                 })()}
 
                 {/* ─── RV-20: checklist konfirmasi INLINE di bawah tabel ─── */}
-                {false && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
+                {SHOW_RV20 && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
                   <div className="mt-4">
                     <Rv20ConfirmationModal
                       recordId={selectedRecord.id}

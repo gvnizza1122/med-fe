@@ -260,7 +260,10 @@ function describeEvidenceSource(evidenceEntry?: CodeEvidenceEntry | null): strin
  * yang backend sudah tandai perlu_review/evidence_tidak_terverifikasi).
  */
 function describeStatusLabel(status: 'valid' | 'approved', evidenceEntry?: CodeEvidenceEntry | null): string {
-  if (evidenceEntry?.review_status === 'PENDING') return 'Perlu Review';
+  // "Perlu Review" dihapus 21 Sep 2026 (permintaan klien) -- evidenceEntry
+  // tidak lagi memengaruhi label, disisakan di signature supaya pemanggil
+  // tidak ikut berubah.
+  void evidenceEntry;
   return status === 'approved' ? 'Disetujui' : 'Valid';
 }
 
