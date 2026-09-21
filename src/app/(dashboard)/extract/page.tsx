@@ -31,7 +31,7 @@ import { Progress } from '@/components/ui/progress';
 const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc: string }[] = [
   { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: <Footprints className="size-5" />, desc: 'Pasien tidak menginap' },
   { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: <BedDouble className="size-5" />, desc: 'Pasien menginap di ruangan' },
-  { value: 'GAWAT_DARURAT', label: 'IGD / Gawat Darurat', icon: <Siren className="size-5" />, desc: 'Kunjungan IGD, tidak lanjut rawat inap' },
+  // Opsi IGD dihapus 21 Sep 2026: kunjungan IGD termasuk Rawat Jalan.
 ];
 
 const MAX_BATCH_FILES = 300; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)

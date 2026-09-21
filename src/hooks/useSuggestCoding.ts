@@ -19,7 +19,7 @@ export interface UseSuggestCodingActions {
     recordId: string,
     diagnosisSentence: string,
     procedureSentence: string,
-    jenisKlaim: 'RAWAT_JALAN' | 'RAWAT_INAP' | 'GAWAT_DARURAT',
+    jenisKlaim: 'RAWAT_JALAN' | 'RAWAT_INAP',
     patientName: string,
     region?: string,
     kelasRs?: string
@@ -67,7 +67,7 @@ export function useSuggestCoding(): [UseSuggestCodingState, UseSuggestCodingActi
       recordId: string,
       diagnosisSentence: string,
       procedureSentence: string,
-      jenisKlaim: 'RAWAT_JALAN' | 'RAWAT_INAP' | 'GAWAT_DARURAT',
+      jenisKlaim: 'RAWAT_JALAN' | 'RAWAT_INAP',
       patientName: string,
       region = 'Regional 1',
       kelasRs = 'D'

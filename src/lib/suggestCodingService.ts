@@ -27,7 +27,7 @@ export interface ClinicalExtract {
   patient_name: string;
   admission_date: string;
   discharge_date: string;
-  jenis_klaim: 'RAWAT_JALAN' | 'RAWAT_INAP' | 'GAWAT_DARURAT';
+  jenis_klaim: 'RAWAT_JALAN' | 'RAWAT_INAP';
   facts: ClinicalFact[];
   summary: string; // Ringkasan kasus 1-2 kalimat
 }
@@ -191,7 +191,7 @@ export async function suggestCodesWithCitations(
 export async function groupCodesToInaCBG(
   diagnosisCodes: CodeWithCitation[],
   procedureCodes: CodeWithCitation[],
-  jenisKlaim: 'RAWAT_JALAN' | 'RAWAT_INAP' | 'GAWAT_DARURAT'
+  jenisKlaim: 'RAWAT_JALAN' | 'RAWAT_INAP'
 ): Promise<GroupedCodesResult> {
   try {
     // Grouper logic - blind to tariff
@@ -275,7 +275,7 @@ export async function suggestCoding(
   recordId: string,
   diagnosisSentence: string,
   procedureSentence: string,
-  jenisKlaim: 'RAWAT_JALAN' | 'RAWAT_INAP' | 'GAWAT_DARURAT',
+  jenisKlaim: 'RAWAT_JALAN' | 'RAWAT_INAP',
   patientName: string,
   region: string = 'Regional 1',
   kelasRs: string = 'D'

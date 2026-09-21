@@ -33,8 +33,10 @@ import { Search, CheckCircle2, XCircle, ChevronLeft, ChevronRight, FileText, Spa
 // modul ini (dan seluruh dependensinya) cuma dievaluasi di browser.
 const PdfViewer = dynamic(() => import('@/components/PdfViewer'), { ssr: false });
 
-// GAWAT_DARURAT dipertahankan di sini (walau sudah dihapus dari picker upload)
-// supaya file lama berkategori itu tetap tampil labelnya dengan benar.
+// Kategori GAWAT_DARURAT dihapus 21 Sep 2026 (kunjungan IGD termasuk Rawat
+// Jalan). Labelnya SENGAJA disisakan di sini sebagai jaring pengaman
+// tampilan: kalau ada berkas lama yang lolos dari migrasi data, labelnya
+// tetap terbaca dan tidak muncul sebagai kategori kosong.
 const JENIS_KLAIM_OPTIONS = [
   { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: '🚶', accent: '#2563eb' },
   { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: '🛏️', accent: '#6366f1' },
