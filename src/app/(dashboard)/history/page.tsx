@@ -198,7 +198,7 @@ export default function HistoryPage() {
       {loading ? (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex border-b border-border px-4 py-3 gap-6">
-            {['SEP', 'Nama Pasien', 'Kategori', 'Total', 'Pending'].map((h) => (
+            {['Nama Pasien', 'Kategori', 'Total', 'Pending'].map((h) => (
               <Skeleton key={h} className="h-3.5 w-16" />
             ))}
           </div>
@@ -250,7 +250,6 @@ export default function HistoryPage() {
               <Table className="table-zebra">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>SEP</TableHead>
                     <TableHead>Nama Pasien</TableHead>
                     <TableHead>Kategori</TableHead>
                     <TableHead className="text-right">Total</TableHead>
@@ -275,9 +274,6 @@ export default function HistoryPage() {
                         exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
                         className="border-b border-border last:border-0"
                       >
-                        <TableCell className="max-w-[160px] truncate font-mono text-xs text-foreground" title={f.file_name}>
-                          {f.sep || '-'}
-                        </TableCell>
                         <TableCell className="max-w-[200px] truncate font-medium text-foreground">
                           <div className="flex items-center gap-2">
                             <FileText className="size-4 shrink-0 text-muted-foreground" />

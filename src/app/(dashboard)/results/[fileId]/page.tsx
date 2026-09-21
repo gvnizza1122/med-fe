@@ -159,7 +159,10 @@ const FIELD_CATEGORIES: Record<string, string[]> = {
     'DESKRIPSI_SP', 'TARIF_SP', 'DESKRIPSI_SR', 'TARIF_SR', 'DESKRIPSI_SI',
     'TARIF_SI', 'DESKRIPSI_SD', 'TARIF_SD', 'TOTAL_TARIF'],
   'ICU & Ventilasi': ['ICU_INDIKATOR', 'ICU_LOS', 'VENT_HOUR'],
-  'Asuransi & Rujukan': ['SEP', 'NOKARTU', 'PAYOR_ID', 'DPJP', 'KODE_TARIF', 'PTD', 'IN_SP', 'IN_SR', 'IN_SI', 'IN_SD', 'SUBACUTE', 'CHRONIC', 'TARIF_POLI_EKS'],
+  // Baris SEP disembunyikan dari tabel data klaim 21 Sep 2026 (permintaan
+  // klien). Nilainya tetap diekstrak & divalidasi seperti biasa -- yang
+  // dihilangkan cuma tampilannya.
+  'Asuransi & Rujukan': ['NOKARTU', 'PAYOR_ID', 'DPJP', 'KODE_TARIF', 'PTD', 'IN_SP', 'IN_SR', 'IN_SI', 'IN_SD', 'SUBACUTE', 'CHRONIC', 'TARIF_POLI_EKS'],
   // 'Sistem (Isi Otomatis oleh vClaim)' (TARIF_RS/CODER_ID/VERSI_INACBG/
   // VERSI_GROUPER/C1-C4) sengaja DIHAPUS dari tampilan atas permintaan user —
   // staf tidak paham istilah C1-C4, dan kolomnya (terutama C2) kadang berisi
@@ -574,7 +577,7 @@ function SummaryBanner({ tone, action, children }: { tone: 'success' | 'info' | 
 
 function SeverityDot({ level }: { level: 'normal' | 'borderline' | 'gawat' | 'missing' }) {
   const color = level === 'gawat' ? 'var(--destructive)'
-    : level === 'borderline' ? '#b45309'
+    : level === 'borderline' ? '#059669'
       : level === 'missing' ? 'var(--muted-foreground)'
         : '#059669'; // normal
   return <span className="inline-block size-2 rounded-full shrink-0" style={{ background: color }} />;
@@ -1579,10 +1582,14 @@ const AGE_GROUP_LABELS: Record<string, string> = {
   prasekolah: 'Prasekolah (3-5 th)', usia_sekolah: 'Usia sekolah (6-11 th)', remaja: 'Remaja (12-15 th)',
   dewasa: 'Dewasa (16-64 th)', lansia: 'Lansia (>=65 th)',
 };
-const BAND_LABEL: Record<string, string> = { normal: 'Normal', borderline: 'Borderline', gawat: 'Gawat' };
+// Status "Borderline" disembunyikan dari tampilan 21 Sep 2026 (permintaan
+// klien): nilai yang masuk rentang borderline ditampilkan sebagai Normal.
+// Ambang/perhitungan di dalam sistem SENGAJA tidak diubah -- itu keputusan
+// klinis yang menunggu grading ESH dari dokter, jadi cukup labelnya dulu.
+const BAND_LABEL: Record<string, string> = { normal: 'Normal', borderline: 'Normal', gawat: 'Gawat' };
 const BAND_COLOR: Record<string, CSSProperties> = {
   normal: { color: 'var(--muted-foreground)' },
-  borderline: { color: '#b45309', fontWeight: 600 },
+  borderline: { color: 'var(--muted-foreground)' }, // disamakan dengan normal (lihat BAND_LABEL)
   gawat: { color: 'var(--destructive)', fontWeight: 600 },
 };
 
@@ -1658,6 +1665,11 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
     return { key, meta, vf, isEmpty, level: (isEmpty ? 'missing' : (vf?.band || 'normal')) as 'normal' | 'borderline' | 'gawat' | 'missing' };
   });
   const vitalPresentCount = vitalEntries.filter(v => !v.isEmpty).length;
+  // Tabel 2 menampilkan HANYA vital yang benar-benar tercatat, mengikuti pola
+  // Tabel 1 (documentedParams). Sebelumnya semua parameter dirender apa adanya,
+  // jadi berkas yang cuma punya beberapa tanda vital memunculkan deretan kartu
+  // "KOSONG" yang memenuhi layar tanpa memberi informasi apa pun.
+  const vitalPresentEntries = vitalEntries.filter(v => !v.isEmpty);
   const vitalGawatCount = vitalEntries.filter(v => v.level === 'gawat').length;
   const vitalBorderlineCount = vitalEntries.filter(v => v.level === 'borderline').length;
   const vitalMissingCount = vitalEntries.length - vitalPresentCount;
@@ -1698,7 +1710,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     : 'border-primary/40 bg-emerald-900/30 text-emerald-400 dark:text-emerald-400'
               )}
             >
-              {yaCount} Ya, {borderlineCount} Borderline
+              {yaCount} Ya
             </Badge>
             {toggleButton}
           </div>
@@ -1858,12 +1870,12 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                 'text-[11px] font-medium px-2.5 py-1 rounded-full border',
                 vitalGawatCount > 0
                   ? 'bg-red-950/40 border-red-900/50 text-red-400 dark:text-red-400'
-                  : (vitalBorderlineCount > 0 || vitalMissingCount > 0)
+                  : vitalMissingCount > 0
                     ? 'bg-amber-950/40 border-amber-900/50 text-amber-500 dark:text-amber-500'
                     : 'bg-emerald-900/30 border-emerald-800/50 text-emerald-400 dark:text-emerald-400'
               )}>
-                {vitalGawatCount > 0 ? `${vitalGawatCount} kritis` : vitalBorderlineCount > 0 ? `${vitalBorderlineCount} borderline` : 'Semua normal'}
-                {vitalMissingCount > 0 ? ` · ${vitalMissingCount} kosong` : ''}
+                {vitalGawatCount > 0 ? `${vitalGawatCount} kritis` : 'Semua normal'}
+                {vitalPresentCount}/{vitalEntries.length} tercatat
               </span>
             </div>
 
@@ -1879,7 +1891,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
             )}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-              {vitalEntries.map(({ key, meta, vf, isEmpty, level }) => {
+              {vitalPresentEntries.map(({ key, meta, vf, isEmpty, level }) => {
                 const instrumenDiharapkan = key === 'Nyeri' ? vf?.instrumen_diharapkan : undefined;
                 const nyeriTip = key === 'Nyeri' && isEmpty
                   ? `Skala nyeri kertas/PDF biasanya diisi dengan melingkari angka pada skala cetak — tidak terbaca sistem.${instrumenDiharapkan ? ` Instrumen: ${instrumenDiharapkan}.` : ''}`

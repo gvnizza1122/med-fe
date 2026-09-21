@@ -254,7 +254,7 @@ export default function PendingBpjsFileDetailPage() {
       {loading ? (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex border-b border-border px-4 py-3 gap-6">
-            {['SEP', 'Nama', 'Jenis', 'Alasan', 'Jawaban'].map((h) => (
+            {['Nama', 'Jenis', 'Alasan', 'Jawaban'].map((h) => (
               <Skeleton key={h} className="h-3.5 w-16" />
             ))}
           </div>
@@ -283,7 +283,6 @@ export default function PendingBpjsFileDetailPage() {
           <Table className="table-zebra">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>SEP</TableHead>
                 <TableHead>Nama Peserta</TableHead>
                 <TableHead>Jenis</TableHead>
                 <TableHead>Alasan Pending</TableHead>
@@ -294,7 +293,11 @@ export default function PendingBpjsFileDetailPage() {
             <TableBody>
               {items.map(item => (
                 <TableRow key={item.id} className="cursor-pointer" onClick={() => openDetail(item)}>
-                  <TableCell className="font-mono text-xs">
+                  {/* Navigasi ke detail klaim dipindah ke sini 21 Sep 2026: kolom SEP
+                      dihilangkan atas permintaan klien, dan dulu NOMOR SEP-lah yang jadi
+                      satu-satunya tautan ke halaman klaim. Tanpa dipindah, daftar ini
+                      kehilangan jalan menuju detail. */}
+                  <TableCell className="max-w-[180px] truncate font-medium">
                     {item.claim_file_id ? (
                       <button
                         type="button"
@@ -308,11 +311,10 @@ export default function PendingBpjsFileDetailPage() {
                           router.push(`/results/${item.claim_file_id}?${params.toString()}`);
                         }}
                       >
-                        {item.sep || '-'}
+                        {item.nama_peserta || '-'}
                       </button>
-                    ) : (item.sep || '-')}
+                    ) : (item.nama_peserta || '-')}
                   </TableCell>
-                  <TableCell className="max-w-[180px] truncate font-medium">{item.nama_peserta || '-'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-[10px]">{item.jenis_klaim === 'RI' ? 'Rawat Inap' : 'Rawat Jalan'}</Badge>
                     {!item.claim_record_id && (
