@@ -283,6 +283,12 @@ interface KegawatdaruratanVitalFinding {
   band: 'normal' | 'borderline' | 'gawat' | null;
   page_number: number | null;
   kutipan: string | null;
+  // Backend menandai TD yang di dokumen tertulis 0: itu cara petugas
+  // menulis "tidak diukur", bukan hasil pengukuran (tekanan darah
+  // sistolik 0 pada pasien hidup mustahil). nilai & band dikosongkan di
+  // backend supaya tidak terhitung gawat; penanda ini dipakai untuk
+  // menjelaskan ke koder dari mana angka 0 itu berasal.
+  tercatat_nol?: boolean;
   instrumen_diharapkan?: string | null;
   // Tri-state (fix item 4, 19 Sep 2026): bedakan "kolomnya ada di form tapi
   // kosong" (empty_on_form, perlu ditindak) dari "form ini memang tidak
@@ -1662,14 +1668,16 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
   const vitalEntries = Object.entries(VITAL_LABELS).map(([key, meta]) => {
     const vf = vital_findings?.[key];
     const isEmpty = vf?.nilai === null || vf?.nilai === undefined;
-    return { key, meta, vf, isEmpty, level: (isEmpty ? 'missing' : (vf?.band || 'normal')) as 'normal' | 'borderline' | 'gawat' | 'missing' };
+    return { key, meta, vf, isEmpty, tercatatNol: !!vf?.tercatat_nol, level: (isEmpty ? 'missing' : (vf?.band || 'normal')) as 'normal' | 'borderline' | 'gawat' | 'missing' };
   });
   const vitalPresentCount = vitalEntries.filter(v => !v.isEmpty).length;
   // Tabel 2 menampilkan HANYA vital yang benar-benar tercatat, mengikuti pola
   // Tabel 1 (documentedParams). Sebelumnya semua parameter dirender apa adanya,
   // jadi berkas yang cuma punya beberapa tanda vital memunculkan deretan kartu
   // "KOSONG" yang memenuhi layar tanpa memberi informasi apa pun.
-  const vitalPresentEntries = vitalEntries.filter(v => !v.isEmpty);
+  // TD yang di dokumen tertulis 0 ikut ditampilkan meski nilainya dikosongkan:
+  // kartunya yang memuat penjelasan kenapa angka itu tidak dipakai.
+  const vitalPresentEntries = vitalEntries.filter(v => !v.isEmpty || v.tercatatNol);
   const vitalGawatCount = vitalEntries.filter(v => v.level === 'gawat').length;
   const vitalBorderlineCount = vitalEntries.filter(v => v.level === 'borderline').length;
   const vitalMissingCount = vitalEntries.length - vitalPresentCount;
@@ -1891,7 +1899,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
             )}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-              {vitalPresentEntries.map(({ key, meta, vf, isEmpty, level }) => {
+              {vitalPresentEntries.map(({ key, meta, vf, isEmpty, tercatatNol, level }) => {
                 const instrumenDiharapkan = key === 'Nyeri' ? vf?.instrumen_diharapkan : undefined;
                 const nyeriTip = key === 'Nyeri' && isEmpty
                   ? `Skala nyeri kertas/PDF biasanya diisi dengan melingkari angka pada skala cetak — tidak terbaca sistem.${instrumenDiharapkan ? ` Instrumen: ${instrumenDiharapkan}.` : ''}`
@@ -1930,9 +1938,17 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                             : level === 'missing' ? 'bg-white/[0.05] text-gray-400 border border-white/10'
                               : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
                       )}>
-                        {level === 'gawat' ? 'KRITIS' : level === 'borderline' ? 'BORDERLINE' : level === 'missing' ? 'KOSONG' : '✓ Normal'}
+                        {level === 'gawat' ? 'KRITIS' : level === 'borderline' ? 'BORDERLINE' : level === 'missing' ? (tercatatNol ? 'TIDAK DIUKUR' : 'KOSONG') : '✓ Normal'}
                       </span>
                     </div>
+                    {tercatatNol && (
+                      <div
+                        className="mt-1 text-[9px] leading-snug text-gray-400"
+                        title="Di dokumen tertulis 0. Angka itu bukan hasil pengukuran — tekanan darah sistolik 0 pada pasien hidup mustahil secara klinis, jadi 0 dipakai petugas untuk menandai tidak diukur. Pada bayi, tekanan darah memang tidak selalu diukur rutin. Nilai ini karena itu tidak dihitung sebagai kondisi gawat."
+                      >
+                        Di dokumen tertulis 0 — tidak dihitung sebagai kondisi gawat.
+                      </div>
+                    )}
                   </div>
                 );
 
