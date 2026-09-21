@@ -257,8 +257,9 @@ export default function ExtractPage() {
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: 10 }}
-                              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
+                              className="rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
                             >
+                              <div className="flex items-center gap-2">
                               <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                               <span className="flex-1 truncate" title={f.name}>{f.name}</span>
                               <span className="shrink-0 text-xs text-muted-foreground">{formatFileSize(f.size)}</span>
@@ -309,6 +310,16 @@ export default function ExtractPage() {
                                 >
                                   <X className="size-3.5" />
                                 </button>
+                              )}
+                              </div>
+                              {/* Alasan gagal WAJIB ditampilkan: backend mengirim pesan yang
+                                  jelas (mis. "SEP ... sudah pernah diupload ... pada ..."), tapi
+                                  selama ini layar cuma menulis "Gagal". Koder jadi tidak tahu
+                                  berkasnya ditolak karena duplikat atau sistemnya bermasalah. */}
+                              {status?.status === 'failed' && status.error && (
+                                <div className="mt-1 pl-6 text-xs leading-snug text-destructive/90">
+                                  {status.error}
+                                </div>
                               )}
                             </motion.div>
                           );
