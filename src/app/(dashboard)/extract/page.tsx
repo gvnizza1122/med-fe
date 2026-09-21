@@ -73,7 +73,7 @@ export default function ExtractPage() {
   // (endpoint single-file backend dibiarkan ada, tidak lagi dipanggil dari sini).
   // Verifikator TIDAK pilih kategori per file manual. Sebelum
   // drag file, toggle kategori mana saja yang MUNGKIN ada di batch ini (bisa
-  // 1, 2, atau ke-3nya kalau berkasnya campur RJ/RI/IGD). Backend yang
+  // salah satu atau keduanya kalau berkasnya campur RJ/RI). Backend yang
   // mendeteksi kategori tiap file dari isi dokumennya (dibatasi ke daftar
   // yang ditoggle di sini), hasilnya baru muncul sebagai status per file
   // SETELAH proses/audit selesai.
@@ -162,7 +162,7 @@ export default function ExtractPage() {
           <CardContent className="space-y-6">
             {/* ── Kategori pelayanan ──
                 BUKAN pilih kategori per file — toggle kategori mana saja yang
-                MUNGKIN ada di batch ini (bisa 1, 2, atau ke-3nya) SEBELUM
+                MUNGKIN ada di batch ini (salah satu atau keduanya) SEBELUM
                 drag file. Backend yang deteksi otomatis kategori tiap file
                 dari isi dokumennya sendiri, dibatasi ke daftar yang
                 ditoggle di sini — hasilnya tampil sebagai status per file
@@ -212,7 +212,7 @@ export default function ExtractPage() {
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Pilih 1, 2, atau ke-3nya sesuai kategori yang mungkin ada di berkas yang mau diupload — boleh campur RJ/RI/IGD dalam 1 batch. Sistem akan mendeteksi kategori tiap file otomatis dari isi dokumennya, tidak perlu dipilih satu-satu.
+                Pilih salah satu atau keduanya sesuai kategori yang mungkin ada di berkas yang mau diupload — boleh campur Rawat Jalan & Rawat Inap dalam 1 batch. Sistem akan mendeteksi kategori tiap file otomatis dari isi dokumennya, tidak perlu dipilih satu-satu.
               </p>
             </div>
 
@@ -415,7 +415,7 @@ export default function ExtractPage() {
             </li>
             <li className="flex gap-2">
               <span className="mt-1 size-1 shrink-0 rounded-full bg-primary" />
-              Boleh campur kategori Rawat Jalan/Rawat Inap/IGD dalam satu batch — sistem mendeteksi kategori tiap file otomatis.
+              Boleh campur kategori Rawat Jalan & Rawat Inap dalam satu batch — sistem mendeteksi kategori tiap file otomatis.
             </li>
             <li className="flex gap-2">
               <span className="mt-1 size-1 shrink-0 rounded-full bg-primary" />
