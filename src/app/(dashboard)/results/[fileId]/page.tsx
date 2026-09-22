@@ -13,6 +13,7 @@ import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { Header } from '@/components/dashboard/header';
 import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
+import { KetentuanKlaimCard, type TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -363,6 +364,9 @@ interface TariffResult {
 }
 
 interface AiReview {
+  // Tipe 3 ketentuan klaim (aturan kombinasi kode) -- diisi backend di
+  // aiReviewService.js, kosong kalau tidak ada aturan yang terpicu.
+  kombinasi_kode?: TemuanKombinasiKode[];
   field_notes?: Record<string, string>;
   code_evidence?: CodeEvidence[];
   suggested_codes?: SuggestedCode[];
@@ -3047,11 +3051,22 @@ export default function ResultsPage() {
                       <InaCbgCoherenceDisplay key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
                     </div>
                   );
+                  
+                  // Ketentuan Klaim Tipe 3 (aturan kombinasi kode) — dievaluasi backend
+                  // di ketentuanKlaimService.js, kartunya hanya menampilkan. Tidak
+                  // dirender sama sekali kalau tidak ada aturan yang terpicu.
+                  const ketentuanCard = (
+                    <KetentuanKlaimCard
+                      key={`ketentuan-${selectedRecord.id}`}
+                      temuan={parseAiReview(selectedRecord)?.kombinasi_kode}
+                    />
+                  );
 
                   return (
                     <>
                       {fieldsTable}
                       {inacbgCard}
+                      {ketentuanCard}
                       {kegawatdaruratanTable}
                     </>
                   );
