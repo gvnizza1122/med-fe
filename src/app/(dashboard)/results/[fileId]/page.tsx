@@ -517,6 +517,21 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
   // menghilangkan badge "Perlu Review", hitungan banner "N masalah",
   // section merah, dan filter "hanya yang bermasalah" sekaligus.
 
+  // Berkas yang tidak menyertakan lembar SEP: baris SEP & Nomor Kartu
+  // dibuang dari tabel (21 Sep 2026, permintaan klien). Keduanya cuma ada
+  // di lembar SEP, jadi menampilkannya sebagai "Kosong" bikin berkas
+  // terlihat bermasalah padahal datanya memang tidak ada di dokumen.
+  //
+  // has_bpjs_page dideteksi backend dari isi PDF (hasBpjsPageSignal di
+  // pdfPageClassifier.js) dan sudah dipakai ruleEngine untuk tidak
+  // menerbitkan error RV di sini -- tabel ini yang belum ikut tahu.
+  // Dicek === false, bukan falsy: kalau field-nya tidak terkirim
+  // (undefined), perilakunya tetap seperti dulu.
+  if (recordData?.has_bpjs_page === false) {
+    delete map['SEP'];
+    delete map['NOKARTU'];
+  }
+
   return map;
 }
 
