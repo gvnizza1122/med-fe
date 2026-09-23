@@ -65,10 +65,16 @@ export function SyaratPenunjangCard({ temuan }: { temuan?: TemuanSyaratPenunjang
   // panjang halaman.
   if (!temuan || temuan.length === 0) return null;
 
-  const perluDicek = temuan.reduce(
+  // Hanya aturan yang SUDAH disahkan koder yang boleh memunculkan peringatan.
+  // Aturan yang belum disahkan tetap ditampilkan lengkap dengan tandanya,
+  // tetapi tidak ikut dihitung di lencana — satu kalimat verifikator yang
+  // mungkin khusus kasus tertentu tidak boleh terlihat seperti temuan yang
+  // sudah pasti.
+  const terverifikasi = temuan.filter((t) => t.diverifikasi);
+  const perluDicek = terverifikasi.reduce(
     (n, t) => n + t.ringkasan.tidak_ada + t.ringkasan.hasil_belum_terbaca, 0,
   );
-  const totalSyarat = temuan.reduce((n, t) => n + t.syarat.length, 0);
+  const totalSyarat = terverifikasi.reduce((n, t) => n + t.syarat.length, 0);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
