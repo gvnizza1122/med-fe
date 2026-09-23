@@ -1630,6 +1630,27 @@ const BAND_COLOR: Record<string, CSSProperties> = {
 // Band borderline TD punya DUA sisi: rentang tinggi (hipertensi) dan
 // rentang rendah (mendekati hipotensi, sistolik 80-89). Hanya sisi tinggi
 // yang boleh dilabeli hipertensi -- sisi rendah ikut perilaku vital lain.
+// Penjelasan kenapa sebuah TTV tidak dihitung walau ada angkanya di dokumen.
+// Alasannya beda per parameter, jadi teksnya tidak bisa satu untuk semua:
+// tekanan darah 0 lazim dipakai menandai "tidak diukur" (apalagi pada bayi),
+// sedangkan GCS tidak pernah bisa di bawah 3 karena tiap komponennya minimal 1.
+function penjelasanTercatatNol(key: string): string {
+  if (key === "GCS") {
+    return "Nilai GCS di dokumen di bawah 3. GCS terendah yang mungkin adalah 3 (tiap komponen minimal bernilai 1), jadi angka itu tidak bisa berasal dari penilaian yang benar-benar dilakukan. Nilai ini karena itu tidak dihitung sebagai kondisi gawat.";
+  }
+  if (key === "TD_sistolik" || key === "TD_diastolik") {
+    return "Di dokumen tertulis 0. Tekanan darah 0 pada pasien hidup mustahil secara klinis, jadi 0 dipakai petugas untuk menandai tidak diukur. Pada bayi, tekanan darah memang tidak selalu diukur rutin. Nilai ini karena itu tidak dihitung sebagai kondisi gawat.";
+  }
+  const namaUmum: Record<string, string> = {
+    SpO2: "Saturasi 0%",
+    HR: "Nadi 0",
+    RR: "Laju napas 0",
+    Suhu: "Suhu 0 derajat",
+  };
+  const nama = namaUmum[key] || "Nilai 0";
+  return nama + " pada pasien hidup mustahil secara klinis, jadi 0 dipakai petugas untuk menandai kolom yang tidak diukur. Nilai ini karena itu tidak dihitung sebagai kondisi gawat.";
+}
+
 const TD_GRADE_ESH: Record<string, [number, number][]> = {
   TD_sistolik: [[140, 159], [160, 179]],
   TD_diastolik: [[90, 99], [100, 109]],
@@ -1997,9 +2018,9 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                     {tercatatNol && (
                       <div
                         className="mt-1 text-[9px] leading-snug text-gray-400"
-                        title="Di dokumen tertulis 0. Angka itu bukan hasil pengukuran — tekanan darah sistolik 0 pada pasien hidup mustahil secara klinis, jadi 0 dipakai petugas untuk menandai tidak diukur. Pada bayi, tekanan darah memang tidak selalu diukur rutin. Nilai ini karena itu tidak dihitung sebagai kondisi gawat."
+                        title={penjelasanTercatatNol(key)}
                       >
-                        Di dokumen tertulis 0 — tidak dihitung sebagai kondisi gawat.
+                        {key === "GCS" ? "Nilai di dokumen tidak mungkin — tidak dihitung sebagai kondisi gawat." : "Di dokumen tertulis 0 — tidak dihitung sebagai kondisi gawat."}
                       </div>
                     )}
                   </div>
