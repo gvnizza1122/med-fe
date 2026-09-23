@@ -142,6 +142,17 @@ export const api = {
     fetch(`${API_BASE}/api/v1/claim-files/${id}/export?filter=${filter}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
     }),
+  // Daftar Kerja — lembar kerja harian koder. Cakupannya mengikuti filter yang
+  // sedang aktif di layar, bukan seluruh basis data.
+  exportDaftarKerja: (params: { periode?: string; kategori?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (params.periode) q.set('periode', params.periode);
+    if (params.kategori) q.set('kategori', params.kategori);
+    const qs = q.toString();
+    return fetch(`${API_BASE}/api/v1/claim-files/export/daftar-kerja${qs ? `?${qs}` : ''}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+    });
+  },
   runAiAudit: (id: string) =>
     request(`/api/v1/claim-files/${id}/ai-audit`, { method: 'POST' }),
   auditRecordFields: (recordId: string, fields: string[] = [], style = 'ponytail') =>

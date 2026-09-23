@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight, Search, Download } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Header } from '@/components/dashboard/header';
 import { ToastContainer, useToast } from '@/components/Toast';
@@ -45,10 +45,12 @@ interface ClaimFile {
   sep?: string | null; nama_pasien?: string | null;
 }
 
+// Aplikasi hanya mengenal dua kategori. Kategori IGD dihapus 21 Sep 2026 —
+// kunjungan IGD adalah rawat jalan — dan datanya sudah dimigrasi, jadi pilihan
+// GAWAT_DARURAT di sini selalu menghasilkan nol baris.
 const JENIS_KLAIM_LABELS: Record<string, string> = {
   RAWAT_JALAN: 'Rawat Jalan',
   RAWAT_INAP: 'Rawat Inap',
-  GAWAT_DARURAT: 'IGD / Gawat Darurat',
 };
 const jenisKlaimLabel = (v?: string | null) => (v && JENIS_KLAIM_LABELS[v]) || '-';
 
@@ -101,6 +103,35 @@ export default function HistoryPage() {
     const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 400);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  const [mengexport, setMengexport] = useState(false);
+
+  const unduhDaftarKerja = async () => {
+    setMengexport(true);
+    try {
+      const res = await api.exportDaftarKerja({ kategori: jenisKlaimFilter || undefined });
+      if (!res.ok) throw new Error(`Server menolak (${res.status})`);
+
+      // Nama berkas diambil dari header server, bukan disusun ulang di sini,
+      // supaya nama yang menyebut cakupan tidak bisa berbeda antara keduanya.
+      const disposisi = res.headers.get('Content-Disposition') || '';
+      const cocok = disposisi.match(/filename=([^;]+)/);
+      const namaBerkas = cocok ? cocok[1].trim().replace(/"/g, '') : 'daftar-kerja.xlsx';
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = namaBerkas;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      addToast(`Daftar Kerja diunduh: ${namaBerkas}`, 'success');
+    } catch (err) {
+      console.error('[History] Gagal export Daftar Kerja:', err);
+      addToast('Gagal menyiapkan Daftar Kerja. Silakan coba lagi.', 'error');
+    } finally {
+      setMengexport(false);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     try { await api.deleteFile(id); loadFiles(); } catch (err) { console.error('[History] Gagal hapus file:', err); }
@@ -193,6 +224,22 @@ export default function HistoryPage() {
             Reset Filter
           </Button>
         )}
+
+        {/* Daftar Kerja — lembar kerja harian koder. Cakupannya mengikuti filter
+            kategori yang sedang aktif, dan cakupan itu ikut tertulis di nama
+            berkas serta lembar Ringkasan supaya tidak ada salah paham ketika
+            berkasnya beredar terlepas dari aplikasi. */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5 sm:ml-auto"
+          disabled={mengexport}
+          onClick={unduhDaftarKerja}
+        >
+          <Download className="size-3.5" />
+          {mengexport ? 'Menyiapkan...' : 'Export Daftar Kerja'}
+        </Button>
       </div>
 
       {loading ? (
