@@ -14,6 +14,7 @@ import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { Header } from '@/components/dashboard/header';
 import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
 import { KetentuanKlaimCard, type TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
+import { IdentitasHalamanCard, type TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -367,6 +368,7 @@ interface AiReview {
   // Tipe 3 ketentuan klaim (aturan kombinasi kode) -- diisi backend di
   // aiReviewService.js, kosong kalau tidak ada aturan yang terpicu.
   kombinasi_kode?: TemuanKombinasiKode[];
+  identitas_halaman?: TemuanIdentitasHalaman[];
   field_notes?: Record<string, string>;
   code_evidence?: CodeEvidence[];
   suggested_codes?: SuggestedCode[];
@@ -3089,11 +3091,22 @@ export default function ResultsPage() {
                     />
                   );
 
+                  // Identitas antar halaman — menangkap berkas yang ketumpangan
+                  // halaman milik pasien lain. Tidak dirender sama sekali kalau
+                  // tidak ada temuan.
+                  const identitasCard = (
+                    <IdentitasHalamanCard
+                      key={`identitas-${selectedRecord.id}`}
+                      temuan={parseAiReview(selectedRecord)?.identitas_halaman ?? []}
+                    />
+                  );
+
                   return (
                     <>
                       {fieldsTable}
                       {inacbgCard}
                       {ketentuanCard}
+                      {identitasCard}
                       {kegawatdaruratanTable}
                     </>
                   );
