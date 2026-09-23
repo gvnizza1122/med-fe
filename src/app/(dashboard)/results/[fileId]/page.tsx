@@ -15,6 +15,7 @@ import { Header } from '@/components/dashboard/header';
 import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
 import { KetentuanKlaimCard, type TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
 import { IdentitasHalamanCard, type TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
+import { SyaratPenunjangCard, type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -369,6 +370,7 @@ interface AiReview {
   // aiReviewService.js, kosong kalau tidak ada aturan yang terpicu.
   kombinasi_kode?: TemuanKombinasiKode[];
   identitas_halaman?: TemuanIdentitasHalaman[];
+  syarat_penunjang?: TemuanSyaratPenunjang[];
   field_notes?: Record<string, string>;
   code_evidence?: CodeEvidence[];
   suggested_codes?: SuggestedCode[];
@@ -3101,12 +3103,22 @@ export default function ResultsPage() {
                     />
                   );
 
+                  // Syarat penunjang diagnosis — hanya dirender kalau ada
+                  // diagnosis pemicu, sama seperti blok kegawatdaruratan.
+                  const syaratCard = (
+                    <SyaratPenunjangCard
+                      key={`syarat-${selectedRecord.id}`}
+                      temuan={parseAiReview(selectedRecord)?.syarat_penunjang}
+                    />
+                  );
+
                   return (
                     <>
                       {fieldsTable}
                       {inacbgCard}
                       {ketentuanCard}
                       {identitasCard}
+                      {syaratCard}
                       {kegawatdaruratanTable}
                     </>
                   );
