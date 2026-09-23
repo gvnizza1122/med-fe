@@ -1724,7 +1724,13 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
   // "KOSONG" yang memenuhi layar tanpa memberi informasi apa pun.
   // TD yang di dokumen tertulis 0 ikut ditampilkan meski nilainya dikosongkan:
   // kartunya yang memuat penjelasan kenapa angka itu tidak dipakai.
-  const vitalPresentEntries = vitalEntries.filter(v => !v.isEmpty || v.tercatatNol);
+  // SpO2 SELALU ditampilkan walau kosong (23 Sep 2026, permintaan klien).
+  // Ia satu-satunya vital yang punya peringatan tersendiri di halaman ini
+  // -- kalau kartunya ikut hilang saat kosong, justru parameter yang paling
+  // perlu dikejar verifikator yang tidak kelihatan.
+  const vitalPresentEntries = vitalEntries.filter(
+    v => !v.isEmpty || v.tercatatNol || v.key === 'SpO2',
+  );
   const vitalGawatCount = vitalEntries.filter(v => v.level === 'gawat').length;
   const vitalBorderlineCount = vitalEntries.filter(v => v.level === 'borderline').length;
   const vitalMissingCount = vitalEntries.length - vitalPresentCount;
