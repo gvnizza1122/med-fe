@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight, Search, Download } from 'lucide-react';
+import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight, Search, Download, Archive, ArchiveRestore } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Header } from '@/components/dashboard/header';
 import { ToastContainer, useToast } from '@/components/Toast';
@@ -86,15 +86,18 @@ export default function HistoryPage() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  // Tampilan arsip terpisah. Tanpa tempat untuk melihat dan mengembalikan,
+  // arsip tidak berbeda dari penghapusan.
+  const [lihatArsip, setLihatArsip] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
   const loadFiles = useCallback(async () => {
     try {
       setLoading(true);
-      const d = await api.getFiles(page, 15, jenisKlaimFilter || undefined, fromDate || undefined, toDate || undefined, search || undefined);
+      const d = await api.getFiles(page, 15, jenisKlaimFilter || undefined, fromDate || undefined, toDate || undefined, search || undefined, lihatArsip);
       setFiles(d.files); setTotal(d.total);
     } catch (err) { console.error('[History] Gagal memuat file:', err); } finally { setLoading(false); }
-  }, [page, jenisKlaimFilter, fromDate, toDate, search]);
+  }, [page, jenisKlaimFilter, fromDate, toDate, search, lihatArsip]);
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
@@ -133,6 +136,28 @@ export default function HistoryPage() {
     }
   };
 
+  const arsipkan = async (id: string) => {
+    try {
+      await api.bulkArchive([id]);
+      addToast('Berkas dipindahkan ke arsip. Datanya tetap tersimpan.', 'success');
+      loadFiles();
+    } catch (err) {
+      console.error('[History] Gagal mengarsipkan:', err);
+      addToast('Gagal mengarsipkan berkas.', 'error');
+    }
+  };
+
+  const kembalikan = async (id: string) => {
+    try {
+      await api.bulkRestore([id]);
+      addToast('Berkas dikembalikan dari arsip.', 'success');
+      loadFiles();
+    } catch (err) {
+      console.error('[History] Gagal mengembalikan:', err);
+      addToast('Gagal mengembalikan berkas.', 'error');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try { await api.deleteFile(id); loadFiles(); } catch (err) { console.error('[History] Gagal hapus file:', err); }
   };
@@ -149,7 +174,7 @@ export default function HistoryPage() {
     >
       <Header
         title="Riwayat Upload"
-        description={`${total} file telah diupload`}
+        description={lihatArsip ? `${total} berkas di arsip — datanya tetap utuh dan bisa dikembalikan` : `${total} file telah diupload`}
         actions={
           <Button onClick={() => router.push('/extract')} className="gap-2">
             <Upload className="size-4" />
@@ -225,6 +250,17 @@ export default function HistoryPage() {
           </Button>
         )}
 
+        <Button
+          type="button"
+          variant={lihatArsip ? 'default' : 'outline'}
+          size="sm"
+          className={`gap-1.5 ${lihatArsip ? '' : 'sm:ml-auto'}`}
+          onClick={() => { setLihatArsip(v => !v); setPage(1); }}
+        >
+          <Archive className="size-3.5" />
+          {lihatArsip ? 'Kembali ke Daftar Aktif' : 'Lihat Arsip'}
+        </Button>
+
         {/* Daftar Kerja — lembar kerja harian koder. Cakupannya mengikuti filter
             kategori yang sedang aktif, dan cakupan itu ikut tertulis di nama
             berkas serta lembar Ringkasan supaya tidak ada salah paham ketika
@@ -233,7 +269,7 @@ export default function HistoryPage() {
           type="button"
           variant="outline"
           size="sm"
-          className="gap-1.5 sm:ml-auto"
+          className="gap-1.5"
           disabled={mengexport}
           onClick={unduhDaftarKerja}
         >
@@ -359,14 +395,40 @@ export default function HistoryPage() {
                               <FileText className="size-3.5" />
                               Detail
                             </Button>
-                            <Button
-                              variant="destructive"
-                              size="icon-sm"
-                              onClick={() => setPendingDeleteId(f.id)}
-                              aria-label="Hapus file"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
+                            {lihatArsip ? (
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() => kembalikan(f.id)}
+                                aria-label="Kembalikan dari arsip"
+                                title="Kembalikan dari arsip"
+                              >
+                                <ArchiveRestore className="size-3.5" />
+                              </Button>
+                            ) : (
+                              // Arsip, bukan hapus: daftar tetap bersih tapi data untuk
+                              // mengukur recall tidak ikut hilang.
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() => arsipkan(f.id)}
+                                aria-label="Arsipkan berkas"
+                                title="Arsipkan — data tetap tersimpan"
+                              >
+                                <Archive className="size-3.5" />
+                              </Button>
+                            )}
+                            {lihatArsip && (
+                              <Button
+                                variant="destructive"
+                                size="icon-sm"
+                                onClick={() => setPendingDeleteId(f.id)}
+                                aria-label="Hapus permanen"
+                                title="Hapus permanen"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </motion.tr>
@@ -427,9 +489,13 @@ export default function HistoryPage() {
       <AlertDialog open={pendingDeleteId !== null} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus file ini?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus permanen berkas ini?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tindakan ini tidak dapat dibatalkan. File beserta seluruh data klaim terkait akan dihapus secara permanen.
+              Berkas beserta seluruh baris klaimnya hilang dan tidak bisa dikembalikan.
+              Baris klaim itu dipakai untuk mencocokkan dengan rekap pending BPJS yang
+              baru datang sekitar tiga bulan kemudian — kalau dihapus, klaim ini tidak
+              bisa lagi dipakai membuktikan apa pun.
+              {' '}Untuk sekadar merapikan daftar, arsipkan saja: datanya tetap tersimpan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

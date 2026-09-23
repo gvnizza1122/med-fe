@@ -121,14 +121,25 @@ export const api = {
     if (fileId) fd.append('fileId', fileId);
     return request('/api/v1/claim-files/upload', { method: 'POST', body: fd });
   },
-  getFiles: (page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string, search?: string) => {
+  getFiles: (page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string, search?: string, arsip = false) => {
     const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (jenisKlaim) qs.set('jenis_klaim', jenisKlaim);
     if (fromDate) qs.set('from_date', fromDate);
     if (toDate) qs.set('to_date', toDate);
     if (search) qs.set('search', search);
+    // Tanpa penanda ini daftar menampilkan yang aktif saja; dengan arsip=1
+    // justru hanya yang terarsip, supaya ada tempat untuk mengembalikannya.
+    if (arsip) qs.set('arsip', '1');
     return request(`/api/v1/claim-files?${qs.toString()}`);
   },
+
+  // Arsip menggantikan hapus untuk merapikan daftar: datanya tetap utuh dan
+  // bisa dikembalikan. Penting karena pengukuran recall bergantung pada klaim
+  // lama yang masih ada saat rekap pending BPJS datang ~3 bulan kemudian.
+  bulkArchive: (ids: string[]) =>
+    request('/api/v1/claim-files/bulk-archive', { method: 'POST', body: JSON.stringify({ ids }) }),
+  bulkRestore: (ids: string[]) =>
+    request('/api/v1/claim-files/bulk-restore', { method: 'POST', body: JSON.stringify({ ids }) }),
   getFile: (id: string) => request(`/api/v1/claim-files/${id}`),
   getRecords: (fileId: string, params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
