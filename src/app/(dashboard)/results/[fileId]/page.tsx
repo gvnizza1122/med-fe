@@ -16,6 +16,7 @@ import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarif
 import { KetentuanKlaimCard, type TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
 import { IdentitasHalamanCard, type TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
 import { SyaratPenunjangCard, type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
+import { TemuanTindakanCard, type TemuanTindakan, type SilangTindakan } from '@/components/TemuanTindakanCard';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -371,6 +372,8 @@ interface AiReview {
   kombinasi_kode?: TemuanKombinasiKode[];
   identitas_halaman?: TemuanIdentitasHalaman[];
   syarat_penunjang?: TemuanSyaratPenunjang[];
+  temuan_tindakan?: TemuanTindakan[];
+  silang_tindakan?: SilangTindakan[];
   field_notes?: Record<string, string>;
   code_evidence?: CodeEvidence[];
   suggested_codes?: SuggestedCode[];
@@ -3112,6 +3115,16 @@ export default function ResultsPage() {
                     />
                   );
 
+                  // Tindakan yang terbaca dari berkas — terpisah dari Daftar
+                  // Prosedur, yang memuat kode final koder.
+                  const tindakanCard = (
+                    <TemuanTindakanCard
+                      key={`tindakan-${selectedRecord.id}`}
+                      temuan={parseAiReview(selectedRecord)?.temuan_tindakan}
+                      silang={parseAiReview(selectedRecord)?.silang_tindakan}
+                    />
+                  );
+
                   return (
                     <>
                       {fieldsTable}
@@ -3119,6 +3132,7 @@ export default function ResultsPage() {
                       {ketentuanCard}
                       {identitasCard}
                       {syaratCard}
+                      {tindakanCard}
                       {kegawatdaruratanTable}
                     </>
                   );
