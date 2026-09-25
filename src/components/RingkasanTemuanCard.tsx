@@ -68,9 +68,6 @@ export function RingkasanTemuanCard({
                     <span className="text-muted-foreground/70">Lakukan:</span> {a.tindakan}
                   </span>
                 )}
-                {!a.diverifikasi && (
-                  <span className="ml-1 text-[10px] text-muted-foreground/70">(belum disahkan koder)</span>
-                )}
               </span>
             </li>
           ))}
