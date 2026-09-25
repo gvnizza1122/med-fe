@@ -13,12 +13,13 @@ import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { Header } from '@/components/dashboard/header';
 import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
-import { KetentuanKlaimCard, type TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
-import { IdentitasHalamanCard, type TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
-import { SyaratPenunjangCard, type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
-import { TemuanTindakanCard, type TemuanTindakan, type SilangTindakan } from '@/components/TemuanTindakanCard';
-import { KonsistensiDataCard, type TemuanKonsistensi } from '@/components/KonsistensiDataCard';
-import { PutusanPendingCard, type PutusanPending } from '@/components/PutusanPendingCard';
+import type { TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
+import type { TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
+import type { TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
+import type { TemuanTindakan, SilangTindakan } from '@/components/TemuanTindakanCard';
+import type { TemuanKonsistensi } from '@/components/KonsistensiDataCard';
+import type { PutusanPending } from '@/components/PutusanPendingCard';
+import { RingkasanTemuanCard } from '@/components/RingkasanTemuanCard';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -2825,6 +2826,15 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
+                  {/* Satu kartu untuk seluruh temuan. Sebelumnya tersebar di
+                      enam kartu terpisah di bawah tabel, sehingga koder harus
+                      menggulir dan membaca satu per satu untuk menjawab satu
+                      pertanyaan sederhana: pending atau tidak, dan kenapa. */}
+                  <RingkasanTemuanCard
+                    putusan={parseAiReview(selectedRecord)?.putusan_pending}
+                    tindakan={parseAiReview(selectedRecord)?.temuan_tindakan}
+                  />
+
                   {/* ─── Alasan Status Pending ─── beda dari "Pola Pending Risk" di
                       bawah (itu pola heuristik AI, mis. kegawatan_lemah) — ini
                       alasan RESMI dari rule engine: field mana yang gagal validasi.
@@ -3089,75 +3099,11 @@ export default function ResultsPage() {
                       <InaCbgCoherenceDisplay key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
                     </div>
                   );
-                  
-                  // Ketentuan Klaim Tipe 3 (aturan kombinasi kode) — dievaluasi backend
-                  // di ketentuanKlaimService.js, kartunya hanya menampilkan. Tidak
-                  // dirender sama sekali kalau tidak ada aturan yang terpicu.
-                  const ketentuanCard = (
-                    <KetentuanKlaimCard
-                      key={`ketentuan-${selectedRecord.id}`}
-                      temuan={parseAiReview(selectedRecord)?.kombinasi_kode}
-                    />
-                  );
-
-                  // Identitas antar halaman — menangkap berkas yang ketumpangan
-                  // halaman milik pasien lain. Tidak dirender sama sekali kalau
-                  // tidak ada temuan.
-                  const identitasCard = (
-                    <IdentitasHalamanCard
-                      key={`identitas-${selectedRecord.id}`}
-                      temuan={parseAiReview(selectedRecord)?.identitas_halaman ?? []}
-                    />
-                  );
-
-                  // Syarat penunjang diagnosis — hanya dirender kalau ada
-                  // diagnosis pemicu, sama seperti blok kegawatdaruratan.
-                  const syaratCard = (
-                    <SyaratPenunjangCard
-                      key={`syarat-${selectedRecord.id}`}
-                      temuan={parseAiReview(selectedRecord)?.syarat_penunjang}
-                    />
-                  );
-
-                  // Tindakan yang terbaca dari berkas — terpisah dari Daftar
-                  // Prosedur, yang memuat kode final koder.
-                  const tindakanCard = (
-                    <TemuanTindakanCard
-                      key={`tindakan-${selectedRecord.id}`}
-                      temuan={parseAiReview(selectedRecord)?.temuan_tindakan}
-                      silang={parseAiReview(selectedRecord)?.silang_tindakan}
-                    />
-                  );
-
-                  // Konsistensi antar data — data yang diklaim harus punya
-                  // pendukungnya di berkas.
-                  const konsistensiCard = (
-                    <KonsistensiDataCard
-                      key={`konsistensi-${selectedRecord.id}`}
-                      temuan={parseAiReview(selectedRecord)?.konsistensi_data}
-                    />
-                  );
-
-                  // Putusan pending — ditaruh PALING ATAS karena itu yang
-                  // pertama ingin dilihat koder. Kartu rinci di bawahnya tetap
-                  // ada untuk yang ingin menelusuri.
-                  const putusanCard = (
-                    <PutusanPendingCard
-                      key={`putusan-${selectedRecord.id}`}
-                      putusan={parseAiReview(selectedRecord)?.putusan_pending}
-                    />
-                  );
 
                   return (
                     <>
-                      {putusanCard}
                       {fieldsTable}
                       {inacbgCard}
-                      {ketentuanCard}
-                      {identitasCard}
-                      {syaratCard}
-                      {tindakanCard}
-                      {konsistensiCard}
                       {kegawatdaruratanTable}
                     </>
                   );
