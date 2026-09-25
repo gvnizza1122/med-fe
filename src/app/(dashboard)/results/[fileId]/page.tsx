@@ -17,6 +17,7 @@ import { KetentuanKlaimCard, type TemuanKombinasiKode } from '@/components/Keten
 import { IdentitasHalamanCard, type TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
 import { SyaratPenunjangCard, type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
 import { TemuanTindakanCard, type TemuanTindakan, type SilangTindakan } from '@/components/TemuanTindakanCard';
+import { KonsistensiDataCard, type TemuanKonsistensi } from '@/components/KonsistensiDataCard';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -374,6 +375,7 @@ interface AiReview {
   syarat_penunjang?: TemuanSyaratPenunjang[];
   temuan_tindakan?: TemuanTindakan[];
   silang_tindakan?: SilangTindakan[];
+  konsistensi_data?: TemuanKonsistensi[];
   field_notes?: Record<string, string>;
   code_evidence?: CodeEvidence[];
   suggested_codes?: SuggestedCode[];
@@ -3125,6 +3127,15 @@ export default function ResultsPage() {
                     />
                   );
 
+                  // Konsistensi antar data — data yang diklaim harus punya
+                  // pendukungnya di berkas.
+                  const konsistensiCard = (
+                    <KonsistensiDataCard
+                      key={`konsistensi-${selectedRecord.id}`}
+                      temuan={parseAiReview(selectedRecord)?.konsistensi_data}
+                    />
+                  );
+
                   return (
                     <>
                       {fieldsTable}
@@ -3133,6 +3144,7 @@ export default function ResultsPage() {
                       {identitasCard}
                       {syaratCard}
                       {tindakanCard}
+                      {konsistensiCard}
                       {kegawatdaruratanTable}
                     </>
                   );
