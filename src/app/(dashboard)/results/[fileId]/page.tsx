@@ -18,6 +18,7 @@ import { IdentitasHalamanCard, type TemuanIdentitasHalaman } from '@/components/
 import { SyaratPenunjangCard, type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
 import { TemuanTindakanCard, type TemuanTindakan, type SilangTindakan } from '@/components/TemuanTindakanCard';
 import { KonsistensiDataCard, type TemuanKonsistensi } from '@/components/KonsistensiDataCard';
+import { PutusanPendingCard, type PutusanPending } from '@/components/PutusanPendingCard';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -376,6 +377,7 @@ interface AiReview {
   temuan_tindakan?: TemuanTindakan[];
   silang_tindakan?: SilangTindakan[];
   konsistensi_data?: TemuanKonsistensi[];
+  putusan_pending?: PutusanPending | null;
   field_notes?: Record<string, string>;
   code_evidence?: CodeEvidence[];
   suggested_codes?: SuggestedCode[];
@@ -3136,8 +3138,19 @@ export default function ResultsPage() {
                     />
                   );
 
+                  // Putusan pending — ditaruh PALING ATAS karena itu yang
+                  // pertama ingin dilihat koder. Kartu rinci di bawahnya tetap
+                  // ada untuk yang ingin menelusuri.
+                  const putusanCard = (
+                    <PutusanPendingCard
+                      key={`putusan-${selectedRecord.id}`}
+                      putusan={parseAiReview(selectedRecord)?.putusan_pending}
+                    />
+                  );
+
                   return (
                     <>
+                      {putusanCard}
                       {fieldsTable}
                       {inacbgCard}
                       {ketentuanCard}
