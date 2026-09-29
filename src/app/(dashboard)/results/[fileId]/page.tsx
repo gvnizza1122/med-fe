@@ -2927,17 +2927,26 @@ export default function ResultsPage() {
                         Buat Surat Klarifikasi
                       </Button>
                     )}
-                    {(selectedRecord.error_count > 0 || !parseAiReview(selectedRecord)) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isRereading}
-                        onClick={handleReread}
-                        title="Ekstraksi ulang dari PDF asli — dipakai kalau ada field kosong/error yang dicurigai sebenarnya ada di dokumen, atau kalau AI review gagal dibuat"
-                      >
-                        {isRereading ? 'Membaca ulang...' : 'Baca Ulang'}
-                      </Button>
-                    )}
+                    {/* Selalu tampil.
+                        Sebelumnya tombol ini hanya muncul kalau error_count > 0
+                        atau hasil AI belum ada. Akibatnya pada klaim berstatus
+                        VALID dengan kolom kosong — persis keadaan yang paling
+                        butuh baca ulang — tombolnya justru hilang. Halaman
+                        menulis "1 masalah, wajib dicek" sambil menyembunyikan
+                        satu-satunya alat untuk memperbaikinya, karena hitungan
+                        masalah di tabel tidak sama dengan error_count dari rule
+                        engine.
+                        Menampilkannya selalu aman: perubahan manual yang belum
+                        disimpan sudah dijaga dialog konfirmasi di handleReread. */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isRereading}
+                      onClick={handleReread}
+                      title="Ekstraksi ulang dari PDF asli — dipakai kalau ada field kosong/error yang dicurigai sebenarnya ada di dokumen, atau kalau AI review gagal dibuat"
+                    >
+                      {isRereading ? 'Membaca ulang...' : 'Baca Ulang'}
+                    </Button>
                     {!isEditing ? (
                       <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>Edit</Button>
                     ) : (
