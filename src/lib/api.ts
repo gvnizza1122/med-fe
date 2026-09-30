@@ -121,7 +121,7 @@ export const api = {
     if (fileId) fd.append('fileId', fileId);
     return request('/api/v1/claim-files/upload', { method: 'POST', body: fd });
   },
-  getFiles: (page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string, search?: string, arsip = false) => {
+  getFiles: (page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string, search?: string, arsip = false, periode?: string, tampilan?: string) => {
     const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (jenisKlaim) qs.set('jenis_klaim', jenisKlaim);
     if (fromDate) qs.set('from_date', fromDate);
@@ -130,7 +130,22 @@ export const api = {
     // Tanpa penanda ini daftar menampilkan yang aktif saja; dengan arsip=1
     // justru hanya yang terarsip, supaya ada tempat untuk mengembalikannya.
     if (arsip) qs.set('arsip', '1');
+    // Kelompok Periode & Kategori: hanya berkas pada periode itu. "tanpa" = periode
+    // belum bisa ditentukan. Tampilan = perlu | siap | bulan_ini | semua.
+    if (periode) qs.set('periode', periode);
+    if (tampilan) qs.set('tampilan', tampilan);
     return request(`/api/v1/claim-files?${qs.toString()}`);
+  },
+
+  // Ringkasan pengelompokan Periode & Kategori: satu baris per kelompok beserta
+  // jumlah klaim, yang perlu dikerjakan, dan yang siap. Baris klaimnya dimuat
+  // terpisah saat kelompok dibuka, lewat getFiles dengan filter periode.
+  getKelompok: (arsip = false, jenisKlaim?: string) => {
+    const qs = new URLSearchParams();
+    if (arsip) qs.set('arsip', '1');
+    if (jenisKlaim) qs.set('jenis_klaim', jenisKlaim);
+    const s = qs.toString();
+    return request(`/api/v1/claim-files/kelompok${s ? `?${s}` : ''}`);
   },
 
   // Arsip menggantikan hapus untuk merapikan daftar: datanya tetap utuh dan
