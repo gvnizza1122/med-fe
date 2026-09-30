@@ -45,11 +45,11 @@ export function RingkasanTemuanCard({
   return (
     <div className={cn('px-3 py-2.5 rounded-lg border text-xs space-y-2', gaya.kelas)}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className={cn('font-display font-semibold', WARNA_JUDUL[putusan.status])}>
+        <span className={cn('font-display text-sm font-semibold', WARNA_JUDUL[putusan.status])}>
           {gaya.judul}
         </span>
         {putusan.jumlah.dari_rekap_pending > 0 && (
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-[11px]">
             {putusan.jumlah.dari_rekap_pending} pernah jadi alasan penolakan
           </Badge>
         )}
@@ -64,8 +64,8 @@ export function RingkasanTemuanCard({
                 <strong className="text-foreground">{a.ringkas}</strong>
                 {a.bukti && <span className="italic"> — {a.bukti}</span>}
                 {a.tindakan && (
-                  <span className="block text-[11px]">
-                    <span className="text-muted-foreground/70">Lakukan:</span> {a.tindakan}
+                  <span className="block text-xs">
+                    <span className="text-muted-foreground">Lakukan:</span> {a.tindakan}
                   </span>
                 )}
               </span>
@@ -78,8 +78,8 @@ export function RingkasanTemuanCard({
           ditangani. Ditampilkan sebaris supaya tidak menenggelamkan alasan
           pending di atasnya. */}
       {adaTindakan && (
-        <div className="border-t border-current/10 pt-1.5 text-[11px] text-muted-foreground">
-          <span className="text-muted-foreground/70">Tindakan terbaca:</span>{' '}
+        <div className="border-t border-current/10 pt-1.5 text-xs text-muted-foreground">
+          <span className="text-muted-foreground">Tindakan terbaca:</span>{' '}
           {tindakan!.map((t, i) => (
             <span key={t.id}>
               {i > 0 && ' · '}
@@ -90,7 +90,7 @@ export function RingkasanTemuanCard({
         </div>
       )}
 
-      <p className="border-t border-current/10 pt-1.5 text-[11px] leading-snug text-muted-foreground">
+      <p className="border-t border-current/10 pt-1.5 text-xs leading-snug text-muted-foreground">
         {putusan.catatan_keandalan}
       </p>
     </div>

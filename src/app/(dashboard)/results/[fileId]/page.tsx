@@ -885,10 +885,23 @@ function ActionChecklist({ categories, recordData }: { categories: { category: s
     actions.push(`Lengkapi ${otherEmpty.length} field kosong (${labels.join(', ')}${extra > 0 ? `, +${extra} lagi` : ''})`);
   }
 
-  // Tombol "Terapkan" kode saran AI DIMATIKAN sengaja (format ICD-10-CM
-  // Amerika, belum divalidasi ke ICD-10 WHO -- lihat komentar di FieldRowTr)
-  // -- artinya SEMUA kode saran sekarang butuh verifikasi & ketik manual.
-  if (allFields.some(f => (f.suggestedCodes?.length ?? 0) > 0)) {
+  // Hanya minta verifikasi manual kalau MASIH ADA saran yang belum tercermin
+  // di nilai field saat ini -- bukan sekadar "field ini punya saran". Kode
+  // yang sudah terisi otomatis lewat backend (isiKodeDariSaranTervalidasi,
+  // WHO-valid) dan cocok persis dengan salah satu saran (badge "✓ Diterapkan
+  // (sebelum fix)" di FieldRowTr, logika alreadyApplied yang sama disalin di
+  // sini) TIDAK butuh dikerjakan apa-apa lagi. Sebelumnya kotak ini tetap
+  // muncul walau DIAGLIST/PROCLIST sudah valid dan sama persis dengan saran
+  // AI-nya -- ditemukan pada SEP 0170R0110826V003045 (SUMIDAH): DIAGLIST=R10.4
+  // sudah valid & sudah "Diterapkan", tapi tetap disuruh "verifikasi & ketik
+  // manual". Tombol Terapkan sendiri tetap nonaktif (lihat komentar di
+  // FieldRowTr) -- ini cuma soal kapan checklist ini ditampilkan.
+  if (allFields.some(f => {
+    const suggested = f.suggestedCodes ?? [];
+    if (suggested.length === 0) return false;
+    const currentCodes = String(f.value ?? '').split(';').map(c => c.trim()).filter(Boolean);
+    return suggested.some(s => !currentCodes.includes(s.code));
+  })) {
     actions.push('Verifikasi & ketik kode diagnosis/prosedur secara manual');
   }
 
