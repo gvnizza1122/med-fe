@@ -313,8 +313,6 @@ export function generateCodingExplanation(
       if (hasIcd10Description) {
         bullets.push(icd10Description as string);
         hasInformativeBullet = true;
-      } else if (type === 'procedure') {
-        bullets.push('Deskripsi ICD-9-CM tidak tersedia untuk kode ini');
       }
       const sourceLabel = describeEvidenceSource(evidenceEntry);
       if (evidenceEntry?.quotation) {
@@ -328,7 +326,14 @@ export function generateCodingExplanation(
         hasInformativeBullet = true;
       }
       if (!hasInformativeBullet) {
-        bullets.push('Kode ini tidak ada di kamus offline — lihat dokumen sumber untuk konfirmasi');
+        // Fungsi ini hanya dipanggil untuk kode yang statusnya SUDAH
+        // valid/disetujui -- backend sudah memverifikasinya ada di tabel
+        // resmi (ICD-10 WHO / ICD-9-CM). Kalimat lama "tidak ada di kamus
+        // offline" menyiratkan keraguan atas keabsahannya, padahal yang
+        // sebenarnya belum ada cuma deskripsi/kutipan buktinya DI TAMPILAN
+        // INI -- membingungkan berdampingan dengan badge "Valid" (ditemukan
+        // pada kode prosedur 99.29, SEP 0170R0110826V003045/SUMIDAH).
+        bullets.push('Deskripsi dan kutipan bukti untuk kode ini belum tersedia di tampilan ini.');
       }
       // Fix item 8/9: review_flags (mis. lab rutin perlu review, diagnosis
       // consistency perlu klarifikasi DPJP) ditampilkan sebagai bullet

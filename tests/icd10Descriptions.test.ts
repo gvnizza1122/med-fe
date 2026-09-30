@@ -94,15 +94,20 @@ describe('generateCodingExplanation with ICD-10 descriptions', () => {
 
     expect(result.codes).toHaveLength(1);
     const bullets = result.codes[0].explanationBullets;
-    expect(bullets.join(' ')).toMatch(/tidak ada di kamus offline|konfirmasi/i);
+    // Kode ini sudah lolos status 'valid' dari backend -- fallback TIDAK
+    // boleh menyiratkan keraguan atas keabsahannya (dulu "tidak ada di kamus
+    // offline ... konfirmasi", membingungkan berdampingan dengan badge Valid
+    // -- lihat generateCodingExplanation.ts).
+    expect(bullets.join(' ')).toMatch(/belum tersedia di tampilan ini/i);
+    expect(bullets.join(' ')).not.toMatch(/tidak ada di kamus offline|konfirmasi/i);
   });
 
-  it('should note that ICD-9-CM descriptions are unavailable for unmapped procedure codes', () => {
+  it('should fall back gracefully for unmapped procedure codes without casting doubt on validity', () => {
     const result = generateCodingExplanation('88.78', 'procedure', 'valid');
 
     expect(result.codes).toHaveLength(1);
     const bullets = result.codes[0].explanationBullets;
-    expect(bullets[0]).toMatch(/ICD-9-CM tidak tersedia/i);
+    expect(bullets[0]).toMatch(/belum tersedia di tampilan ini/i);
   });
 
   it('should still work end-to-end for the WAHYU MURNIYATI sample codes', () => {

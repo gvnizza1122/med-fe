@@ -90,7 +90,7 @@ export function RingkasanTemuanCard({
         </div>
       )}
 
-      <p className="border-t border-current/10 pt-1.5 text-[10px] leading-snug text-muted-foreground/70">
+      <p className="border-t border-current/10 pt-1.5 text-[11px] leading-snug text-muted-foreground">
         {putusan.catatan_keandalan}
       </p>
     </div>
