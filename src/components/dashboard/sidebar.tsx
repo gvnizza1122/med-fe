@@ -11,6 +11,7 @@ import {
   Users,
   ShieldCheck,
   ClipboardList,
+  ListChecks,
   ScrollText,
   Sun,
   Moon,
@@ -50,6 +51,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/extract", icon: FileText, label: "Extract PDF", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
       { href: "/history", icon: History, label: "Riwayat Upload", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
       { href: "/pending-bpjs", icon: ClipboardList, label: "Pending BPJS", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
+      { href: "/pending-jawaban", icon: ListChecks, label: "Alur Jawab Pending", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
     ],
   },
   {

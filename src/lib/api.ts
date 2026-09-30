@@ -90,16 +90,152 @@ async function request(endpoint: string, options: RequestInit & { timeout?: numb
       413: 'Ukuran berkas terlalu besar. Gunakan berkas yang lebih kecil.',
       429: 'Permintaan terlalu sering. Mohon tunggu sebentar, lalu coba lagi.',
     };
-    throw new Error(
+    const err = new Error(
       data.error ||
       cadangan[res.status] ||
       'Terjadi gangguan pada sistem. Silakan coba lagi. Bila terus berulang, hubungi petugas IT rumah sakit.'
-    );
+    ) as Error & { kode?: string; status?: number };
+    // `kode` mesin (mis. 'perlu_pengakuan', 'bukti_gugur') dipakai alur Pending
+    // Jawaban BPJS untuk membedakan penolakan yang butuh tindakan spesifik dari
+    // error generik — lihat src/lib/api.ts bagian pending-jawaban & halaman item.
+    if (data.kode) err.kode = data.kode;
+    err.status = res.status;
+    throw err;
   }
 
   const contentType = res.headers.get('content-type');
   if (contentType?.includes('application/json')) return res.json();
   return res;
+}
+
+// ── Alur Menjawab Pending BPJS (backend: /api/v1/pending-jawaban, repo
+// eclaim-pro-be src/routes/jawabPending.js). Beda dari "Rekap Pending BPJS"
+// (import Excel manual) di atas — alur ini otomatis: tautkan SEP -> petakan
+// kategori alasan -> hitung triase kotak A/B/C/D -> generate draf jawaban
+// dengan bukti berkutipan -> koder setujui/tolak. Per 1 Okt 2026 backend
+// sudah selesai tapi tabel rekap pending KOSONG di produksi (belum pernah
+// ada data yang lewat alur baru ini) — semua fungsi di bawah belum bisa
+// diverifikasi visual dengan data asli, hanya terhadap kontrak API.
+// Aturan produk: TIDAK PERNAH menampilkan persentase/keyakinan di UI manapun.
+export interface PendingJawabanStatistikPeriode {
+  periode: string;
+  total: number;
+  cocok: number;
+  klaim_tidak_ada: number;
+  format: string;
+  klaim_di_periode_ini: number;
+}
+
+export interface PendingJawabanStatistik {
+  total: number;
+  cocok: number;
+  cocok_persis: number;
+  cocok_normalisasi: number;
+  klaim_tidak_ada: number;
+  format: string;
+  per_periode: PendingJawabanStatistikPeriode[];
+  penjelasan?: string;
+  rincian?: unknown[];
+}
+
+export interface PendingJawabanKategoriRingkasan {
+  kategori: string;
+  total: number;
+  rawat_jalan: number;
+  rawat_inap: number;
+  // `pangsa` sengaja TIDAK ditampilkan di UI manapun — aturan produk melarang
+  // menampilkan persentase/keyakinan. Disimpan di tipe ini hanya supaya sesuai
+  // kontrak backend, bukan untuk dirender.
+  pangsa?: number;
+}
+
+export interface PendingJawabanAlasanRingkasan {
+  total: number;
+  per_jenis: Record<string, number>;
+  per_kategori: PendingJawabanKategoriRingkasan[];
+  alasan_teratas: { alasan: string; jumlah: number }[];
+}
+
+export type KotakTriase = 'A' | 'B' | 'C' | 'D';
+
+export interface PendingJawabanTriaseRingkasan {
+  kotak: { kode: KotakTriase; label: string; jumlah: number }[];
+  belum_diklasifikasi: number;
+  per_jenis: Record<string, number>;
+  per_kategori: Record<string, number>;
+}
+
+export interface PendingJawabanItemRingkas {
+  id: string;
+  sep?: string | null;
+  nama_peserta?: string | null;
+  kategori: string | null;
+  jenis_rawat: 'RJ' | 'RI' | string | null;
+  kotak: KotakTriase | null;
+  draft_id: string | null;
+  status_draft: 'draft' | 'siap' | 'ditolak' | 'belum_ada' | string;
+  [key: string]: unknown;
+}
+
+export interface PendingJawabanDaftarResponse {
+  total: number;
+  page: number;
+  limit: number;
+  items: PendingJawabanItemRingkas[];
+}
+
+export interface PendingJawabanBukti {
+  topik: string;
+  halaman: number | string;
+  kutipan: string;
+  terverifikasi: boolean;
+}
+
+export interface PendingJawabanDraftPoin {
+  teks?: string;
+  isi?: string;
+  bukti?: PendingJawabanBukti[];
+  tanpa_bukti?: boolean;
+  [key: string]: unknown;
+}
+
+export interface PendingJawabanDraftVersi {
+  id: string;
+  versi?: number;
+  status?: string;
+  created_at?: string;
+  [key: string]: unknown;
+}
+
+export interface PendingJawabanItemDetail {
+  pending: {
+    id: string;
+    sep?: string | null;
+    nama_peserta?: string | null;
+    kategori?: string | null;
+    jenis_rawat?: string | null;
+    jawaban_rs_manual?: string | null;
+    [key: string]: unknown;
+  };
+  triase: {
+    kotak: KotakTriase | null;
+    label?: string;
+    alasan_kotak?: string;
+    kriteria?: string[];
+    dokumen_dibutuhkan?: string[];
+  } | null;
+  draft: {
+    id?: string;
+    status?: string;
+    poin?: PendingJawabanDraftPoin[];
+    [key: string]: unknown;
+  } | null;
+  kolom: {
+    alasan_pending: string;
+    jawaban: string;
+    bukti: PendingJawabanBukti[];
+  };
+  riwayat_versi: PendingJawabanDraftVersi[];
 }
 
 export const api = {
@@ -383,4 +519,96 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ diagnosis_codes: diagnosisCodes, procedure_codes: procedureCodes, selected_inacbg: selectedInaCbg, clinical_extract: clinicalExtract })
     }),
+
+  // ── Alur Menjawab Pending BPJS (/api/v1/pending-jawaban) ──
+  // Urutan pemakaian di frontend: tautkanUlangSepPending -> petakanAlasanPending
+  // -> hitungTriasePending -> getDaftarPendingJawaban -> getItemPendingJawaban
+  // -> buatDraftPendingJawaban -> setujuiDraftPendingJawaban/tolakDraftPendingJawaban.
+  getPendingJawabanStatistik: (params: { pending_file_id?: string; periode?: string; rincian?: boolean } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.pending_file_id) qs.set('pending_file_id', params.pending_file_id);
+    if (params.periode) qs.set('periode', params.periode);
+    if (params.rincian) qs.set('rincian', '1');
+    const q = qs.toString();
+    return request(`/api/v1/pending-jawaban/sep/statistik${q ? `?${q}` : ''}`) as Promise<PendingJawabanStatistik>;
+  },
+
+  tautkanUlangSepPending: (pendingFileId?: string) =>
+    request('/api/v1/pending-jawaban/sep/tautkan-ulang', {
+      method: 'POST',
+      body: JSON.stringify(pendingFileId ? { pending_file_id: pendingFileId } : {}),
+      timeout: 60000,
+    }) as Promise<{ diperiksa: number; tertaut: number }>,
+
+  petakanAlasanPending: (params: { pending_file_id?: string; ulang?: boolean; pakai_ai?: boolean } = {}) =>
+    request('/api/v1/pending-jawaban/alasan/petakan', {
+      method: 'POST',
+      body: JSON.stringify(params),
+      // Pemetaan pakai AI bisa memproses banyak baris sekaligus — beri waktu
+      // lebih longgar, konsisten dengan endpoint AI lain di file ini.
+      timeout: 120000,
+    }),
+
+  getRingkasanAlasanPending: (params: { pending_file_id?: string; periode?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.pending_file_id) qs.set('pending_file_id', params.pending_file_id);
+    if (params.periode) qs.set('periode', params.periode);
+    const q = qs.toString();
+    return request(`/api/v1/pending-jawaban/alasan/ringkasan${q ? `?${q}` : ''}`) as Promise<PendingJawabanAlasanRingkasan>;
+  },
+
+  // Koreksi manual kategori alasan — sekali dikoreksi manusia, backend tidak
+  // pernah menimpanya lagi otomatis (lihat kontrak API).
+  koreksiKategoriAlasanPending: (pendingId: string, kategori: string) =>
+    request(`/api/v1/pending-jawaban/alasan/${pendingId}`, { method: 'PATCH', body: JSON.stringify({ kategori }) }),
+
+  hitungTriasePending: (params: { pending_file_id?: string; pending_id?: string; ulang?: boolean } = {}) =>
+    request('/api/v1/pending-jawaban/triase/hitung', { method: 'POST', body: JSON.stringify(params), timeout: 120000 }),
+
+  getRingkasanTriasePending: (pendingFileId?: string) =>
+    request(`/api/v1/pending-jawaban/triase/ringkasan${pendingFileId ? `?pending_file_id=${pendingFileId}` : ''}`) as Promise<PendingJawabanTriaseRingkasan>,
+
+  // Putusan kotak manual koder — menimpa hasil hitung otomatis untuk 1 klaim.
+  updateTriasePending: (pendingId: string, data: { kotak: KotakTriase | null; catatan?: string }) =>
+    request(`/api/v1/pending-jawaban/triase/${pendingId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  getDaftarPendingJawaban: (params: {
+    pending_file_id?: string;
+    kotak?: string;
+    kategori?: string;
+    jenis_rawat?: string;
+    status_draft?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)); });
+    const q = qs.toString();
+    return request(`/api/v1/pending-jawaban/daftar${q ? `?${q}` : ''}`) as Promise<PendingJawabanDaftarResponse>;
+  },
+
+  getItemPendingJawaban: (pendingId: string) =>
+    request(`/api/v1/pending-jawaban/item/${pendingId}`) as Promise<PendingJawabanItemDetail>,
+
+  // pakaiAi=true (bawaan): draf disusun AI dengan kutipan berkas. pakaiAi=false
+  // menghasilkan draf kosong/template untuk diisi manual koder.
+  buatDraftPendingJawaban: (pendingId: string, pakaiAi = true) =>
+    request(`/api/v1/pending-jawaban/item/${pendingId}/draft`, {
+      method: 'POST',
+      body: JSON.stringify({ pakai_ai: pakaiAi }),
+      timeout: 90000,
+    }),
+
+  getRiwayatDraftPendingJawaban: (pendingId: string) =>
+    request(`/api/v1/pending-jawaban/item/${pendingId}/draft`) as Promise<{ riwayat: PendingJawabanDraftVersi[] } | PendingJawabanDraftVersi[]>,
+
+  // akuiPoinTanpaBukti: perlu true kalau backend menolak dengan 409
+  // kode='perlu_pengakuan' (ada poin draf tanpa bukti berkas yang koder minta
+  // tetap disetujui secara sadar).
+  setujuiDraftPendingJawaban: (draftId: string, data: { catatan?: string; akui_poin_tanpa_bukti?: boolean } = {}) =>
+    request(`/api/v1/pending-jawaban/draft/${draftId}/setujui`, { method: 'POST', body: JSON.stringify(data) }),
+
+  tolakDraftPendingJawaban: (draftId: string, alasan?: string) =>
+    request(`/api/v1/pending-jawaban/draft/${draftId}/tolak`, { method: 'POST', body: JSON.stringify({ alasan }) }),
 };

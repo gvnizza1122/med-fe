@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, type Variants } from 'framer-motion';
 import {
-  UploadCloud, FileSpreadsheet, ChevronLeft, ChevronRight, ClipboardList, ArrowRight,
+  UploadCloud, FileSpreadsheet, ChevronLeft, ChevronRight, ClipboardList, ArrowRight, ListChecks,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Header } from '@/components/dashboard/header';
@@ -102,6 +102,10 @@ export default function PendingBpjsFilesPage() {
         description={`${total} file rekap telah diimpor`}
         actions={
           <>
+            <Button variant="outline" className="gap-2" onClick={() => router.push('/pending-jawaban')}>
+              <ListChecks className="size-4" />
+              Alur Jawab Pending (Baru)
+            </Button>
             <input
               ref={fileInputRef} type="file" accept=".xlsx,.xls" hidden
               onChange={e => { if (e.target.files?.[0]) handleImport(e.target.files[0]); e.target.value = ''; }}
