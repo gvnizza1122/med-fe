@@ -370,6 +370,14 @@ export const api = {
   },
 
   // PDF Upload
+  uploadTestingPdf: (file: File, jenisKlaim: string, label: { actual_result: string; reference_source: string; actual_reason: string; notes: string }) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('jenis_klaim', jenisKlaim);
+    Object.entries(label).forEach(([key, value]) => fd.append(key, value));
+    return request('/api/v1/testing-pending/upload', { method: 'POST', body: fd, timeout: 900000 });
+  },
+
   uploadPdf: (file: File, jenisKlaim: string) => {
     const fd = new FormData();
     fd.append('file', file);
