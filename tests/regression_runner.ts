@@ -60,7 +60,16 @@ export function compareData(
     const extractedValue = extracted[field];
 
     // Determine if values match
-    const match = deepEqual(extractedValue?.value || extractedValue, goldenValue.expected || goldenValue);
+    // Bandingkan kode/urutan yang dihasilkan, bukan seluruh metadata dengan
+    // array expected. Jangan memakai expected milik hasil sebagai jawaban.
+    const codingValues = (value: any) => value?.diagnoses
+      ? value.diagnoses.map((d: any) => ({ icd10: d.icd10, sequence: d.sequence }))
+      : value?.procedures
+      ? value.procedures.map((p: any) => ({ icd9: p.icd9, sequence: p.sequence }))
+      : value?.value ?? value;
+    const actual = codingValues(extractedValue);
+    const expected = goldenValue.expected ?? codingValues(goldenValue);
+    const match = deepEqual(actual, expected);
 
     if (!match) {
       let severity: 'critical' | 'warning' | 'info' = 'info';
@@ -77,8 +86,8 @@ export function compareData(
       diffs.push({
         field,
         fieldType: fieldType as any,
-        expected: goldenValue.expected || goldenValue,
-        actual: extractedValue?.value || extractedValue,
+        expected,
+        actual,
         match: false,
         confidence: extractedValue?.confidence,
         severity,

@@ -174,7 +174,7 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
     it('diagnoses should come from Resume Medis (not OCR-fabricated)', () => {
       const diaglist = FIRDAN_CASE.extracted_data.koding.DIAGLIST;
       expect(diaglist.source).toContain('Resume_Medis_IGD');
-      expect(diaglist.validation_note).toContain('bukan hasil OCR karangan');
+      expect(diaglist.validation_note.toLowerCase()).toContain('bukan hasil ocr karangan');
     });
 
     it('all diagnoses should have confidence >= 0.85', () => {

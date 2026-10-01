@@ -12,10 +12,21 @@ import {
   generateRegressionReport,
   assertRegressionPassed,
   printReport,
+  compareData,
 } from './regression_runner';
 
 describe('Regression Testing — Firdan Case', () => {
   let goldenData: any;
+  it('tidak mengambil expected dari hasil ekstraksi untuk menutupi kode salah', () => {
+    const expected = [{ icd10: 'J45.9', sequence: 1 }];
+    const diffs = compareData({ DIAGLIST: { diagnoses: [{ icd10: 'WRONG', sequence: 1 }], expected } },
+      { DIAGLIST: { expected } }, 'koding');
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0].severity).toBe('critical');
+  });
+  it('mempertahankan nilai nol saat membandingkan field', () => {
+    expect(compareData({ LOS: { value: 0 } }, { LOS: { expected: 0 } }, 'turunan')).toEqual([]);
+  });
 
   beforeAll(() => {
     goldenData = loadGoldenData();
