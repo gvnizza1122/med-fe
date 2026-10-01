@@ -2850,6 +2850,7 @@ export default function ResultsPage() {
                   <RingkasanTemuanCard
                     putusan={parseAiReview(selectedRecord)?.putusan_pending}
                     tindakan={parseAiReview(selectedRecord)?.temuan_tindakan}
+                    validationStatus={selectedRecord.validation_status}
                   />
 
                   {/* ─── Alasan Status Pending ─── beda dari "Pola Pending Risk" di

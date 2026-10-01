@@ -33,11 +33,18 @@ const TITIK: Record<string, string> = {
 export function RingkasanTemuanCard({
   putusan,
   tindakan,
+  validationStatus,
 }: {
   putusan?: PutusanPending | null;
   tindakan?: TemuanTindakan[];
+  validationStatus?: string | null;
 }) {
-  if (!putusan) return null;
+  // Kartu hijau "Tidak ditemukan alasan pending" hanya mengulang status
+  // valid dan membuat seolah ada masalah yang perlu ditangani.
+  if (!putusan || (
+    validationStatus?.toLowerCase() === 'valid' &&
+    putusan.status === 'tidak_ditemukan_alasan'
+  )) return null;
 
   const gaya = GAYA_STATUS[putusan.status] || GAYA_STATUS.perlu_dicek;
   const adaTindakan = tindakan && tindakan.length > 0;
