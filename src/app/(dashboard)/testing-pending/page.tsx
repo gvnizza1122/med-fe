@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Info, RefreshCw, Search, ChevronLeft, ChevronRight, Upload } from "lucide-react"
+import { Info, RefreshCw, Search, ChevronLeft, ChevronRight, Upload, Download } from "lucide-react"
 import { Header } from "@/components/dashboard/header"
 import { HistoryTabs } from "@/components/dashboard/history-tabs"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,7 @@ type Claim = { id: string; file_id: string; nama_pasien: string; sep: string; fi
 type Summary = { evaluated: number; labeled: number; uncertain: number; correct: number; true_pending: number; true_clear: number; missed_pending: number; false_alarm: number; reason_rated: number; reason_exact: number; reason_partial: number; accuracy: number | null; pending_recall: number | null; reason_accuracy: number | null }
 type Report = { testing_storage_available: boolean; records: Claim[]; page: number; limit: number; total: number; summary: Record<string, Summary> }
 const predLabel = (status: string) => status === "pending" ? "Berisiko pending" : status === "tidak_pending" ? "Tidak ditemukan risiko" : "Perlu ditinjau"
-const actualLabel = (status?: string) => status === "pending" ? "Pending" : status === "diterima" ? "Tidak pending / diterima" : "Belum diuji"
+const actualLabel = (status?: string) => status === "pending" ? "Pending" : status === "diterima" ? "Tidak pending / diterima" : "Acuan belum diisi"
 const persen = (n: number | null) => n === null ? "Belum ada acuan" : `${n.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`
 const field = "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 function hasilCocok(c: Claim) {
@@ -35,6 +35,7 @@ export default function TestingPendingPage() {
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [exporting, setExporting] = useState(false)
   const [refresh, setRefresh] = useState(0)
   const [selected, setSelected] = useState<Claim | null>(null)
   const [saving, setSaving] = useState(false)
@@ -65,18 +66,32 @@ export default function TestingPendingPage() {
     } catch (err) { setSaveError(err instanceof Error ? err.message : "Hasil testing belum tersimpan.") }
     finally { setSaving(false) }
   }
+  async function exportHasil() {
+    setExporting(true); setError("")
+    try {
+      const data = await api.exportTesting()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a"); link.href = url
+      link.download = `testing-klaim-${new Date().toISOString().slice(0,10)}.json`
+      document.body.appendChild(link); link.click(); link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) { setError(err instanceof Error ? err.message : "Ekspor belum berhasil.") }
+    finally { setExporting(false) }
+  }
   const summary = report?.summary[source]
   const snapshot = selected?.evaluation?.prediction_snapshot || selected?.current_prediction
   const pages = report ? Math.max(1, Math.ceil(report.total / report.limit)) : 1
   return <div className="space-y-5">
-    <Header title="Testing Pending" description="Sementara · Bandingkan hasil aplikasi dengan hasil acuan untuk rawat jalan dan rawat inap."
-      actions={<Button asChild variant="outline"><Link href="/testing-pending/upload"><Upload className="h-4 w-4 mr-2" aria-hidden="true" />Upload berkas untuk diuji</Link></Button>} />
+    <Header title="Testing Pending" description="Hasil analisis berkas pengujian rawat jalan dan rawat inap. Ekspor untuk evaluasi di luar aplikasi."
+      actions={<div className="flex flex-wrap gap-2"><Button variant="outline" disabled={exporting} onClick={exportHasil}><Download className="h-4 w-4 mr-2" />{exporting ? "Mengekspor…" : "Export untuk evaluasi"}</Button><Button asChild variant="outline"><Link href="/testing-pending/upload"><Upload className="h-4 w-4 mr-2" aria-hidden="true" />Upload berkas untuk diuji</Link></Button></div>} />
     <HistoryTabs />
-    <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 flex gap-3 text-sm"><Info className="h-5 w-5 shrink-0 text-blue-500" aria-hidden="true" /><p>Unggah PDF melalui Upload Testing dengan hasil ACC atau pending yang sudah diketahui. Daftar ini khusus berkas pengujian, terpisah dari klaim operasional. Bandingkan prediksi aplikasi dan nilai kecocokan alasannya.</p></div>
+    <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 flex gap-3 text-sm"><Info className="h-5 w-5 shrink-0 text-blue-500" aria-hidden="true" /><p>Unggah banyak PDF melalui Upload Testing. Ekspor hasil analisis, lalu bandingkan dengan catatan pending BPJS menggunakan Codex atau Claude di luar aplikasi. Daftar ini khusus berkas pengujian, terpisah dari klaim operasional. Penilaian manual di bawah bersifat opsional.</p></div>
     <div role="tablist" aria-label="Kategori testing pending" className="flex gap-2">
       {[{ key: "RAWAT_JALAN", label: "Rawat Jalan" }, { key: "RAWAT_INAP", label: "Rawat Inap" }].map(c => <button id={`tab-${c.key}`} key={c.key} role="tab" aria-selected={category === c.key} aria-controls="kategori-testing" onClick={() => { setCategory(c.key); setPage(1) }} className={`rounded-lg px-5 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${category === c.key ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>{c.label}</button>)}
     </div>
     <div id="kategori-testing" role="tabpanel" aria-labelledby={`tab-${category}`} className="space-y-4">
+      <details className="rounded-xl border border-border p-4 space-y-4"><summary className="cursor-pointer text-sm font-medium">Rekap penilaian manual (opsional)</summary>
       <div className="flex flex-wrap items-center justify-between gap-3"><div><label htmlFor="sumber-rekap" className="text-sm font-medium mr-3">Acuan rekap</label><select id="sumber-rekap" value={source} onChange={e => setSource(e.target.value)} className={`${field} w-auto`}><option value="BPJS">Hasil BPJS</option><option value="VERIFIKATOR">Verifikator (simulasi)</option></select></div><Button variant="outline" disabled={busy} onClick={() => setRefresh(r => r + 1)}><RefreshCw aria-hidden="true" className={`h-4 w-4 mr-2 ${busy ? "animate-spin" : ""}`} />Perbarui</Button></div>
       {summary && <>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">{[
@@ -87,13 +102,14 @@ export default function TestingPendingPage() {
         ].map(card => <div key={card.title} className="rounded-xl border border-border bg-card p-5"><p className="text-sm text-muted-foreground">{card.title}</p><p className="text-xl font-semibold mt-3 tabular-nums">{card.value}</p><p className="mt-2 text-xs text-muted-foreground leading-relaxed">{card.note}</p></div>)}</div>
         <p className="text-xs text-muted-foreground">Rekap seluruh {category === "RAWAT_INAP" ? "rawat inap" : "rawat jalan"}, dengan acuan {source === "BPJS" ? "BPJS" : "verifikator (simulasi)"}. {summary.labeled} kasus memiliki acuan; {summary.uncertain} hasil aplikasi belum pasti dan tidak masuk perhitungan ketepatan. Kecocokan alasan dihitung pada kasus yang sama-sama dinilai pending.</p>
       </>}
+      </details>
       {report && !report.testing_storage_available && <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm">Daftar dan hasil aplikasi sudah bisa ditinjau. Penyimpanan penilaian testing belum diaktifkan oleh administrator.</p>}
       {success && <p role="status" className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">{success}</p>}
       <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"><Search aria-hidden="true" className="h-4 w-4 text-muted-foreground" /><input aria-label="Cari nama pasien atau SEP" placeholder="Cari nama pasien atau SEP" value={searchInput} onChange={e => setSearchInput(e.target.value)} className="flex-1 min-w-0 bg-transparent text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" /></div>
       <label className="flex items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={includeArsip} onChange={e => { setIncludeArsip(e.target.checked); setPage(1) }} className="h-4 w-4 accent-primary" />Sertakan arsip</label>
       {busy && <p role="status" className="py-8 text-center text-muted-foreground">Memuat daftar testing…</p>}
       {error && <p role="alert" className="text-sm text-destructive border border-destructive/30 rounded-lg p-4">{error}</p>}
-      {report && (!report.records.length ? <div className="rounded-xl border border-border bg-card p-10 text-center"><p className="font-medium">Belum ada klaim {category === "RAWAT_INAP" ? "rawat inap" : "rawat jalan"}{search ? " yang sesuai pencarian" : " untuk diuji"}.</p><p className="text-sm text-muted-foreground mt-2">Pilih Upload Testing untuk mengunggah PDF dengan hasil ACC atau pending sebagai acuan.</p></div> : <>
+      {report && (!report.records.length ? <div className="rounded-xl border border-border bg-card p-10 text-center"><p className="font-medium">Belum ada klaim {category === "RAWAT_INAP" ? "rawat inap" : "rawat jalan"}{search ? " yang sesuai pencarian" : " untuk diuji"}.</p><p className="text-sm text-muted-foreground mt-2">Pilih Upload Testing untuk mengunggah banyak PDF klaim sekaligus.</p></div> : <>
         <div className="rounded-xl border border-border bg-card overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted/30 text-xs text-muted-foreground"><tr>{["Klaim", "Hasil aplikasi (patokan)", "Hasil acuan", "Kecocokan", "Tindakan"].map(h => <th key={h} scope="col" className="px-4 py-3 text-left whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{report.records.map(c => {
           const prediction = c.evaluation?.prediction_snapshot || c.current_prediction
           const cocok = hasilCocok(c)

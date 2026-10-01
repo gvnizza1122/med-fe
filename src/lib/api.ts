@@ -370,6 +370,15 @@ export const api = {
   },
 
   // PDF Upload
+  uploadTestingBatch: (files: File[], allowedCategories: string[]) => {
+    const fd = new FormData();
+    files.forEach(file => fd.append('files', file));
+    fd.append('allowed_jenis_klaim', JSON.stringify(allowedCategories));
+    return request('/api/v1/testing-pending/upload-batch', { method: 'POST', body: fd, timeout: 7200000 });
+  },
+  getTestingJob: (jobId: string) => request(`/api/v1/testing-pending/jobs/${encodeURIComponent(jobId)}`),
+  exportTesting: () => request('/api/v1/testing-pending/export', { timeout: 120000 }),
+
   uploadTestingPdf: (file: File, jenisKlaim: string, label: { actual_result: string; reference_source: string; actual_reason: string; notes: string }) => {
     const fd = new FormData();
     fd.append('file', file);
