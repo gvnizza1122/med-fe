@@ -1,11 +1,13 @@
 "use client"
 
+import { useState } from "react"
 import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Sidebar } from "./sidebar"
 
 export function MobileNav() {
+  const [collapsed, setCollapsed] = useState(false)
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -15,10 +17,7 @@ export function MobileNav() {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="p-0 w-64">
-        {/* Sidebar.collapsed ditambahkan untuk mode lipat di layar desktop --
-            di drawer mobile ini tidak relevan (lebarnya sudah tetap w-64 dari
-            SheetContent), jadi selalu diperlakukan tidak terlipat. */}
-        <Sidebar collapsed={false} onToggle={() => {}} />
+        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} />
       </SheetContent>
     </Sheet>
   )

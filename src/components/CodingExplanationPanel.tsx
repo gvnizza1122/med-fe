@@ -21,6 +21,7 @@ interface CodingExplanationPanelProps {
   pageReference?: string; // e.g., "Resume Medis hal. 2"
   codeEvidence?: CodeEvidenceEntry[]; // Data dari ai_review.code_evidence
   className?: string;
+  showStatusBadge?: boolean;
 }
 
 // generateCodingExplanation() hanya menerima status 'valid'|'approved' --
@@ -51,7 +52,8 @@ export function CodingExplanationPanel({
   clinicalFindings,
   pageReference,
   codeEvidence,
-  className
+  className,
+  showStatusBadge = true
 }: CodingExplanationPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -107,9 +109,9 @@ export function CodingExplanationPanel({
         <span className="font-medium text-muted-foreground">
           Penjelasan Kode
         </span>
-        <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', statusColor)}>
+        {showStatusBadge && <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', statusColor)}>
           {statusLabel}
-        </span>
+        </span>}
         <span className="text-[10px] text-muted-foreground">
           {result.codes.length} {result.codes.length === 1 ? 'kode' : 'kode'}
         </span>

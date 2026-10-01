@@ -27,7 +27,7 @@ import type { TemuanTindakan } from '@/components/TemuanTindakanCard';
 const GAYA_STATUS: Record<string, { kelas: string; judul: string; warna: string }> = {
   berisiko_pending: {
     kelas: 'border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/5',
-    judul: 'Ada risiko pending yang perlu ditinjau',
+    judul: 'Berisiko pending · belum siap upload',
     warna: 'text-red-700 dark:text-red-300',
   },
   perlu_dicek: {

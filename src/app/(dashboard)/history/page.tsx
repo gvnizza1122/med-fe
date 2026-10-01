@@ -5,6 +5,7 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { FileText, FolderOpen, Trash2, Upload, X, ChevronLeft, ChevronRight, Search, Download, Archive, ArchiveRestore, ChevronDown } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Header } from '@/components/dashboard/header';
+import { HistoryTabs } from '@/components/dashboard/history-tabs';
 import { ToastContainer, useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -689,6 +690,8 @@ export default function HistoryPage() {
           </Button>
         }
       />
+
+      <HistoryTabs />
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3 md:p-4 animate-slide-in-up">
