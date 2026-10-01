@@ -740,7 +740,6 @@ function FieldRowTr({
             {valueCodes.map((code, index) => (
               <div key={`${code}-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm leading-relaxed">
                 <code className="shrink-0 font-mono font-semibold text-foreground">{code}</code>
-                <span className="text-muted-foreground">—</span>
                 <span className="min-w-0 break-words text-foreground/85">{codeDescription(code)}</span>
               </div>
             ))}
@@ -757,7 +756,7 @@ function FieldRowTr({
         )}
         {editing && codeType && valueCodes.length > 0 && (
           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-            {valueCodes.map((code, index) => <div key={`${code}-${index}`}><code className="font-mono font-semibold text-foreground">{code}</code> — {codeDescription(code)}</div>)}
+            {valueCodes.map((code, index) => <div key={`${code}-${index}`}><code className="mr-2 font-mono font-semibold text-foreground">{code}</code>{codeDescription(code)}</div>)}
           </div>
         )}
         {autofilledFrom === 'mrn_history' && !isChanged && (
@@ -869,8 +868,7 @@ function FieldRowTr({
                 return (
                   <div key={`${code}-${index}`} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-md border border-border/70 bg-background/70 px-3 py-2">
                     <div className="min-w-0 flex-1 text-sm leading-relaxed">
-                      <code className="font-mono font-semibold text-foreground">{code}</code>
-                      <span className="mx-1.5 text-muted-foreground">—</span>
+                      <code className="mr-2 font-mono font-semibold text-foreground">{code}</code>
                       <span className="break-words text-foreground/85">{codeDescription(code)}</span>
                       <div className="mt-1 text-xs text-muted-foreground" title={suggestion.reasoning || undefined}>
                         {suggestion.page_number ? `Usulan dari dokumen hal. ${suggestion.page_number}` : 'Usulan AI'}
@@ -1268,6 +1266,9 @@ function RecordFieldsTable({
       if (category === 'ICU & Ventilasi' && !hasIcuData) return false;
       // Hide INA-CBG & Tarif as it is rendered separately now
       if (category === 'INA-CBG & Tarif') return false;
+      // Data Rawatan tidak ditampilkan (permintaan klien 1 Okt 2026), termasuk
+      // di mode edit dan hitungan "perlu diperiksa". Validasi backend tetap jalan.
+      if (category === 'Data Rawatan') return false;
       return true;
     })
     .map(([category, cols]) => ({

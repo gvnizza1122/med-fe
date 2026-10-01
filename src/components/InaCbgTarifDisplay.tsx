@@ -124,15 +124,16 @@ function CodeDisplay({
       )}
     >
       <div className="col-span-3 text-sm font-semibold text-gray-100">{label}</div>
-      <div className="col-span-3 text-center">
-        <div className="font-mono text-sm text-gray-200">{code || '—'}</div>
+      {/* Kode dan namanya sebaris, sama seperti tabel Diagnosis & Prosedur. */}
+      <div className="col-span-6 flex min-w-0 items-baseline gap-x-2 text-sm leading-relaxed">
+        <code className="shrink-0 font-mono font-semibold text-gray-200">{code || '—'}</code>
         {code && description && (
-          <div className="mt-0.5 text-[11px] leading-snug text-gray-400" title={description}>
+          <span className="min-w-0 break-words text-gray-300" title={description}>
             {description}
-          </div>
+          </span>
         )}
       </div>
-      <div className="col-span-6 flex justify-end">
+      <div className="col-span-3 flex justify-end">
         <EvidenceBadge evidence={evidence} />
       </div>
     </div>
