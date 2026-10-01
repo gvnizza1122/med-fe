@@ -215,11 +215,18 @@ export default function HistoryPage() {
   }, [searchInput]);
 
   const [mengexport, setMengexport] = useState(false);
+  const [mengexportSiap, setMengexportSiap] = useState(false);
 
   const unduhDaftarKerja = async () => {
     setMengexport(true);
     try {
-      const res = await api.exportDaftarKerja({ kategori: jenisKlaimFilter || undefined });
+      const res = await api.exportDaftarKerja({
+        kategori: jenisKlaimFilter || undefined,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        search: search || undefined,
+        arsip: lihatArsip,
+      });
       if (!res.ok) throw new Error(`Server menolak (${res.status})`);
 
       // Nama berkas diambil dari header server, bukan disusun ulang di sini,
@@ -240,6 +247,35 @@ export default function HistoryPage() {
       addToast('Gagal menyiapkan Daftar Kerja. Silakan coba lagi.', 'error');
     } finally {
       setMengexport(false);
+    }
+  };
+
+  const unduhSiapSubmit = async () => {
+    setMengexportSiap(true);
+    try {
+      const res = await api.exportSiapSubmit({
+        kategori: jenisKlaimFilter || undefined,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        search: search || undefined,
+        arsip: lihatArsip,
+      });
+      if (!res.ok) throw new Error(`Server menolak (${res.status})`);
+      const disposisi = res.headers.get('Content-Disposition') || '';
+      const cocok = disposisi.match(/filename=([^;]+)/);
+      const namaBerkas = cocok ? cocok[1].trim().replace(/"/g, '') : 'siap-submit.xlsx';
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = namaBerkas;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      addToast(`Siap Submit diunduh: ${namaBerkas}`, 'success');
+    } catch (err) {
+      console.error('[History] Gagal export Siap Submit:', err);
+      addToast('Gagal menyiapkan Siap Submit. Silakan coba lagi.', 'error');
+    } finally {
+      setMengexportSiap(false);
     }
   };
 
@@ -624,6 +660,17 @@ export default function HistoryPage() {
         >
           <Download className="size-3.5" />
           {mengexport ? 'Menyiapkan...' : 'Export Daftar Kerja'}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          disabled={mengexportSiap}
+          onClick={unduhSiapSubmit}
+        >
+          <Download className="size-3.5" />
+          {mengexportSiap ? 'Menyiapkan...' : 'Export Siap Submit'}
         </Button>
       </div>
 
