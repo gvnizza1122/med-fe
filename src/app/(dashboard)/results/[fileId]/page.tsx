@@ -690,6 +690,33 @@ function FieldRowTr({
   const currentValue = editedValues[field.column_name] !== undefined
     ? editedValues[field.column_name] : field.value;
   const isChanged = editedValues[field.column_name] !== undefined;
+  const codeType = field.column_name === 'DIAGLIST' ? 'diagnosis' : field.column_name === 'PROCLIST' ? 'procedure' : null;
+  const valueCodes = codeType ? String(currentValue ?? '').split(/[;,]/).map(code => code.trim().toUpperCase()).filter(Boolean) : [];
+  const allCodes = [...new Set([...valueCodes, ...(field.suggestedCodes ?? []).map(item => item.code.trim().toUpperCase())])].slice(0, 50);
+  const codeRequestKey = codeType && allCodes.length ? `${codeType}:${allCodes.join(';')}` : '';
+  const [codeLookup, setCodeLookup] = useState<{ key: string; descriptions: Record<string, string>; error: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!codeRequestKey) return;
+    const [requestType, codesText] = codeRequestKey.split(':') as ['diagnosis' | 'procedure', string];
+    const requestedCodes = codesText.split(';');
+    let active = true;
+    api.lookupCodeDescriptions(requestType === 'diagnosis' ? requestedCodes : [], requestType === 'procedure' ? requestedCodes : [])
+      .then(result => {
+        if (active) setCodeLookup({ key: codeRequestKey, descriptions: result[requestType], error: false });
+      })
+      .catch(() => {
+        if (active) setCodeLookup({ key: codeRequestKey, descriptions: {}, error: true });
+      });
+    return () => { active = false; };
+  }, [codeRequestKey]);
+
+  const codeDescription = (code: string) => {
+    if (codeLookup?.key !== codeRequestKey) return 'Memuat keterangan…';
+    if (codeLookup.error) return 'Keterangan belum dapat dimuat';
+    return codeLookup.descriptions[code.toUpperCase()] || 'Keterangan belum tersedia di kamus aplikasi';
+  };
+
   return (
     <tr
       ref={rowRef}
@@ -712,6 +739,16 @@ function FieldRowTr({
               isChanged ? 'border-blue-500' : 'border-input',
             )}
           />
+        ) : codeType && valueCodes.length > 0 ? (
+          <div className="space-y-2" aria-label={codeType === 'diagnosis' ? 'Daftar diagnosis ICD-10' : 'Daftar prosedur ICD-9-CM'}>
+            {valueCodes.map((code, index) => (
+              <div key={`${code}-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm leading-relaxed">
+                <code className="shrink-0 font-mono font-semibold text-foreground">{code}</code>
+                <span className="min-w-0 break-words text-foreground/85">{codeDescription(code)}</span>
+              </div>
+            ))}
+            <span className="text-xs text-muted-foreground">{codeType === 'diagnosis' ? 'ICD-10' : 'ICD-9-CM'} · Keterangan kamus SATUSEHAT</span>
+          </div>
         ) : (
           <span className={cn('font-mono text-sm leading-relaxed break-words whitespace-pre-wrap', field.status === 'error' ? 'text-destructive' : 'text-foreground')}>
             {currentValue === null || currentValue === undefined || currentValue === ''
@@ -720,6 +757,11 @@ function FieldRowTr({
                 ? `${currentValue} - ${DISCHARGE_STATUS_LABELS[String(currentValue)]}`
                 : String(currentValue)}
           </span>
+        )}
+        {editing && codeType && valueCodes.length > 0 && (
+          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+            {valueCodes.map((code, index) => <div key={`${code}-${index}`}><code className="mr-2 font-mono font-semibold text-foreground">{code}</code>{codeDescription(code)}</div>)}
+          </div>
         )}
         {autofilledFrom === 'mrn_history' && !isChanged && (
           <Badge
@@ -824,40 +866,31 @@ function FieldRowTr({
             />
           )}
         {field.suggestedCodes && field.suggestedCodes.length > 0 && (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-blue-600 dark:text-blue-400">
-            <span className="inline-flex items-center gap-1"><Lightbulb className="size-3" /> Saran kode:</span>
-            {field.suggestedCodes.map((s, i) => {
-              const currentCodes = String(currentValue ?? '').split(';').map(c => c.trim()).filter(Boolean);
-              const alreadyApplied = currentCodes.includes(s.code);
-              return (
-                <span key={s.code} className="inline-flex items-center gap-1">
-                  {i > 0 && <span>,</span>}
-                  <span title={`Hal. ${s.page_number}: "${s.quotation}"${s.reasoning ? ` — ${s.reasoning}` : ''}`} className="cursor-help font-mono">
-                    {s.code}
-                  </span>
-                  {/* Tombol "Terapkan" DIMATIKAN sengaja (bukan cuma disabled saat
-                      alreadyApplied) -- kode di sini format ICD-10-CM (Amerika),
-                      BUKAN ICD-10 WHO Versi 2010 yang dipakai BPJS (PMK 3/2023
-                      Lampiran). Menerapkan otomatis lebih berbahaya daripada
-                      menampilkan saran tanpa penyaring -- lihat evaluasi 14 Sep
-                      2026. Aktifkan lagi HANYA setelah kamus ICD-10 WHO terpasang
-                      & suggested_codes divalidasi terhadap kamus itu di backend. */}
-                  {!isSystem && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      disabled
-                      title="Sementara dimatikan: kode ini format ICD-10-CM (Amerika), belum divalidasi terhadap ICD-10 WHO yang dipakai BPJS. Cocokkan manual dulu, lalu ketik kode WHO yang benar ke field ini."
-                      onClick={() => onEdit(field.column_name, [...currentCodes, s.code].join(';'))}
-                      className="h-5 px-1.5 text-[10px]"
-                    >
-                      {alreadyApplied ? '✓ Diterapkan (sebelum fix)' : 'Terapkan (nonaktif)'}
-                    </Button>
-                  )}
-                </span>
-              );
-            })}
+          <div className="mt-3 rounded-lg border border-blue-500/25 bg-blue-500/5 p-3 text-foreground">
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+              <Lightbulb className="size-3.5" /> {codeType === 'diagnosis' ? 'Saran diagnosis AI (ICD-10)' : 'Saran prosedur AI (ICD-9-CM)'} · periksa dengan dokumen sebelum digunakan
+            </div>
+            <div className="space-y-2">
+              {field.suggestedCodes.map((suggestion, index) => {
+                const code = suggestion.code.trim().toUpperCase();
+                const alreadyApplied = valueCodes.includes(code);
+                return (
+                  <div key={`${code}-${index}`} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-md border border-border/70 bg-background/70 px-3 py-2">
+                    <div className="min-w-0 flex-1 text-sm leading-relaxed">
+                      <code className="mr-2 font-mono font-semibold text-foreground">{code}</code>
+                      <span className="break-words text-foreground/85">{codeDescription(code)}</span>
+                      <div className="mt-1 text-xs text-muted-foreground" title={suggestion.reasoning || undefined}>
+                        {suggestion.page_number ? `Usulan dari dokumen hal. ${suggestion.page_number}` : 'Usulan AI'}
+                        {suggestion.quotation ? ` · “${suggestion.quotation}”` : ''}
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {alreadyApplied ? 'Sudah tercantum' : 'Belum diterapkan'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
         {field.status !== 'error' && field.status !== 'empty' && !field.aiNote && !field.codeEvidence?.length && !field.suggestedCodes?.length && (
@@ -1242,6 +1275,9 @@ function RecordFieldsTable({
       if (category === 'ICU & Ventilasi' && !hasIcuData) return false;
       // Hide INA-CBG & Tarif as it is rendered separately now
       if (category === 'INA-CBG & Tarif') return false;
+      // Data Rawatan tidak ditampilkan (permintaan klien 1 Okt 2026), termasuk
+      // di mode edit dan hitungan "perlu diperiksa". Validasi backend tetap jalan.
+      if (category === 'Data Rawatan') return false;
       return true;
     })
     .map(([category, cols]) => ({
@@ -1399,8 +1435,12 @@ function SimplifiedFieldAccordion({
     setExpandOverride({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordData.id]);
+  // Diagnosis & Prosedur selalu terbuka: keterangan kamus ICD-10/ICD-9-CM
+  // per kode harus langsung terlihat, bukan hanya saat ada masalah.
   const isExpanded = (category: string) =>
-    expandOverride[category] !== undefined ? expandOverride[category] : !!categoryHasIssue[category];
+    expandOverride[category] !== undefined
+      ? expandOverride[category]
+      : !!categoryHasIssue[category] || category === 'Diagnosis & Prosedur';
   const toggleCategory = (category: string) => setExpandOverride(prev => ({ ...prev, [category]: !isExpanded(category) }));
 
   let rowParity = 0;
