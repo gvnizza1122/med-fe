@@ -2642,6 +2642,11 @@ export default function ResultsPage() {
   const canApprove = ['supervisor', 'admin', 'superadmin'].includes(user.role || '') && fileInfo.status === 'completed';
 
   const selectedRecord = selectedRecordId ? records.find(r => r.id === selectedRecordId) : null;
+  const dataMentahTerpilih = selectedRecord ? parseRawData(selectedRecord) : {};
+  const prosedurKosong = selectedRecord
+    ? [dataMentahTerpilih.PROCLIST, selectedRecord.PROCLIST, selectedRecord.prosedur_list]
+        .every(nilai => !String(nilai ?? '').trim())
+    : false;
 
   const kategori = JENIS_KLAIM_OPTIONS.find(o => o.value === fileInfo.jenis_klaim);
 
@@ -2851,6 +2856,7 @@ export default function ResultsPage() {
                     putusan={parseAiReview(selectedRecord)?.putusan_pending}
                     tindakan={parseAiReview(selectedRecord)?.temuan_tindakan}
                     validationStatus={selectedRecord.validation_status}
+                    prosedurKosong={prosedurKosong}
                   />
 
                   {/* ─── Alasan Status Pending ─── beda dari "Pola Pending Risk" di

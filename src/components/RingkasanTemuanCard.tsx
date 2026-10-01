@@ -34,37 +34,53 @@ export function RingkasanTemuanCard({
   putusan,
   tindakan,
   validationStatus,
+  prosedurKosong = false,
 }: {
   putusan?: PutusanPending | null;
   tindakan?: TemuanTindakan[];
   validationStatus?: string | null;
+  prosedurKosong?: boolean;
 }) {
+  const statusPending = ['pending', 'error'].includes(validationStatus?.toLowerCase() || '');
+  const tampilkanProsedurKosong = statusPending && prosedurKosong;
   // Kartu hijau "Tidak ditemukan alasan pending" hanya mengulang status
   // valid dan membuat seolah ada masalah yang perlu ditangani.
   if (!putusan || (
     validationStatus?.toLowerCase() === 'valid' &&
     putusan.status === 'tidak_ditemukan_alasan'
-  )) return null;
+  )) {
+    if (!tampilkanProsedurKosong) return null;
+  }
 
-  const gaya = GAYA_STATUS[putusan.status] || GAYA_STATUS.perlu_dicek;
+  const gaya = tampilkanProsedurKosong && putusan?.status === 'tidak_ditemukan_alasan'
+    ? { kelas: 'bg-amber-500/10 border-amber-500/30', judul: 'Klaim perlu dilengkapi' }
+    : GAYA_STATUS[putusan?.status || ''] || GAYA_STATUS.perlu_dicek;
   const adaTindakan = tindakan && tindakan.length > 0;
 
   return (
     <div className={cn('px-3 py-2.5 rounded-lg border text-xs space-y-2', gaya.kelas)}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className={cn('font-display text-sm font-semibold', WARNA_JUDUL[putusan.status])}>
+        <span className={cn('font-display text-sm font-semibold', WARNA_JUDUL[putusan?.status || ''] || 'text-amber-700 dark:text-amber-400')}>
           {gaya.judul}
         </span>
-        {putusan.jumlah.dari_rekap_pending > 0 && (
+        {(putusan?.jumlah?.dari_rekap_pending || 0) > 0 && (
           <Badge variant="outline" className="text-[11px]">
-            {putusan.jumlah.dari_rekap_pending} pernah jadi alasan penolakan
+            {putusan?.jumlah?.dari_rekap_pending} pernah jadi alasan penolakan
           </Badge>
         )}
       </div>
 
-      {putusan.alasan.length > 0 && (
+      {tampilkanProsedurKosong && (
+        <p className="border-t border-current/10 pt-1.5 leading-snug text-muted-foreground">
+          <strong className="text-foreground">Masalah kelengkapan: Daftar Prosedur (PROCLIST) masih kosong.</strong>{' '}
+          Berkas ini belum menunjukkan prosedur yang bisa dikodekan. Periksa dan lengkapi hanya jika
+          ada prosedur yang benar-benar tertulis; jangan menambahkan tindakan atau kode berdasarkan dugaan.
+        </p>
+      )}
+
+      {(putusan?.alasan?.length || 0) > 0 && (
         <ul className="space-y-1">
-          {putusan.alasan.map((a, i) => (
+          {putusan?.alasan?.map((a, i) => (
             <li key={`${a.kode}-${i}`} className="flex gap-1.5 leading-snug">
               <span className={cn('font-bold', TITIK[a.keparahan] || 'text-muted-foreground')}>•</span>
               <span className="min-w-0 flex-1 text-muted-foreground">
@@ -97,9 +113,11 @@ export function RingkasanTemuanCard({
         </div>
       )}
 
-      <p className="border-t border-current/10 pt-1.5 text-xs leading-snug text-muted-foreground">
-        {putusan.catatan_keandalan}
-      </p>
+      {putusan?.catatan_keandalan && (
+        <p className="border-t border-current/10 pt-1.5 text-xs leading-snug text-muted-foreground">
+          {putusan.catatan_keandalan}
+        </p>
+      )}
     </div>
   );
 }
