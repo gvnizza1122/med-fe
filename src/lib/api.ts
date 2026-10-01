@@ -417,9 +417,17 @@ export const api = {
 
   // "Baca Ulang" — jalankan ulang ekstraksi + validasi + AI review untuk 1
   // record dari PDF asli yang sudah tersimpan (dipakai saat ada field kosong/
-  // error yang dicurigai sebenarnya ada di dokumen).
+  // error yang dicurigai sebenarnya ada di dokumen). Pekerjaannya SAMA
+  // beratnya dengan upload-pdf (OCR + beberapa panggilan AI berurutan:
+  // review utama, kegawatdaruratan, kamus WHO, tindakan, dan sejak malam
+  // ini juga INA-CBG & kamus penunjang) -- timeout default 30 detik (dari
+  // `request()`) jauh lebih pendek dari waktu nyatanya (pernah >7 menit di
+  // produksi), jadi fetch di-abort dan tampil "gagal" padahal backend tetap
+  // memproses di belakang layar (ditemukan 2026-10-01, "baca ulang ga
+  // bisa"). nginx proxy_read_timeout sudah 600s, bukan itu sumbernya.
+  // Disamakan dengan timeout upload-pdf.
   rereadRecord: (recordId: string) =>
-    request(`/api/v1/claim-files/records/${recordId}/reread`, { method: 'POST' }),
+    request(`/api/v1/claim-files/records/${recordId}/reread`, { method: 'POST', timeout: 600000 }),
 
   // RV-20 (kriteria kegawatan IGD) — audit trail konfirmasi manual checklist.
   getRv20Confirmation: (recordId: string) => request(`/api/v1/records/${recordId}/rv20-confirm`),

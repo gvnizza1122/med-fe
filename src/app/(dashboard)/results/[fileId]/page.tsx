@@ -2604,6 +2604,10 @@ export default function ResultsPage() {
       return;
     }
     setIsRereading(true);
+    // Prosesnya berat (OCR + beberapa panggilan AI berurutan) dan bisa makan
+    // beberapa menit -- tanpa pesan ini orang mengira tombolnya macet dan
+    // mengulang klik atau menutup halaman di tengah proses.
+    addToast('Membaca ulang berkas — proses OCR dan AI bisa makan beberapa menit, mohon tunggu...', 'info', 6000);
     try {
       await api.rereadRecord(selectedRecordId);
       addToast('Berkas berhasil dibaca ulang', 'success');
