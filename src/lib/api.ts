@@ -306,10 +306,15 @@ export const api = {
     }),
   // Daftar Kerja — lembar kerja harian koder. Cakupannya mengikuti filter yang
   // sedang aktif di layar, bukan seluruh basis data.
-  exportDaftarKerja: (params: { periode?: string; kategori?: string; from_date?: string; to_date?: string; search?: string; arsip?: boolean } = {}) => {
+  exportDaftarKerja: (params: { periode?: string; kategori?: string; from_date?: string; to_date?: string; search?: string; arsip?: boolean; samarkan_nama?: boolean } = {}) => {
     const q = new URLSearchParams();
     if (params.periode) q.set('periode', params.periode);
     if (params.kategori) q.set('kategori', params.kategori);
+    if (params.from_date) q.set('from_date', params.from_date);
+    if (params.to_date) q.set('to_date', params.to_date);
+    if (params.search) q.set('search', params.search);
+    if (params.arsip) q.set('arsip', '1');
+    if (params.samarkan_nama) q.set('samarkan_nama', '1');
     const qs = q.toString();
     return fetch(`${API_BASE}/api/v1/claim-files/export/daftar-kerja${qs ? `?${qs}` : ''}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }

@@ -124,6 +124,8 @@ export default function HistoryPage() {
   // Tampilan arsip terpisah. Tanpa tempat untuk melihat dan mengembalikan,
   // arsip tidak berbeda dari penghapusan.
   const [lihatArsip, setLihatArsip] = useState(false);
+  const [rolePengguna, setRolePengguna] = useState('');
+  const [samarkanNama, setSamarkanNama] = useState(false);
 
   // Tampilan tersimpan & pengelompokan. Bawaan mengikuti usulan: yang perlu
   // dikerjakan lebih dulu, dikelompokkan per periode dan kategori.
@@ -206,6 +208,15 @@ export default function HistoryPage() {
 
   const muatUlang = () => { setBarisKelompok({}); loadKelompok(); loadFiles(); };
 
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      setRolePengguna(typeof user?.role === 'string' ? user.role : '');
+    } catch {
+      setRolePengguna('');
+    }
+  }, []);
+
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
   // Debounce input pencarian nama pasien/SEP supaya tidak request per-ketikan.
@@ -226,6 +237,7 @@ export default function HistoryPage() {
         to_date: toDate || undefined,
         search: search || undefined,
         arsip: lihatArsip,
+        samarkan_nama: samarkanNama,
       });
       if (!res.ok) throw new Error(`Server menolak (${res.status})`);
 
@@ -661,7 +673,19 @@ export default function HistoryPage() {
           <Download className="size-3.5" />
           {mengexport ? 'Menyiapkan...' : 'Export Daftar Kerja'}
         </Button>
-        <Button
+        {rolePengguna === 'supervisor' ? (
+          <span className="text-xs text-muted-foreground">Nama pasien otomatis disamarkan untuk role supervisor.</span>
+        ) : (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={samarkanNama}
+              onChange={event => setSamarkanNama(event.target.checked)}
+            />
+            Samarkan nama pasien di Daftar Kerja
+          </label>
+        )}
+        {rolePengguna !== 'supervisor' && <Button
           type="button"
           variant="outline"
           size="sm"
@@ -671,7 +695,7 @@ export default function HistoryPage() {
         >
           <Download className="size-3.5" />
           {mengexportSiap ? 'Menyiapkan...' : 'Export Siap Submit'}
-        </Button>
+        </Button>}
       </div>
 
       {barChip}
