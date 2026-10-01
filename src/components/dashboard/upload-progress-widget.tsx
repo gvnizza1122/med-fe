@@ -8,13 +8,27 @@ import { Loader2, CheckCircle2, XCircle, X } from 'lucide-react';
 import { useUploadJob } from '@/contexts/UploadJobContext';
 import { cn } from '@/lib/utils';
 
-export function UploadProgressWidget() {
+export function UploadProgressWidget({ compact = false }: { compact?: boolean }) {
   const { job, dismissJob } = useUploadJob();
   if (!job) return null;
 
   const processed = job.doneCount + job.failedCount;
   const pct = job.total > 0 ? Math.round((processed / job.total) * 100) : 0;
   const label = job.type === 'batch' ? `Upload Batch (${job.total} file)` : 'Upload PDF';
+
+  if (compact) {
+    const status = job.active ? `Memproses ${processed}/${job.total} file` : job.error ? 'Unggahan gagal' : job.failedCount > 0 ? `${job.failedCount} unggahan gagal` : `${job.doneCount} unggahan selesai`;
+    return (
+      <Link
+        href={job.type === 'single' && job.resultFileId ? `/results/${job.resultFileId}` : '/history'}
+        aria-label={`${label}: ${status}`}
+        title={`${label}: ${status}`}
+        className="mb-3 flex h-10 items-center justify-center rounded-lg border border-border bg-secondary/40 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {job.active ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : job.error || job.failedCount > 0 ? <XCircle className="h-4 w-4 text-destructive" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" aria-hidden="true" />}
+      </Link>
+    );
+  }
 
   return (
     <div className="mb-3 rounded-lg border border-border bg-secondary/40 p-2.5 text-xs">

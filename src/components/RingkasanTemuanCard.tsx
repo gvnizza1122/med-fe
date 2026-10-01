@@ -12,16 +12,22 @@ import { cn } from '@/lib/utils';
 import type { PutusanPending } from '@/components/PutusanPendingCard';
 import type { TemuanTindakan } from '@/components/TemuanTindakanCard';
 
-const GAYA_STATUS: Record<string, { kelas: string; judul: string }> = {
-  berisiko_pending: { kelas: 'bg-red-500/10 border-red-500/30', judul: 'Berisiko dipending' },
-  perlu_dicek: { kelas: 'bg-amber-500/10 border-amber-500/30', judul: 'Sebaiknya dicek dulu' },
-  tidak_ditemukan_alasan: { kelas: 'bg-emerald-500/10 border-emerald-500/30', judul: 'Tidak ditemukan alasan pending' },
-};
-
-const WARNA_JUDUL: Record<string, string> = {
-  berisiko_pending: 'text-red-700 dark:text-red-400',
-  perlu_dicek: 'text-amber-700 dark:text-amber-400',
-  tidak_ditemukan_alasan: 'text-emerald-700 dark:text-emerald-400',
+const GAYA_STATUS: Record<string, { kelas: string; judul: string; warna: string }> = {
+  berisiko_pending: {
+    kelas: 'border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/5',
+    judul: 'Ada risiko pending yang perlu ditinjau',
+    warna: 'text-red-700 dark:text-red-300',
+  },
+  perlu_dicek: {
+    kelas: 'border-amber-600/25 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/5',
+    judul: 'Ada hal yang perlu dicek',
+    warna: 'text-amber-800 dark:text-amber-300',
+  },
+  tidak_ditemukan_alasan: {
+    kelas: 'border-border bg-secondary/30',
+    judul: 'Belum ada temuan risiko tambahan',
+    warna: 'text-foreground',
+  },
 };
 
 const TITIK: Record<string, string> = {
@@ -33,27 +39,57 @@ const TITIK: Record<string, string> = {
 export function RingkasanTemuanCard({
   putusan,
   tindakan,
+  currentValidationIssues = 0,
 }: {
   putusan?: PutusanPending | null;
   tindakan?: TemuanTindakan[];
+  currentValidationIssues?: number;
 }) {
   if (!putusan) return null;
 
+  const belumSelaras = currentValidationIssues > 0 && putusan.status === 'tidak_ditemukan_alasan';
   const gaya = GAYA_STATUS[putusan.status] || GAYA_STATUS.perlu_dicek;
   const adaTindakan = tindakan && tindakan.length > 0;
 
+  if (belumSelaras) {
+    return (
+      <aside aria-label="Keterbatasan ringkasan risiko" className="rounded-lg border border-amber-600/25 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/5">
+        <strong className="block text-sm font-semibold text-amber-900 dark:text-amber-300">Ringkasan risiko belum selaras</strong>
+        <p className="mt-1 max-w-3xl break-words text-sm leading-relaxed text-foreground/85">
+          Pemeriksaan data saat ini menemukan {currentValidationIssues} masalah di atas. Gunakan daftar validasi tersebut sebelum klaim dikirim; penilaian aplikasi bukan keputusan BPJS.
+        </p>
+        {adaTindakan && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Tindakan terbaca: {tindakan!.map(t => t.nama).join(' · ')}
+          </p>
+        )}
+      </aside>
+    );
+  }
+
   return (
-    <div className={cn('px-3 py-2.5 rounded-lg border text-xs space-y-2', gaya.kelas)}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={cn('font-display text-sm font-semibold', WARNA_JUDUL[putusan.status])}>
-          {gaya.judul}
-        </span>
+    <section aria-label="Ringkasan analisis risiko" className={cn('space-y-3 rounded-lg border p-4', gaya.kelas)}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Analisis risiko aplikasi</p>
+          <h4 className={cn('font-display text-base font-semibold', gaya.warna)}>
+            {gaya.judul}
+          </h4>
+        </div>
         {putusan.jumlah.dari_rekap_pending > 0 && (
-          <Badge variant="outline" className="text-[11px]">
+          <Badge variant="outline" className="text-xs">
             {putusan.jumlah.dari_rekap_pending} pernah jadi alasan penolakan
           </Badge>
         )}
       </div>
+
+      {putusan.status !== 'tidak_ditemukan_alasan' ? (
+        <p className="max-w-3xl break-words text-sm leading-relaxed text-foreground/85">{putusan.ringkasan}</p>
+      ) : (
+        <p className="max-w-3xl break-words text-sm leading-relaxed text-foreground/85">
+          Analisis risiko belum menemukan temuan tambahan. Tetap cocokkan data dengan dokumen asli sebelum klaim dikirim.
+        </p>
+      )}
 
       {putusan.alasan.length > 0 && (
         <ul className="space-y-1">
@@ -90,9 +126,9 @@ export function RingkasanTemuanCard({
         </div>
       )}
 
-      <p className="border-t border-current/10 pt-1.5 text-xs leading-snug text-muted-foreground">
-        {putusan.catatan_keandalan}
+      <p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+        Perkiraan aplikasi, bukan keputusan BPJS. Ketepatan prediksi belum terukur.
       </p>
-    </div>
+    </section>
   );
 }

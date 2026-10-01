@@ -26,7 +26,9 @@ try {
 interface PdfViewerProps {
   fileId: string;
   fileName?: string;
-  height?: number;
+  height?: number | string;
+  initialPage?: number;
+  singlePage?: boolean;
 }
 
 type PdfState =
@@ -61,7 +63,7 @@ const ZOOM_DEFAULT = 1.15;
  * strip thumbnail, dan zoom semuanya kita kontrol sendiri agar ruang untuk
  * membaca dokumen lebih besar.
  */
-export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerProps) {
+export default function PdfViewer({ fileId, fileName, height = 640, initialPage = 1, singlePage = false }: PdfViewerProps) {
   const [pdfState, setPdfState] = useState<PdfState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [numPages, setNumPages] = useState(0);
@@ -128,10 +130,15 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
 
   const onDocLoadSuccess = useCallback(({ numPages: n }: { numPages: number }) => {
     setNumPages(n);
-    setCurrentPage(1);
-  }, []);
+    setCurrentPage(Math.min(n, Math.max(1, initialPage)));
+  }, [initialPage]);
 
   const scrollToPage = (n: number) => {
+    if (singlePage) {
+      setCurrentPage(Math.min(numPages, Math.max(1, n)));
+      scrollRef.current?.scrollTo({ top: 0 });
+      return;
+    }
     const el = pageRefs.current[n];
     if (el) {
       // scrollIntoView menemukan sendiri ancestor yang bisa di-scroll —
@@ -148,7 +155,7 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
   // karena lebih murah untuk dites/diverifikasi dan tidak butuh threshold tuning.
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container || numPages === 0) return;
+    if (!container || numPages === 0 || singlePage) return;
 
     let throttleTimer: ReturnType<typeof setTimeout> | null = null;
     const computeCurrentPage = () => {
@@ -182,7 +189,7 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
       container.removeEventListener('scroll', handleScroll);
       if (throttleTimer) clearTimeout(throttleTimer);
     };
-  }, [numPages]);
+  }, [numPages, singlePage]);
 
   const zoomOut = () => setScale(s => Math.max(ZOOM_MIN, +(s - ZOOM_STEP).toFixed(2)));
   const zoomIn = () => setScale(s => Math.min(ZOOM_MAX, +(s + ZOOM_STEP).toFixed(2)));
@@ -330,7 +337,7 @@ export default function PdfViewer({ fileId, fileName, height = 640 }: PdfViewerP
           )}
           <div className="flex-1 overflow-y-auto bg-muted/10 p-3" ref={scrollRef}>
             <div className="flex flex-col items-center gap-3">
-              {Array.from({ length: numPages }, (_, i) => i + 1).map(n => (
+              {(singlePage ? [currentPage] : Array.from({ length: numPages }, (_, i) => i + 1)).map(n => (
                 <div
                   key={n}
                   data-page={n}

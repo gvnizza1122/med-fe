@@ -24,12 +24,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isNavigating, setIsNavigating] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Auth guard — redirect to /login if no token
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token) router.replace('/login');
   }, [router]);
+
+  useEffect(() => {
+    setSidebarCollapsed(localStorage.getItem('sidebar_collapsed') === 'true');
+  }, []);
+
+  const toggleSidebar = () => {
+    const next = !sidebarCollapsed;
+    setSidebarCollapsed(next);
+    localStorage.setItem('sidebar_collapsed', String(next));
+  };
 
   // Trigger progress bar on every route change
   useEffect(() => {
@@ -42,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <UploadJobProvider>
     <div className="flex min-h-screen bg-background relative">
       <div className="hidden lg:block">
-        <Sidebar />
+        <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
       </div>
 
       {/* ── Top progress bar indicator ── */}
@@ -81,7 +92,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           Sidebar sengaja di LUAR boundary supaya navigasi ke halaman lain
           tetap bisa dipakai walau halaman yang sedang dibuka crash.
           key={pathname}: pindah halaman otomatis reset status crash-nya. */}
-      <main className="flex-1 p-3 md:p-4 lg:p-5 lg:ml-64">
+      <main className={`min-w-0 flex-1 p-3 md:p-4 lg:p-5 ${sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"}`}>
         <ErrorBoundary key={pathname}>
           {children}
         </ErrorBoundary>
