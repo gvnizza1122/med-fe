@@ -902,7 +902,7 @@ function ActionChecklist({ categories, recordData }: { categories: { category: s
     const currentCodes = String(f.value ?? '').split(';').map(c => c.trim()).filter(Boolean);
     return suggested.some(s => !currentCodes.includes(s.code));
   })) {
-    actions.push('Verifikasi & ketik kode diagnosis/prosedur secara manual');
+    actions.push('Cocokkan saran kode yang belum tercantum dengan isi berkas');
   }
 
   // Pola risiko pending dari AI review tahap kedua (heuristik, lihat
