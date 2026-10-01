@@ -239,6 +239,7 @@ export interface PendingJawabanItemDetail {
 }
 
 export const api = {
+  getVitalReferences: () => request('/api/v1/claim-files/reference/vital-ranges'),
   // Auth
   login: (username: string, password: string) =>
     request('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),

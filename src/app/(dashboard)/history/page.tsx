@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/select';
 import {
   Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
@@ -105,8 +104,8 @@ function bulanIni(): string {
 }
 
 const WARNA_KATEGORI: Record<string, string> = {
-  RAWAT_JALAN: 'border-blue-500/30 bg-blue-500/10 text-blue-400',
-  RAWAT_INAP: 'border-violet-500/30 bg-violet-500/10 text-violet-400',
+  RAWAT_JALAN: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  RAWAT_INAP: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400',
 };
 
 export default function HistoryPage() {
@@ -135,6 +134,18 @@ export default function HistoryPage() {
   const [terbuka, setTerbuka] = useState<Record<string, boolean>>({});
   const [barisKelompok, setBarisKelompok] = useState<Record<string, { files: ClaimFile[]; total: number }>>({});
   const [memuatKelompok, setMemuatKelompok] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let frame: number | undefined;
+    try {
+      const saved = JSON.parse(localStorage.getItem('riwayat-upload-tampilan') || 'null');
+      if (saved) frame = requestAnimationFrame(() => {
+        if (['perlu', 'bulan_ini', 'siap', 'semua'].includes(saved.tampilan)) setTampilan(saved.tampilan);
+        if (typeof saved.kelompokkan === 'boolean') setKelompokkan(saved.kelompokkan);
+      });
+    } catch { /* Penyimpanan lokal tidak tersedia; gunakan tampilan bawaan. */ }
+    return () => { if (frame !== undefined) cancelAnimationFrame(frame); };
+  }, []);
 
   // Pencarian dan rentang tanggal mencari ke SELURUH klaim. Kalau tampilan
   // "Perlu dikerjakan" ikut menyaring, mencari klaim yang sudah bersih akan
@@ -165,19 +176,31 @@ export default function HistoryPage() {
 
   // Kelompok yang tampil mengikuti tampilan yang dipilih.
   const kelompokTampil = useMemo(() => kelompok.filter((k) => {
-    if (!tampilanEfektif || tampilanEfektif === 'semua') return true;
-    if (tampilanEfektif === 'perlu') return k.perlu > 0;
     if (tampilanEfektif === 'siap') return k.siap > 0;
-    return k.periode === bulanIni();
+    if (tampilanEfektif === 'bulan_ini') return k.periode === bulanIni();
+    return true;
+  }).sort((a, b) => {
+    // Perlu dikerjakan memprioritaskan kelompok pending, sambil tetap
+    // memperlihatkan periode lama yang sudah selesai seperti pada contoh.
+    const urutanPeriode = (b.periode || '').localeCompare(a.periode || '');
+    if (urutanPeriode) return urutanPeriode;
+    if (tampilanEfektif === 'perlu' && Boolean(a.perlu) !== Boolean(b.perlu)) return a.perlu ? -1 : 1;
+    return (a.jenis_klaim === 'RAWAT_JALAN' ? 0 : 1) - (b.jenis_klaim === 'RAWAT_JALAN' ? 0 : 1);
   }), [kelompok, tampilanEfektif]);
 
   const muatBarisKelompok = useCallback(async (k: Kelompok) => {
     const key = kunciKelompok(k);
     setMemuatKelompok((m) => ({ ...m, [key]: true }));
     try {
-      const d = await api.getFiles(1, 100, k.jenis_klaim || undefined, undefined, undefined, undefined, lihatArsip, k.periode || 'tanpa', tampilanEfektif);
+      const filterBaris = tampilanEfektif === 'siap' ? 'siap' : undefined;
+      const d = await api.getFiles(1, 100, k.jenis_klaim || undefined, undefined, undefined, undefined, lihatArsip, k.periode || 'tanpa', filterBaris);
       // Berkas tanpa kategori tidak bisa disaring di server, jadi disaring di sini.
-      const baris = (d.files as ClaimFile[]).filter((f) => (f.jenis_klaim || null) === k.jenis_klaim);
+      // Tampilan prioritas tetap memperlihatkan klaim siap di bawah yang pending.
+      const baris = (d.files as ClaimFile[])
+        .filter((f) => (f.jenis_klaim || null) === k.jenis_klaim)
+        .sort((a, b) => tampilanEfektif === 'perlu'
+          ? Number((b.pending_count + b.error_count) > 0) - Number((a.pending_count + a.error_count) > 0)
+          : 0);
       setBarisKelompok((b) => ({ ...b, [key]: { files: baris, total: d.total } }));
     } catch (err) {
       console.error('[History] Gagal memuat baris kelompok:', err);
@@ -339,7 +362,7 @@ export default function HistoryPage() {
       </TableHeader>
       <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
         <AnimatePresence>
-          {daftar.map((f, i) => (
+          {daftar.map((f) => (
             <motion.tr
               key={f.id}
               variants={rowVariants}
@@ -448,6 +471,15 @@ export default function HistoryPage() {
     semua: kelompok.reduce((n, k) => n + k.total, 0),
     bulan_ini: kelompok.filter((k) => k.periode === bulanIni()).reduce((n, k) => n + k.total, 0),
   };
+  const simpanTampilan = () => {
+    try {
+      localStorage.setItem('riwayat-upload-tampilan', JSON.stringify({ tampilan, kelompokkan }));
+      addToast('Tampilan Riwayat Upload tersimpan di perangkat ini.', 'success');
+    } catch {
+      addToast('Tampilan belum bisa disimpan di perangkat ini.', 'error');
+    }
+  };
+
   const CHIP: { nilai: Tampilan; label: string }[] = [
     { nilai: 'perlu', label: 'Perlu dikerjakan' },
     { nilai: 'bulan_ini', label: 'Bulan ini' },
@@ -456,99 +488,177 @@ export default function HistoryPage() {
   ];
 
   const barChip = !lihatArsip && (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5">
-      <span className="font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">Tampilan</span>
-      {CHIP.map((c) => (
+    <div className={`${modeKelompok ? 'border-b' : 'rounded-xl border'} border-border bg-muted/40 px-4 py-4 dark:bg-[#1d2929] md:px-6`}>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <span className="mr-1 font-mono-data text-[11px] uppercase tracking-wider text-muted-foreground">Tampilan</span>
+        {CHIP.map((c) => (
+          <button
+            key={c.nilai}
+            type="button"
+            disabled={filterAktif}
+            aria-pressed={!filterAktif && tampilan === c.nilai}
+            title={`${c.label}: ${hitung[c.nilai]} klaim`}
+            onClick={() => setTampilan(c.nilai)}
+            className={`rounded-full border px-4 py-2 text-sm transition-colors disabled:opacity-40 ${
+              !filterAktif && tampilan === c.nilai
+                ? 'border-teal-600 bg-teal-600 font-semibold text-white dark:border-teal-500 dark:bg-teal-500'
+                : 'border-border bg-background/70 text-muted-foreground hover:border-teal-500/50 hover:text-foreground dark:bg-[#172121]'
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
         <button
-          key={c.nilai}
           type="button"
           disabled={filterAktif}
-          onClick={() => setTampilan(c.nilai)}
-          className={`rounded-full border px-3 py-1 text-xs transition-colors disabled:opacity-40 ${
-            !filterAktif && tampilan === c.nilai
-              ? 'border-primary bg-primary font-semibold text-primary-foreground'
-              : 'border-border bg-background text-muted-foreground hover:text-foreground'
-          }`}
+          onClick={simpanTampilan}
+          className="rounded-full border border-dashed border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-teal-500 hover:text-foreground disabled:opacity-40 dark:bg-[#172121]"
         >
-          {c.label} <span className="opacity-70">({hitung[c.nilai]})</span>
+          + simpan tampilan
         </button>
-      ))}
-      {filterAktif && (
-        <span className="text-[11px] text-muted-foreground">Pencarian aktif — menampilkan seluruh hasil.</span>
-      )}
-      <span className="ml-auto flex items-center gap-2">
-        <span className="font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">Kelompokkan</span>
-        <button
-          type="button"
-          onClick={() => setKelompokkan((v) => !v)}
-          className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-            kelompokkan ? 'border-primary bg-primary font-semibold text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {kelompokkan ? 'Periode & Kategori' : 'Tanpa pengelompokan'}
-        </button>
-      </span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {filterAktif ? 'Pencarian aktif — seluruh hasil ditampilkan.' : 'Bulan terbaru terbuka, sisanya terlipat.'}
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="font-mono-data text-[11px] uppercase tracking-wider text-muted-foreground">Kelompokkan</span>
+          <button
+            type="button"
+            aria-pressed={kelompokkan}
+            onClick={() => setKelompokkan((v) => !v)}
+            className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+              kelompokkan
+                ? 'border-teal-600 bg-teal-600 font-semibold text-white dark:border-teal-500 dark:bg-teal-500'
+                : 'border-border bg-background text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {kelompokkan ? 'Periode & Kategori' : 'Tanpa pengelompokan'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 
   const tampilanKelompok = kelompokTampil.length === 0 ? (
-    <div className="rounded-xl border border-border bg-card py-14 text-center">
+    <div className="px-6 py-14 text-center">
       <FolderOpen className="mx-auto mb-3 size-7 text-muted-foreground" />
       <h3 className="text-base font-semibold text-foreground">Tidak ada klaim pada tampilan ini</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        {hitung.semua > 0 ? 'Coba tampilan "Semua aktif" — klaim yang sudah bersih ada di sana.' : 'Upload file klaim untuk memulai validasi.'}
+        {hitung.semua > 0 ? 'Coba tampilan "Semua aktif" untuk melihat klaim lainnya.' : 'Upload file klaim untuk memulai validasi.'}
       </p>
     </div>
   ) : (
-    <div className="space-y-3">
+    <div className="divide-y divide-border">
       {kelompokTampil.map((k) => {
         const key = kunciKelompok(k);
         const buka = Boolean(terbuka[key]);
         const baris = barisKelompok[key];
         return (
-          <div key={key} className="overflow-hidden rounded-xl border border-border bg-card">
+          <section key={key}>
             <button
               type="button"
+              aria-expanded={buka}
               onClick={() => setTerbuka((t) => ({ ...t, [key]: !t[key] }))}
-              className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+              className={`flex w-full flex-wrap items-center justify-between gap-3 px-4 py-4 text-left transition-colors md:px-6 ${
+                buka ? 'bg-teal-50 hover:bg-teal-100/70 dark:bg-[#0d2927] dark:hover:bg-[#113330]' : 'bg-muted/30 hover:bg-muted/60 dark:bg-[#1d2929] dark:hover:bg-[#243131]'
+              }`}
             >
-              <span className="flex items-center gap-2.5 font-semibold text-foreground">
-                <ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${buka ? '' : '-rotate-90'}`} />
+              <span className="flex min-w-0 flex-wrap items-center gap-3 font-display text-base font-bold text-foreground">
+                <ChevronDown className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${buka ? '' : '-rotate-90'}`} />
                 {labelPeriode(k.periode)}
                 {k.jenis_klaim && (
-                  <Badge variant="outline" className={`text-[10px] ${WARNA_KATEGORI[k.jenis_klaim] || ''}`}>{jenisKlaimLabel(k.jenis_klaim)}</Badge>
+                  <Badge variant="outline" className={`rounded-md px-2.5 py-1 text-xs font-semibold ${WARNA_KATEGORI[k.jenis_klaim] || ''}`}>{jenisKlaimLabel(k.jenis_klaim)}</Badge>
                 )}
               </span>
-              <span className="font-mono-data flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                <b className="text-foreground">{k.total}</b> klaim
+              <span className="font-mono-data flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span><b className="text-foreground">{k.total}</b> klaim</span>
+                <span aria-hidden="true">·</span>
                 {k.perlu > 0 ? (
                   <>
-                    <span>·</span>
                     <span className="font-semibold text-amber-600 dark:text-amber-400">{k.perlu} pending</span>
-                    <span>·</span>
-                    <span className="text-primary">{k.siap} siap</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="text-emerald-600 dark:text-emerald-400">{k.siap} siap</span>
                   </>
                 ) : (
-                  <>
-                    <span>·</span>
-                    <span className="text-primary">semua selesai</span>
-                  </>
+                  <span className="text-emerald-600 dark:text-emerald-400">semua selesai</span>
                 )}
               </span>
             </button>
             {buka && (
               <div className="border-t border-border">
                 {!baris ? (
-                  <div className="space-y-2 p-4">
-                    {Array.from({ length: 3 }).map((_, n) => <Skeleton key={n} className="h-8 w-full" />)}
+                  <div className="space-y-3 p-5">
+                    {Array.from({ length: 3 }).map((_, n) => <Skeleton key={n} className="h-16 w-full" />)}
                   </div>
                 ) : baris.files.length === 0 ? (
-                  <p className="p-4 text-sm text-muted-foreground">Tidak ada klaim pada tampilan ini.</p>
+                  <p className="px-6 py-5 text-sm text-muted-foreground">Tidak ada klaim pada tampilan ini.</p>
                 ) : (
                   <>
-                    {renderTabel(baris.files)}
+                    <div className="divide-y divide-border">
+                      {baris.files.map((f) => {
+                        const perluDikerjakan = f.pending_count + f.error_count > 0;
+                        return (
+                          <div key={f.id} className="grid gap-3 px-4 py-4 transition-colors hover:bg-muted/40 dark:bg-[#172121] dark:hover:bg-[#1d2b2a] md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto] md:items-center md:px-6">
+                            <button
+                              type="button"
+                              onClick={() => router.push(f.sep ? `/results/${f.id}?sep=${encodeURIComponent(f.sep)}` : `/results/${f.id}`)}
+                              className="min-w-0 text-left hover:text-teal-700 dark:hover:text-teal-300"
+                              aria-label={`Lihat detail klaim ${f.nama_pasien || f.file_name}`}
+                            >
+                              <span className="block truncate font-semibold text-foreground">{f.nama_pasien || f.file_name}</span>
+                              <span className="font-mono-data mt-1 block truncate text-xs text-muted-foreground">{f.sep || f.file_name}</span>
+                            </button>
+                            <p className="line-clamp-2 min-w-0 text-xs leading-relaxed text-muted-foreground" title={f.pending_reason || undefined}>
+                              {f.pending_reason || (perluDikerjakan ? 'Perlu ditinjau' : '—')}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.push(f.sep ? `/results/${f.id}?sep=${encodeURIComponent(f.sep)}` : `/results/${f.id}`)}
+                                className="gap-1.5"
+                                aria-label={`Lihat detail berkas ${f.nama_pasien || f.file_name}`}
+                              >
+                                <FileText className="size-3.5" />
+                                Lihat detail
+                              </Button>
+                              <Badge variant="outline" className={`whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-semibold ${
+                                perluDikerjakan
+                                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                                  : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                              }`}>
+                                {perluDikerjakan ? 'Perlu dikerjakan' : 'Siap submit'}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => lihatArsip ? kembalikan(f.id) : arsipkan(f.id)}
+                                aria-label={lihatArsip ? 'Kembalikan dari arsip' : 'Arsipkan berkas'}
+                                title={lihatArsip ? 'Kembalikan dari arsip' : 'Arsipkan berkas'}
+                                className="text-muted-foreground"
+                              >
+                                {lihatArsip ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
+                              </Button>
+                              {lihatArsip && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => setPendingDeleteId(f.id)}
+                                  aria-label="Hapus permanen"
+                                  title="Hapus permanen"
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                     {baris.total > baris.files.length && (
-                      <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+                      <p className="border-t border-border px-6 py-3 text-xs text-muted-foreground">
                         Menampilkan {baris.files.length} dari {baris.total}. Pakai pencarian untuk menemukan klaim tertentu.
                       </p>
                     )}
@@ -556,7 +666,7 @@ export default function HistoryPage() {
                 )}
               </div>
             )}
-          </div>
+          </section>
         );
       })}
     </div>
@@ -698,9 +808,15 @@ export default function HistoryPage() {
         </Button>}
       </div>
 
-      {barChip}
-
-      {modeKelompok ? tampilanKelompok : loading ? (
+      {modeKelompok ? (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          {barChip}
+          {tampilanKelompok}
+        </div>
+      ) : (
+        <>
+          {barChip}
+          {loading ? (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex border-b border-border px-4 py-3 gap-6">
             {['Nama Pasien', 'Kategori', 'Total', 'Pending'].map((h) => (
@@ -756,6 +872,8 @@ export default function HistoryPage() {
             </motion.div>
           )}
         </AnimatePresence>
+          )}
+        </>
       )}
 
       <AnimatePresence>

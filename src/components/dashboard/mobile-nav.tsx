@@ -15,7 +15,10 @@ export function MobileNav() {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="p-0 w-64">
-        <Sidebar />
+        {/* Sidebar.collapsed ditambahkan untuk mode lipat di layar desktop --
+            di drawer mobile ini tidak relevan (lebarnya sudah tetap w-64 dari
+            SheetContent), jadi selalu diperlakukan tidak terlipat. */}
+        <Sidebar collapsed={false} onToggle={() => {}} />
       </SheetContent>
     </Sheet>
   )

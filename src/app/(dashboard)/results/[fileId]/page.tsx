@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { FIELD_TYPE_REGISTRY } from '@/lib/fieldTypeRegistry';
-import { Search, CheckCircle2, XCircle, ChevronLeft, ChevronRight, FileText, Sparkles, Lightbulb, AlertTriangle, PanelLeftOpen, Users } from 'lucide-react';
+import { ChevronDown, Search, CheckCircle2, XCircle, ChevronLeft, ChevronRight, FileText, Sparkles, Lightbulb, AlertTriangle, PanelLeftOpen, Users } from 'lucide-react';
 
 // react-pdf (pdfjs-dist) mengakses DOMMatrix di level modul — API browser
 // yang tidak ada saat Next.js SSR. Import statis biasa bikin server crash
@@ -331,6 +331,7 @@ interface KegawatdaruratanKriteria {
 }
 
 interface KegawatdaruratanAssessment {
+  has_data?: boolean;
   ringkasan: string;
   parameter_findings: KegawatdaruratanParameterFinding[];
   vital_findings: Record<string, KegawatdaruratanVitalFinding>;
@@ -424,7 +425,7 @@ function toBulletPoints(text: string): string[] {
     .split(/\r?\n|•/)
     .map(l => l.replace(/^[-*•]\s*/, '').trim())
     .filter(Boolean);
-  return lines.length > 1 ? lines : (raw.trim() ? [raw.trim()] : []);
+  return lines;
 }
 
 /** Potong teks jadi maks N karakter, sisipkan "…" kalau kepotong. */
@@ -563,24 +564,24 @@ function isIssueStatus(status: FieldRow['status']): boolean {
 }
 
 function StatusBadge({ status }: { status: FieldRow['status'] }) {
-  if (status === 'error') return <Badge variant="destructive" className="text-[10px]">Error</Badge>;
-  if (status === 'empty') return <Badge className="text-[10px] border-transparent bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Kosong</Badge>;
-  if (status === 'system') return <Badge variant="secondary" className="text-[10px]">Otomatis vClaim</Badge>;
+  if (status === 'error') return <Badge variant="destructive" className="text-xs">Error</Badge>;
+  if (status === 'empty') return <Badge className="text-xs border-transparent bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Kosong</Badge>;
+  if (status === 'system') return <Badge variant="secondary" className="text-xs">Otomatis vClaim</Badge>;
   // wajar_kosong: netral (bukan hijau "aman diperiksa", bukan kuning "perlu
   // ditindak") -- field ini memang tidak berlaku untuk klaim ini, kosongnya
   // itu sendiri sudah informasi lengkap, tidak ikut hitungan masalah (lihat
   // isIssueStatus).
-  if (status === 'wajar_kosong') return <Badge className="text-[10px] border-transparent bg-muted text-muted-foreground">Wajar kosong</Badge>;
+  if (status === 'wajar_kosong') return <Badge className="text-xs border-transparent bg-muted text-muted-foreground">Wajar kosong</Badge>;
   // usulan: garis putus-putus sengaja beda dari badge lain (semua solid) --
   // koder harus bisa bedakan sekilas mana yang disalin dari dokumen vs
   // disusun sistem & masih menunggu verifikasi manual.
-  if (status === 'usulan') return <Badge className="text-[10px] border-dashed border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">Usulan</Badge>;
+  if (status === 'usulan') return <Badge className="text-xs border-dashed border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">Usulan</Badge>;
   // 'review' ditambah 19 Sep 2026 (fix item 8/9) -- isinya SUDAH ada (bukan
   // kosong) tapi backend menandai perlu dicek manual (lab rutin, konsistensi
   // diagnosis, atau evidence yang gagal terverifikasi) -- warna amber beda
   // dari 'error' (merah, jelas salah) supaya urgensinya tidak disamakan.
-  if (status === 'review') return <Badge className="text-[10px] border-transparent bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Perlu Review</Badge>;
-  return <Badge className="text-[10px] border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">Valid</Badge>;
+  if (status === 'review') return <Badge className="text-xs border-transparent bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Perlu Review</Badge>;
+  return <Badge className="text-xs border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">Valid</Badge>;
 }
 
 // Label yang ditampilkan ke verifikator selalu "PENDING" untuk status
@@ -602,15 +603,15 @@ function RecordStatusBadge({ status }: { status: string }) {
 // cuma defaultnya diringkas.
 function SummaryBanner({ tone, action, children }: { tone: 'success' | 'info' | 'warning' | 'danger'; action?: ReactNode; children: ReactNode }) {
   const toneClass: Record<string, string> = {
-    success: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400',
-    info: 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400',
-    warning: 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400',
-    danger: 'bg-destructive/10 border-destructive/30 text-destructive',
+    success: 'border-emerald-500/25 bg-emerald-500/[0.06]',
+    info: 'border-blue-500/25 bg-blue-500/[0.06]',
+    warning: 'border-amber-600/25 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/[0.06]',
+    danger: 'border-red-200 bg-red-50 dark:border-destructive/30 dark:bg-destructive/[0.06]',
   };
   return (
-    <div className={cn('rounded-lg border px-3 py-2 text-xs font-medium mb-3 flex items-center justify-between gap-2 flex-wrap', toneClass[tone])}>
-      <span>{children}</span>
-      {action}
+    <div className={cn('flex flex-wrap items-start justify-between gap-4 rounded-xl border p-4 text-sm text-foreground sm:p-5', toneClass[tone])}>
+      <div className="min-w-0 flex-1">{children}</div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
@@ -689,26 +690,26 @@ function FieldRowTr({
     <tr
       ref={rowRef}
       className={cn(
-        'border-b last:border-0 hover:bg-muted/40 align-top',
+        'border-b last:border-0 hover:bg-muted/30 align-top',
         isZebra && !isHighlighted && 'bg-muted/25',
         isHighlighted && 'bg-amber-500/15 ring-1 ring-inset ring-amber-500/40'
       )}
     >
-      <td className="px-3 py-2 font-semibold text-xs">{getFieldLabel(field.column_name)}</td>
-      <td className="px-3 py-2">
+      <td className="px-4 py-3 text-sm font-semibold leading-relaxed text-foreground">{getFieldLabel(field.column_name)}</td>
+      <td className="px-4 py-3">
         {editing && !isSystem ? (
           <input
             type="text"
             value={String(currentValue ?? '')}
             onChange={e => onEdit(field.column_name, e.target.value)}
             className={cn(
-              'w-full rounded-md border bg-background px-2 py-1.5 font-mono text-xs',
+              'w-full rounded-md border bg-background px-3 py-2 font-mono text-sm',
               'focus:outline-none focus:ring-2 focus:ring-ring/50',
               isChanged ? 'border-blue-500' : 'border-input',
             )}
           />
         ) : (
-          <span className={cn('font-mono text-xs break-all whitespace-pre-wrap', field.status === 'error' ? 'text-destructive' : 'text-foreground')}>
+          <span className={cn('font-mono text-sm leading-relaxed break-words whitespace-pre-wrap', field.status === 'error' ? 'text-destructive' : 'text-foreground')}>
             {currentValue === null || currentValue === undefined || currentValue === ''
               ? <span className="text-muted-foreground italic">(kosong)</span>
               : field.column_name === 'DISCHARGE_STATUS' && DISCHARGE_STATUS_LABELS[String(currentValue)]
@@ -727,10 +728,10 @@ function FieldRowTr({
           </Badge>
         )}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-4 py-3">
         <StatusBadge status={field.status} />
       </td>
-      <td className="px-3 py-2 text-xs text-muted-foreground">
+      <td className="px-4 py-3 text-sm leading-relaxed text-muted-foreground break-words">
         {field.status === 'error' && field.error_message && (
           <div>
             <div className="text-destructive mb-1">
@@ -739,7 +740,7 @@ function FieldRowTr({
             {field.suggestion && (
               <div className="bg-blue-500/10 border-l-2 border-blue-500 px-2.5 py-1.5 rounded-r-md mt-1">
                 <strong>Perbaiki menjadi:</strong>{' '}
-                <code className="font-mono text-xs">{field.suggestion}</code>
+                <code className="font-mono text-sm">{field.suggestion}</code>
               </div>
             )}
           </div>
@@ -747,7 +748,7 @@ function FieldRowTr({
         {field.status === 'empty' && !field.codeEvidence && (
           <span className="text-amber-600 dark:text-amber-400">
             {(field.column_name === 'KODE_RS' || field.column_name === 'KELAS_RS')
-              ? <>Field ini atribut rumah sakit, bukan per-klaim — memang tidak pernah tercetak di SEP/Resume Medis pasien. Isi sekali di menu <strong>Aturan Validasi &gt; Profil Rumah Sakit</strong>, akan otomatis terisi untuk klaim berikutnya.</>
+              ? <>Data rumah sakit tidak tercantum di dokumen pasien. Isi sekali melalui <strong>Aturan Validasi &gt; Profil Rumah Sakit</strong>; klaim berikutnya terisi otomatis.</>
               : 'Data tidak ditemukan di dokumen PDF. Periksa dan isi manual.'}
           </span>
         )}
@@ -851,7 +852,7 @@ function FieldRowTr({
           </div>
         )}
         {field.status !== 'error' && field.status !== 'empty' && !field.aiNote && !field.codeEvidence?.length && !field.suggestedCodes?.length && (
-          isSystem ? 'Diisi otomatis saat kirim ke vClaim' : '—'
+          isSystem ? 'Diisi otomatis saat kirim ke vClaim' : <span className="sr-only">Tidak ada catatan</span>
         )}
       </td>
     </tr>
@@ -935,17 +936,17 @@ function ActionChecklist({ categories, recordData }: { categories: { category: s
   if (actions.length === 0) return null;
 
   return (
-    <div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/5 px-3 py-2 text-xs">
-      <div className="mb-1 font-display font-semibold text-blue-700 dark:text-blue-400">Yang perlu dikerjakan:</div>
-      <ul className="space-y-0.5 text-foreground/90">
-        {actions.slice(0, 5).map((a, i) => (
-          <li key={i} className="flex items-start gap-1.5">
-            <span className="text-blue-600 dark:text-blue-400">•</span>
-            <span>{a}</span>
+    <section aria-label="Langkah perbaikan" className="rounded-xl border border-blue-500/25 bg-blue-500/[0.04] p-4 sm:p-5">
+      <h3 className="text-base font-semibold text-foreground">Langkah perbaikan</h3>
+      <ol className="mt-3 grid gap-2 sm:grid-cols-2">
+        {actions.map((action, index) => (
+          <li key={`${index}-${action}`} className="flex min-w-0 items-start gap-3 rounded-lg border border-border/70 bg-card/70 px-3 py-3 text-sm leading-relaxed text-foreground">
+            <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-xs font-bold text-blue-700 dark:text-blue-300">{index + 1}</span>
+            <span className="min-w-0 break-words">{action}</span>
           </li>
         ))}
-      </ul>
-    </div>
+      </ol>
+    </section>
   );
 }
 
@@ -1262,18 +1263,28 @@ function RecordFieldsTable({
   const hasErrorField = categories.some(c => c.rows.some(f => f.status === 'error'));
 
   const toggleButton = (
-    <Button variant="outline" size="sm" onClick={() => setShowFullTable(v => !v)} className="text-[11px] h-7 shrink-0">
-      {showFullTable ? '▴ Tampilkan ringkas' : 'Tampilkan tabel lengkap →'}
+    <Button variant="outline" size="sm" onClick={() => setShowFullTable(v => !v)} className="min-h-10 px-4 text-sm">
+      {showFullTable ? 'Lihat ringkasan' : 'Lihat tabel lengkap'}
     </Button>
   );
 
   return (
-    <div>
+    <div className="space-y-4">
       {!onlyIssues && (
         <SummaryBanner tone={totalIssueFields === 0 ? 'success' : hasErrorField ? 'danger' : 'warning'} action={toggleButton}>
-          {totalIssueFields === 0
-            ? `✅ Semua ${totalRows} kolom data valid`
-            : `⚠️ ${totalIssueFields} masalah dari ${totalRows} kolom data — ${issueCategories.map(c => c.category).join(', ')}, wajib dicek`}
+          <div className="flex items-start gap-3">
+            {totalIssueFields === 0
+              ? <CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              : <AlertTriangle aria-hidden="true" className={cn('mt-0.5 size-5 shrink-0', hasErrorField ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400')} />}
+            <div className="min-w-0 space-y-1">
+              <p className="text-base font-semibold leading-snug text-foreground">
+                {totalIssueFields === 0
+                  ? `Semua ${totalRows} kolom data tidak bermasalah`
+                  : `${totalIssueFields} dari ${totalRows} kolom perlu diperiksa`}
+              </p>
+              {totalIssueFields > 0 && <p className="text-sm leading-relaxed text-foreground/75">Bagian terkait: {issueCategories.map(category => category.category).join(', ')}.</p>}
+            </div>
+          </div>
         </SummaryBanner>
       )}
       {!onlyIssues && <ActionChecklist categories={categories} recordData={recordData} />}
@@ -1288,22 +1299,22 @@ function RecordFieldsTable({
           highlightRowRef={highlightRowRef}
         />
       ) : (
-        <div className="rounded-lg border overflow-y-auto" style={{ maxHeight: 560 }}>
-          <table className="w-full text-sm border-collapse">
+        <div className="max-h-[560px] overflow-auto rounded-xl border border-border">
+          <table className="w-full min-w-[800px] table-fixed border-collapse text-sm">
+            <colgroup><col className="w-[20%]" /><col className="w-[29%]" /><col className="w-[16%]" /><col className="w-[35%]" /></colgroup>
             <thead className="sticky top-0 z-10 bg-muted">
               <tr className="border-b">
-                <th className="font-display w-[190px] text-left px-3 py-2 font-semibold text-xs uppercase tracking-wide text-muted-foreground">Kolom</th>
-                <th className="font-display text-left px-3 py-2 font-semibold text-xs uppercase tracking-wide text-muted-foreground">Nilai</th>
-                <th className="font-display w-[110px] text-left px-3 py-2 font-semibold text-xs uppercase tracking-wide text-muted-foreground">Status</th>
-                <th className="font-display text-left px-3 py-2 font-semibold text-xs uppercase tracking-wide text-muted-foreground">Catatan / Saran</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Kolom</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Nilai</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Status</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Catatan / Saran</th>
               </tr>
             </thead>
             <tbody>
               {totalRows === 0 && onlyIssues ? (
                 <tr>
                   <td colSpan={4} className="text-center py-6 text-muted-foreground">
-                    <strong className="text-foreground">✅ Tidak ada data bermasalah</strong> — semua kolom vClaim terisi &amp; valid.
-                    Matikan &ldquo;Tampilkan hanya yang bermasalah&rdquo; untuk melihat seluruh data klaim.
+                    <strong className="text-foreground">Tidak ada kolom yang perlu diperiksa.</strong> Matikan &ldquo;Hanya tampilkan masalah&rdquo; untuk melihat seluruh data klaim.
                   </td>
                 </tr>
               ) : (
@@ -1314,7 +1325,7 @@ function RecordFieldsTable({
                   let rowParity = 0; return categories.map(({ category, rows }) => (
                     <Fragment key={category}>
                       <tr>
-                        <td colSpan={4} className="bg-muted/70 font-bold text-[11px] text-muted-foreground uppercase tracking-wide px-3 py-1.5">
+                        <td colSpan={4} className="bg-muted/60 px-4 py-3 text-sm font-semibold text-foreground">
                           {category}
                         </td>
                       </tr>
@@ -1385,29 +1396,35 @@ function SimplifiedFieldAccordion({
 
   let rowParity = 0;
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {categories.map(({ category, rows }) => {
         if (rows.length === 0) return null;
         const expanded = isExpanded(category);
         const issueCount = rows.filter(f => isIssueStatus(f.status)).length;
         const validCount = rows.length - issueCount;
         return (
-          <div key={category} className={cn('rounded-lg border overflow-hidden', issueCount > 0 ? 'border-destructive/30' : 'border-border')}>
+          <section key={category} className={cn('overflow-hidden rounded-xl border', issueCount > 0 ? 'border-amber-500/30' : 'border-border')}>
             <button
               type="button"
+              aria-expanded={expanded}
               onClick={() => toggleCategory(category)}
               className={cn(
-                'w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide',
-                issueCount > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted/70 text-muted-foreground'
+                'flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-foreground transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:text-base',
+                issueCount > 0 ? 'bg-amber-500/[0.06]' : 'bg-muted/35'
               )}
             >
-              <span>{expanded ? '▾' : '▸'} {category}</span>
-              <span className={cn('normal-case font-semibold', issueCount === 0 && 'text-emerald-700 dark:text-emerald-400')}>
-                {issueCount > 0 ? `${issueCount} masalah ⚠️` : `${validCount}/${rows.length} valid ✓`}
+              <span className="flex min-w-0 items-center gap-2.5"><ChevronDown aria-hidden="true" className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !expanded && '-rotate-90')} />{category}</span>
+              <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:text-sm', issueCount > 0 ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400')}>
+                {issueCount > 0 ? `${issueCount} perlu diperiksa` : `${validCount}/${rows.length} valid`}
               </span>
             </button>
             {expanded && (
-              <table className="w-full text-sm border-collapse">
+              <div className="overflow-x-auto border-t border-border">
+              <table className="w-full min-w-[800px] table-fixed border-collapse text-sm">
+                <colgroup><col className="w-[20%]" /><col className="w-[29%]" /><col className="w-[16%]" /><col className="w-[35%]" /></colgroup>
+                <thead className="bg-muted/25 text-xs font-semibold text-muted-foreground">
+                  <tr className="border-b border-border"><th scope="col" className="px-4 py-2.5 text-left">Kolom</th><th scope="col" className="px-4 py-2.5 text-left">Nilai</th><th scope="col" className="px-4 py-2.5 text-left">Status</th><th scope="col" className="px-4 py-2.5 text-left">Catatan</th></tr>
+                </thead>
                 <tbody>
                   {category === 'INA-CBG & Tarif' ? (
                     <InaCbgSection rows={rows} editing={editing} editedValues={editedValues} onEdit={onEdit} recordData={recordData} />
@@ -1433,8 +1450,9 @@ function SimplifiedFieldAccordion({
                   )}
                 </tbody>
               </table>
+              </div>
             )}
-          </div>
+          </section>
         );
       })}
     </div>
@@ -1601,17 +1619,6 @@ function InaCbgCoherenceDisplay({ recordData }: { recordData: Record<string, any
 // judgment (bahasa, bukan lookup angka). Kutipan divalidasi server-side
 // (anti-halusinasi) — tabel ini menampilkan APA ADANYA yang terdokumentasi,
 // bukan checklist untuk diisi/direkayasa manual.
-const KRITERIA_STATUS_STYLE: Record<string, string> = {
-  ya: 'border-transparent',
-  borderline: 'border-transparent',
-  tidak: 'border-transparent',
-};
-const KRITERIA_STATUS_COLOR: Record<string, CSSProperties> = {
-  ya: { background: 'color-mix(in srgb, var(--color-destructive, #dc2626) 14%, transparent)', color: 'var(--destructive)' },
-  borderline: { background: 'color-mix(in srgb, var(--color-amber-500, #f59e0b) 16%, transparent)', color: '#b45309' },
-  tidak: { background: 'color-mix(in srgb, var(--color-muted-foreground, #71717a) 14%, transparent)', color: 'var(--muted-foreground)' },
-};
-const KRITERIA_STATUS_LABEL: Record<string, string> = { ya: 'Ya', borderline: 'Borderline', tidak: 'Tidak' };
 // Label singkat utk mode ringkas Tabel 3 (mis. "K2 · Napas / sirkulasi") --
 // istilah resmi lengkap (k.label dari backend) tetap ada via tooltip/title,
 // tidak pernah dihilangkan, cuma tidak jadi teks utama supaya cepat dipindai.
@@ -1620,45 +1627,32 @@ const KRITERIA_SHORT_LABEL: Record<string, string> = {
   K4: 'Hemodinamik', K5: 'Tindakan segera',
 };
 
-const VITAL_LABELS: Record<string, { label: string; unit: string; referensiDewasa: string }> = {
-  RR: { label: 'Laju Napas (RR)', unit: 'x/mnt', referensiDewasa: 'Normal 12-20, Borderline 21-29/10-11, Gawat <10/>29' },
-  SpO2: { label: 'Saturasi O2 (SpO2)', unit: '%', referensiDewasa: 'Normal >=95, Borderline 90-94, Gawat <90 (sama semua usia)' },
-  HR: { label: 'Nadi (HR)', unit: 'x/mnt', referensiDewasa: 'Normal 60-100, Borderline 50-59/101-120, Gawat <50/>120' },
-  TD_sistolik: { label: 'TD Sistolik', unit: 'mmHg', referensiDewasa: 'Normal 90-140, Borderline 80-89/141-179, Gawat <80/>=180' },
-  TD_diastolik: { label: 'TD Diastolik', unit: 'mmHg', referensiDewasa: 'Normal 60-89, Borderline 50-59/90-120, Gawat <50/>120' },
-  Suhu: { label: 'Suhu', unit: '°C', referensiDewasa: 'Normal 36.1-37.5, Borderline 35-36/37.6-38.4, Gawat <35/>=39' },
-  GCS: { label: 'GCS Total', unit: 'poin', referensiDewasa: 'Normal 15, Borderline 13-14, Gawat <13 (sama semua usia)' },
-  Nyeri: { label: 'Skala Nyeri', unit: '0-10', referensiDewasa: 'Normal 0, Borderline 1-6, Gawat >6 (sama semua usia)' },
+const VITAL_LABELS: Record<string, { label: string; unit: string }> = {
+  GCS: { label: 'GCS Total', unit: 'poin' },
+  Nyeri: { label: 'Skala Nyeri', unit: '0-10' },
+  TD_sistolik: { label: 'TD Sistolik', unit: 'mmHg' },
+  TD_diastolik: { label: 'TD Diastolik', unit: 'mmHg' },
+  HR: { label: 'Nadi (HR)', unit: 'x/mnt' },
+  RR: { label: 'Laju Napas (RR)', unit: 'x/mnt' },
+  SpO2: { label: 'Saturasi O2 (SpO2)', unit: '%' },
+  Suhu: { label: 'Suhu', unit: '°C' },
 };
+
 const AGE_GROUP_LABELS: Record<string, string> = {
   neonatus: 'Neonatus (0-28 hari)', bayi: 'Bayi (1-12 bulan)', toddler: 'Toddler (1-2 th)',
   prasekolah: 'Prasekolah (3-5 th)', usia_sekolah: 'Usia sekolah (6-11 th)', remaja: 'Remaja (12-15 th)',
   dewasa: 'Dewasa (16-64 th)', lansia: 'Lansia (>=65 th)',
 };
-// Status "Borderline" disembunyikan dari tampilan 21 Sep 2026 (permintaan
-// klien): nilai yang masuk rentang borderline ditampilkan sebagai Normal.
-// Ambang/perhitungan di dalam sistem SENGAJA tidak diubah -- itu keputusan
-// klinis yang menunggu grading ESH dari dokter, jadi cukup labelnya dulu.
-const BAND_LABEL: Record<string, string> = { normal: 'Normal', borderline: 'Normal', gawat: 'Gawat' };
+const BAND_LABEL: Record<string, string> = { normal: 'Normal', borderline: 'Perlu ditinjau', gawat: 'Gawat' };
 const BAND_COLOR: Record<string, CSSProperties> = {
   normal: { color: 'var(--muted-foreground)' },
-  borderline: { color: 'var(--muted-foreground)' }, // disamakan dengan normal (lihat BAND_LABEL)
+  borderline: { color: 'var(--color-amber-600, #b45309)' },
   gawat: { color: 'var(--destructive)', fontWeight: 600 },
 };
 
-// Label band untuk tekanan darah memakai istilah ESH/ESC 2023, bukan
-// "Normal". Sejak band borderline disembunyikan (21 Sep 2026), rentang
-// 140-179 sistolik akan tampil sebagai "Normal" padahal menurut ESH itu
-// hipertensi grade 1-2 -- angka 165/100 berlabel Normal jelas menyesatkan
-// koder. Kata "Borderline" tetap tidak dipakai di mana pun.
-//
-// Band borderline TD punya DUA sisi: rentang tinggi (hipertensi) dan
-// rentang rendah (mendekati hipotensi, sistolik 80-89). Hanya sisi tinggi
-// yang boleh dilabeli hipertensi -- sisi rendah ikut perilaku vital lain.
-// Penjelasan kenapa sebuah TTV tidak dihitung walau ada angkanya di dokumen.
-// Alasannya beda per parameter, jadi teksnya tidak bisa satu untuk semua:
-// tekanan darah 0 lazim dipakai menandai "tidak diukur" (apalagi pada bayi),
-// sedangkan GCS tidak pernah bisa di bawah 3 karena tiap komponennya minimal 1.
+// Label tekanan darah dewasa/lansia mengikuti kategori yang sudah dipakai aplikasi.
+// Kelompok anak tetap menampilkan status hasil aturan usia dari backend.
+// Penjelasan angka nol dipakai untuk membedakan nilai tidak diukur dari hasil pemeriksaan.
 function penjelasanTercatatNol(key: string): string {
   if (key === "GCS") {
     return "Nilai GCS di dokumen di bawah 3. GCS terendah yang mungkin adalah 3 (tiap komponen minimal bernilai 1), jadi angka itu tidak bisa berasal dari penilaian yang benar-benar dilakukan. Nilai ini karena itu tidak dihitung sebagai kondisi gawat.";
@@ -1680,10 +1674,10 @@ const TD_GRADE_ESH: Record<string, [number, number][]> = {
   TD_sistolik: [[140, 159], [160, 179]],
   TD_diastolik: [[90, 99], [100, 109]],
 };
-function labelBand(key: string | undefined, nilai: string | number | null | undefined, band: string | null | undefined): string {
-  if (!band) return '—';
+function labelBand(key: string | undefined, nilai: string | number | null | undefined, band: string | null | undefined, ageGroup?: string | null): string {
+  if (!band) return 'Belum dinilai';
   const grades = key ? TD_GRADE_ESH[key] : undefined;
-  if (grades && band === 'borderline' && typeof nilai === 'number') {
+  if (grades && (ageGroup === 'dewasa' || ageGroup === 'lansia') && band === 'borderline' && typeof nilai === 'number') {
     for (let g = 0; g < grades.length; g++) {
       const [min, max] = grades[g];
       if (nilai >= min && nilai <= max) return `Hipertensi ${g + 1}`;
@@ -1711,6 +1705,10 @@ const PARAMETER_ABNORMAL_INFO: Record<string, string> = {
   deformitas_luka: 'Adanya deformitas/luka menandakan temuan trauma yang perlu ditindaklanjuti.',
   // 5 parameter KEADAAN baru (fix item 6, 19 Sep 2026) -- lihat PARAMETER_TABLE
   // di kegawatdaruratanReference.js (backend).
+  konjungtiva_anemis: 'Konjungtiva anemis tampak pada pemeriksaan mata dan perlu dicocokkan dengan dokumen klinis.',
+  nyeri_tekan_epigastrium: 'Nyeri tekan epigastrium ditemukan saat pemeriksaan palpasi abdomen.',
+  bising_usus: 'Bising usus dinilai abnormal jika tidak terdengar, meningkat, atau menurun sesuai catatan pemeriksaan.',
+  timpani: 'Temuan timpani dinilai abnormal hanya jika dokumen menyebut konteks patologis, misalnya distensi.',
   kepala: 'Temuan abnormal kepala/wajah (mis. mukosa kering/pucat/ikterik, deformitas) bisa jadi tanda dehidrasi atau trauma.',
   leher: 'Pembesaran KGB/tiroid atau kaku kuduk menandakan temuan yang perlu ditindaklanjuti.',
   thorak: 'Thorak asimetris/ada jejas/retraksi/nyeri tekan menandakan kemungkinan trauma atau distres napas.',
@@ -1718,12 +1716,137 @@ const PARAMETER_ABNORMAL_INFO: Record<string, string> = {
   ekstremitas: 'Kelainan bentuk/gerak/kelemahan ekstremitas menandakan temuan yang perlu ditindaklanjuti.',
 };
 
-function QuoteCell({ kutipan, page_number }: { kutipan: string | null | undefined; page_number: number | null | undefined }) {
-  if (!kutipan) return <span className="italic text-muted-foreground">Tidak tercatat di formulir</span>;
-  return <>&ldquo;{kutipan}&rdquo;{page_number ? <span className="ml-1 text-[10px] text-muted-foreground">(hal. {page_number})</span> : null}</>;
+// Urutan anatomi untuk ringkasan dan tabel rinci pemeriksaan fisik.
+// Label di sini juga melengkapi assessment lama yang belum punya empat parameter baru.
+const PEMERIKSAAN_KELOMPOK = [
+  { nama: 'Kepala & leher', items: [
+    ['kepala', 'Kepala/wajah (termasuk mukosa)'],
+    ['konjungtiva_anemis', 'Konjungtiva anemis (CA)'],
+    ['sianosis', 'Sianosis'],
+    ['leher', 'Leher'],
+    ['kesadaran_kualitatif', 'Kesadaran kualitatif'],
+  ] },
+  { nama: 'Thoraks & jantung', items: [
+    ['thorak', 'Thoraks'],
+    ['ronkhi', 'Ronkhi (Rh)'],
+    ['wheezing', 'Wheezing (Wh)'],
+    ['sdv', 'Suara napas dasar (SDV)'],
+    ['retraksi', 'Retraksi dinding dada'],
+    ['bunyi_jantung', 'Bunyi jantung (S1/S2, irama)'],
+  ] },
+  { nama: 'Abdomen', items: [
+    ['abdomen', 'Abdomen'],
+    ['nyeri_tekan_epigastrium', 'Nyeri tekan epigastrium'],
+    ['bising_usus', 'Bising usus (BU)'],
+    ['timpani', 'Perkusi timpani'],
+  ] },
+  { nama: 'Kaki & ekstremitas', items: [
+    ['ekstremitas', 'Ekstremitas'],
+    ['edema', 'Edema'],
+    ['akral', 'Akral (hangat/dingin)'],
+    ['crt', 'CRT (capillary refill time)'],
+    ['deformitas_luka', 'Deformitas/luka'],
+  ] },
+] as const;
+
+type VitalRange = {
+  normal?: [number, number];
+  borderline?: [number, number] | [number, number][] | null;
+  gawatUnder?: number;
+  gawatOver?: number;
+  catatan?: string;
+};
+type VitalReferences = Record<string, { unit: string } & Record<string, VitalRange | string>>;
+
+function VitalRangeText({ references, parameter, ageGroup }: {
+  references: VitalReferences | null; parameter: string; ageGroup: string | null;
+}) {
+  const table = references?.[parameter];
+  const range = (table?._all || (ageGroup ? table?.[ageGroup] : undefined)) as VitalRange | undefined;
+  if (!range) return <span className="text-muted-foreground">{!references ? 'Rentang belum tersedia' : !ageGroup ? 'Usia belum diketahui' : 'Rentang usia belum tersedia'}</span>;
+  const interval = (r: [number, number]) => r[0] === r[1] ? String(r[0]) : `${r[0]}–${r[1]}`;
+  const review = range.borderline
+    ? (Array.isArray(range.borderline[0]) ? range.borderline as [number, number][] : [range.borderline as [number, number]]).map(interval).join(' atau ')
+    : null;
+  // Keep the strict operators used by backend lookupBand (do not invent inclusive limits).
+  const urgent = [range.gawatUnder !== undefined ? `< ${range.gawatUnder}` : null, range.gawatOver !== undefined ? `> ${range.gawatOver}` : null].filter(Boolean).join(' atau ');
+  return <div className="space-y-1 text-sm leading-relaxed">
+    {range.normal && <p>Normal: <strong className="font-medium text-foreground">{interval(range.normal)} {table?.unit}</strong></p>}
+    {review && <p>Perlu ditinjau: {review} {table?.unit}</p>}
+    {urgent && <p>Gawat: {urgent} {table?.unit}</p>}
+    {!review && range.normal && (range.gawatUnder === undefined || range.gawatUnder < range.normal[0] || range.gawatOver === undefined || range.gawatOver > range.normal[1]) && <p className="text-muted-foreground">Nilai di luar rentang normal yang belum melewati ambang gawat perlu ditinjau.</p>}
+    {range.catatan && <details><summary className="cursor-pointer text-primary">Catatan rentang</summary><p className="mt-1">{range.catatan}</p></details>}
+  </div>;
 }
 
-function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any> }) {
+function QuoteCell({ kutipan, page_number, onOpenPdf }: {
+  kutipan: string | null | undefined; page_number: number | null | undefined;
+  onOpenPdf?: (page: number) => void;
+}) {
+  const longQuote = !!kutipan && kutipan.length > 160;
+  return <div className="space-y-2 text-sm leading-relaxed" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+    {kutipan ? <>
+      <p className="text-muted-foreground">&ldquo;{longQuote ? `${kutipan.slice(0, 160)}…` : kutipan}&rdquo;</p>
+      {longQuote && <details><summary className="cursor-pointer text-primary">Kutipan lengkap</summary><p className="mt-2 text-foreground">{kutipan}</p></details>}
+    </> : <p className="text-muted-foreground">Kutipan tidak tersedia.</p>}
+    {page_number && Number.isInteger(page_number) && page_number > 0 ? (
+      onOpenPdf ? <Button type="button" variant="outline" size="sm" className="h-auto min-h-9 whitespace-normal text-sm" onClick={() => onOpenPdf(page_number)}>
+        <FileText className="size-4 shrink-0" /> Lihat halaman {page_number} PDF
+      </Button> : <span className="text-muted-foreground">Halaman {page_number}</span>
+    ) : null}
+  </div>;
+}
+
+function EmergencyCriteriaList({ criteria, hasData, ageGroup, onOpenPdf }: {
+  criteria: KegawatdaruratanKriteria[]; hasData?: boolean; ageGroup: string | null;
+  onOpenPdf?: (page: number) => void;
+}) {
+  const fulfilled = criteria.filter(k => k.status === 'ya').length;
+  return <section className="space-y-4" aria-label="Penilaian Kegawatdaruratan K1–K5">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h3 className="text-base font-semibold text-foreground">Penilaian Kegawatdaruratan (K1–K5)</h3>
+      <span className="rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground">{fulfilled} dari {criteria.length} kriteria terpenuhi</span>
+    </div>
+    <p className="text-sm leading-relaxed text-muted-foreground">Buka setiap kriteria untuk melihat alasan dan bukti dari dokumen.</p>
+    <div className="space-y-3">
+      {[...criteria].sort((a, b) => a.kriteria.localeCompare(b.kriteria)).map(k => {
+        // Missing evidence is not itself proof of an incomplete assessment.
+        // has_data=false is the explicit backend signal that extraction failed/was unavailable.
+        const insufficient = hasData === false && k.status !== 'ya';
+        const label = insufficient ? 'Bukti belum cukup' : k.status === 'ya' ? 'Terpenuhi' : k.status === 'borderline' ? 'Perlu ditinjau' : 'Tidak terpenuhi';
+        const attention = insufficient || k.status === 'borderline';
+        const Icon = k.status === 'ya' || attention ? AlertTriangle : CheckCircle2;
+        const color = k.status === 'ya' ? 'text-red-700 dark:text-red-400' : attention ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground';
+        return <details key={k.kriteria} open={k.status === 'ya'} className="group rounded-xl border border-border bg-card">
+          <summary className="flex min-h-16 cursor-pointer list-none flex-wrap items-center gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <Icon className={cn('size-5 shrink-0', color)} />
+            <span className="min-w-0 flex-1 text-base font-semibold text-foreground">{k.kriteria} · {KRITERIA_SHORT_LABEL[k.kriteria] || k.label}</span>
+            <span className={cn('rounded-full border px-3 py-1 text-sm font-medium', color, k.status === 'ya' ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30' : attention ? 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30' : 'border-border bg-muted/30')}>{label}</span>
+            <span className="flex items-center gap-1 text-sm text-primary"><span className="group-open:hidden">Lihat bukti</span><span className="hidden group-open:inline">Tutup bukti</span><ChevronDown className="size-4 transition-transform group-open:rotate-180" /></span>
+          </summary>
+          <div className="space-y-4 border-t border-border p-4 text-sm leading-relaxed">
+            <p className="text-foreground">{k.label}</p>
+            <div className="rounded-lg bg-muted/30 p-3">
+              <p className="mb-1 font-semibold text-foreground">Alasan penilaian</p>
+              <p className="text-muted-foreground">{insufficient ? 'Pembacaan dokumen belum menghasilkan data yang cukup. Gunakan Baca Ulang untuk memperbarui penilaian.' : k.catatan || 'Tidak ada catatan tambahan dari hasil penilaian.'}</p>
+            </div>
+            <div className="space-y-3">
+              <p className="font-semibold text-foreground">Bukti pendukung</p>
+              {k.evidence.length === 0 ? <p className="text-muted-foreground">Belum ada kutipan bukti terlampir pada kriteria ini.</p> : k.evidence.map((e, i) => (
+                <div key={i} className="rounded-lg border border-border p-3">
+                  <p className="mb-2 font-medium text-foreground">{e.sumber === 'proclist' ? `Kode ${e.kode} · ${e.deskripsi}` : e.sumber === 'esi' ? `ESI: ${e.skor} · sinyal pendukung` : `${e.label || (e.key ? VITAL_LABELS[e.key]?.label || e.key : 'Kutipan dokumen')}${e.nilai !== undefined ? `: ${e.nilai}` : ''}${e.band ? ` · ${labelBand(e.key, e.nilai, e.band, ageGroup)}` : ''}`}</p>
+                  {(e.kutipan || e.page_number) && <QuoteCell kutipan={e.kutipan} page_number={e.page_number} onOpenPdf={onOpenPdf} />}
+                </div>
+              ))}
+            </div>
+          </div>
+        </details>;
+      })}
+    </div>
+  </section>;
+}
+
+function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<string, any>; onOpenPdf?: (page: number) => void }) {
   // WAJIB dipanggil SEBELUM early-return di bawah (Rules of Hooks) -- record
   // yang sama (key={record.id} tidak berubah) bisa transisi dari "belum ada
   // assessment" ke "assessment valid" lewat "Baca Ulang" TANPA remount, jadi
@@ -1731,7 +1854,17 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
   // sama; kalau useState dipanggil SETELAH early return, urutan hook call
   // bisa beda antar-render utk record yang sama -> React error.
   const [showFullDetail, setShowFullDetail] = useState(false);
-  const [showUndocumented, setShowUndocumented] = useState(false);
+  const [references, setReferences] = useState<VitalReferences | null>(null);
+  const [referenceError, setReferenceError] = useState(false);
+  const [referenceAttempt, setReferenceAttempt] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    api.getVitalReferences().then(data => {
+      if (!cancelled) { setReferences(data.thresholds); setReferenceError(false); }
+    }).catch(() => { if (!cancelled) setReferenceError(true); });
+    return () => { cancelled = true; };
+  }, [referenceAttempt]);
+
 
   const assessment = parseAiReview(recordData)?.kegawatdaruratan_assessment;
   // PENTING: record yang diproses SEBELUM restrukturisasi 10-11 Sep 2026 masih
@@ -1752,34 +1885,30 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
   // ─── Mode ringkas: banner + chip/list, versus toggle "Tampilkan tabel
   // lengkap" yang membuka Tabel 1/2/3 ASLI apa adanya (di bawah, tidak
   // diubah sama sekali) -- lihat prinsip di SimplifiedFieldAccordion. State
-  // showFullDetail/showUndocumented dideklarasikan di atas (sebelum early-
-  // return), bukan di sini -- lihat komentar Rules of Hooks di awal fungsi.
+  // showFullDetail dideklarasikan di atas (sebelum early return) agar urutan
+  // hook tetap sama saat assessment berubah setelah Baca Ulang.
+  const parameterByKey = new Map(parameter_findings.map(p => [p.key, p]));
+  const groupedParams = PEMERIKSAAN_KELOMPOK.map(group => ({
+    nama: group.nama,
+    params: group.items.map(([key, label]) => {
+      const finding = parameterByKey.get(key);
+      return finding
+        ? { ...finding, label, perluBacaUlang: false }
+        : { key, label, ditemukan: false, status: null, nilai: null, page_number: null, kutipan: null, sumber_dokumen: null, retraksi_grade: null, perluBacaUlang: true };
+    }),
+  }));
   const documentedParams = parameter_findings.filter(p => p.ditemukan);
-  const undocumentedParams = parameter_findings.filter(p => !p.ditemukan);
   const abnormalParams = documentedParams.filter(p => p.status === 'abnormal');
+  const belumDiekstrak = groupedParams.flatMap(group => group.params).filter(p => p.perluBacaUlang).length;
 
   const vitalEntries = Object.entries(VITAL_LABELS).map(([key, meta]) => {
     const vf = vital_findings?.[key];
     const isEmpty = vf?.nilai === null || vf?.nilai === undefined;
-    return { key, meta, vf, isEmpty, tercatatNol: !!vf?.tercatat_nol, level: (isEmpty ? 'missing' : (vf?.band || 'normal')) as 'normal' | 'borderline' | 'gawat' | 'missing' };
+    return { key, meta, vf, isEmpty, tercatatNol: !!vf?.tercatat_nol, level: (isEmpty || !vf?.band ? 'missing' : vf.band) as 'normal' | 'borderline' | 'gawat' | 'missing' };
   });
   const vitalPresentCount = vitalEntries.filter(v => !v.isEmpty).length;
-  // Tabel 2 menampilkan HANYA vital yang benar-benar tercatat, mengikuti pola
-  // Tabel 1 (documentedParams). Sebelumnya semua parameter dirender apa adanya,
-  // jadi berkas yang cuma punya beberapa tanda vital memunculkan deretan kartu
-  // "KOSONG" yang memenuhi layar tanpa memberi informasi apa pun.
-  // TD yang di dokumen tertulis 0 ikut ditampilkan meski nilainya dikosongkan:
-  // kartunya yang memuat penjelasan kenapa angka itu tidak dipakai.
-  // SpO2 SELALU ditampilkan walau kosong (23 Sep 2026, permintaan klien).
-  // Ia satu-satunya vital yang punya peringatan tersendiri di halaman ini
-  // -- kalau kartunya ikut hilang saat kosong, justru parameter yang paling
-  // perlu dikejar verifikator yang tidak kelihatan.
-  const vitalPresentEntries = vitalEntries.filter(
-    v => !v.isEmpty || v.tercatatNol || v.key === 'SpO2',
-  );
   const vitalGawatCount = vitalEntries.filter(v => v.level === 'gawat').length;
   const vitalBorderlineCount = vitalEntries.filter(v => v.level === 'borderline').length;
-  const vitalMissingCount = vitalEntries.length - vitalPresentCount;
   // SpO2 tidak tercatat = parameter kunci gangguan pernapasan, paling langsung
   // dicek verifikator BPJS. FIX ITEM 4 (19 Sep 2026): HANYA tampilkan warning
   // kalau kolom SpO2 ADA di form Triase IGD tapi kosong (empty_on_form) --
@@ -1789,35 +1918,40 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
   const spo2Entry = vitalEntries.find(v => v.key === 'SpO2');
   const spo2Missing = !!spo2Entry?.isEmpty && spo2Entry?.vf?.form_status !== 'not_in_form';
 
+  const criteriaPanel = <EmergencyCriteriaList criteria={kriteria} hasData={assessment.has_data} ageGroup={age_group} onOpenPdf={onOpenPdf} />;
+  const referenceNotice = referenceError
+    ? <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-amber-700 dark:text-amber-400">Rentang usia belum dapat dimuat.<Button variant="outline" size="sm" onClick={() => setReferenceAttempt(n => n + 1)}>Coba lagi</Button></div>
+    : <p className="mb-3 text-sm text-muted-foreground">Rentang aturan aplikasi untuk {age_group ? AGE_GROUP_LABELS[age_group] || age_group : 'usia yang belum diketahui'}.</p>;
+
   const toggleButton = (
-    <Button variant="outline" size="sm" onClick={() => setShowFullDetail(v => !v)} className="text-[10px] h-7 shrink-0 font-headline-sm">
+    <Button variant="outline" size="sm" onClick={() => setShowFullDetail(v => !v)} className="min-h-9 shrink-0 text-sm">
       {showFullDetail ? '▴ Ringkasan' : 'Detail →'}
     </Button>
   );
 
   return (
-    <div className="mt-6 rounded-xl bg-white/[0.02]est border border-white/10 shadow-sm overflow-hidden dark:border-white/10">
+    <div className="mt-6 rounded-xl bg-card border border-border shadow-sm overflow-hidden dark:border-border">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-surface-container via-surface to-surface-container-low px-6 py-4 border-b border-white/10">
+      <div className="bg-gradient-to-r from-surface-container via-surface to-surface-container-low px-6 py-4 border-b border-border">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/15 text-emerald-400 flex items-center justify-center">
             </div>
             <div>
-              <h2 className="text-sm text-gray-100 font-semibold">Kegawatdaruratan</h2>
+              <h2 className="text-sm text-foreground font-semibold">Kegawatdaruratan</h2>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
               className={cn(
-                'text-[10px] font-label-sm px-2.5 py-1.5',
+                'text-sm font-label-sm px-2.5 py-1.5',
                 yaCount > 0 ? 'border-red-900/50 bg-red-950/40 text-red-400 dark:text-red-400'
                   : borderlineCount > 0 ? 'border-amber-900/50 bg-amber-950/40 text-amber-500 dark:text-amber-500'
                     : 'border-primary/40 bg-emerald-900/30 text-emerald-400 dark:text-emerald-400'
               )}
             >
-              {yaCount} Ya
+              {yaCount} kriteria terpenuhi
             </Badge>
             {toggleButton}
           </div>
@@ -1825,8 +1959,8 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
       </div>
 
       {/* Ringkasan Section */}
-      <div className="px-6 py-4 bg-white/[0.02] border-b border-white/10">
-        <p className="text-sm text-gray-300 font-medium leading-relaxed">{ringkasan}</p>
+      <div className="px-6 py-4 bg-white/[0.02] border-b border-border">
+        <p className="text-sm text-muted-foreground font-medium leading-relaxed">{ringkasan}</p>
       </div>
 
       {!showFullDetail ? (
@@ -1836,62 +1970,71 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
           <div>
             <div className="mb-3 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">1</div>
-                <h3 className="text-sm text-gray-100 font-semibold">Parameter Pemeriksaan Fisik</h3>
+                <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-sm font-bold">1</div>
+                <h3 className="text-sm text-foreground font-semibold">Parameter Pemeriksaan Fisik</h3>
               </div>
               <span className={cn(
-                'text-[11px] font-medium px-2.5 py-1 rounded-full border',
+                'text-sm font-medium px-2.5 py-1 rounded-full border',
                 abnormalParams.length > 0
-                  ? 'bg-red-950/40 border-red-900/50 text-red-400'
-                  : 'bg-emerald-900/30 border-emerald-800/50 text-emerald-400'
+                  ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800/50 dark:text-emerald-400'
               )}>
-                {documentedParams.length}/{parameter_findings.length} tercatat
+                {documentedParams.length} parameter tercatat
                 {abnormalParams.length > 0 ? ` · ${abnormalParams.length} abnormal` : ''}
               </span>
             </div>
 
-            {documentedParams.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {documentedParams.map(p => {
+            {belumDiekstrak > 0 && (
+              <p className="mb-3 text-sm text-amber-700 dark:text-amber-400">
+                {belumDiekstrak} parameter baru perlu Baca Ulang agar hasilnya dapat diambil dari PDF.
+              </p>
+            )}
+            <div className="space-y-4">
+              {groupedParams.map(group => {
+                const missing = group.params.filter(p => !p.ditemukan);
+                const foundCount = group.params.length - missing.length;
+                return (
+                  <section key={group.nama} className="rounded-lg border border-border bg-muted/20 p-3 dark:border-border dark:bg-white/[0.015]">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-foreground">{group.nama}</h4>
+                      <span className="text-sm text-muted-foreground">{foundCount}/{group.params.length} tercatat</span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                {group.params.filter(p => p.ditemukan).map(p => {
                   const paramCard = (
                     <div
                       className={cn(
                         'flex items-center justify-between py-2 px-3 rounded border',
                         p.status === 'abnormal'
-                          ? 'border-red-900/30 bg-red-950/20 cursor-pointer hover:bg-red-950/30 transition-colors'
-                          : 'border-white/10 bg-white/[0.02]'
+                          ? 'border-red-200 bg-red-50 cursor-pointer hover:bg-red-100 transition-colors dark:border-red-900/30 dark:bg-red-950/20 dark:hover:bg-red-950/30'
+                          : 'border-border bg-card dark:border-border dark:bg-white/[0.02]'
                       )}
                     >
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5">
                           {p.status === 'abnormal'
-                            ? <XCircle className="size-3.5 text-red-400 shrink-0" />
-                            : <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />}
+                            ? <XCircle className="size-3.5 text-red-600 dark:text-red-400 shrink-0" />
+                            : <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
                           <span className={cn(
                             'font-medium text-sm',
-                            p.status === 'abnormal' ? 'text-red-400' : 'text-gray-200'
+                            p.status === 'abnormal' ? 'text-red-700 dark:text-red-400' : 'text-foreground'
                           )}>
                             {p.label}
                           </span>
                           {p.sumber_dokumen === 'resume_medis' && (
-                            <span className="text-[10px] text-gray-500 ml-1">(Resume Medis)</span>
+                            <span className="text-sm text-muted-foreground ml-1">(Resume Medis)</span>
                           )}
                           {p.retraksi_grade && (
-                            <span className="text-[10px] text-red-400">({p.retraksi_grade})</span>
+                            <span className="text-sm text-red-400">({p.retraksi_grade})</span>
                           )}
                         </div>
-                        {p.kutipan && (
-                          <p className="text-[11px] text-gray-400 italic pl-5">
-                            "{p.kutipan}"
-                            {p.page_number ? <span className="not-italic ml-1 opacity-70">hal. {p.page_number}</span> : null}
-                          </p>
-                        )}
+                        {p.kutipan && <QuoteCell kutipan={p.kutipan} page_number={p.page_number} onOpenPdf={onOpenPdf} />}
                       </div>
                       <span className={cn(
-                        'text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0',
+                        'text-sm font-semibold px-2 py-0.5 rounded-full shrink-0',
                         p.status === 'abnormal'
-                          ? 'bg-red-950/60 text-red-400 border border-red-900/50'
-                          : 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50'
+                          ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/60 dark:text-red-400 dark:border-red-900/50'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50'
                       )}>
                         {p.nilai || (p.status === 'abnormal' ? 'Abnormal' : 'Normal')}
                       </span>
@@ -1904,25 +2047,25 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                         <DialogTrigger asChild>
                           {paramCard}
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-gray-100">
+                        <DialogContent className="sm:max-w-md bg-card border-border text-foreground">
                           <DialogHeader>
                             <DialogTitle className="text-red-400">Parameter Abnormal: {p.label}</DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4 py-2">
                             <ul className="space-y-3 list-none">
                               <li className="flex flex-col gap-1">
-                                <span className="text-sm font-semibold text-gray-400">Temuan Tercatat:</span>
-                                <span className="text-sm text-gray-100">{p.nilai || 'tercatat abnormal di dokumen'}</span>
+                                <span className="text-sm font-semibold text-muted-foreground">Temuan Tercatat:</span>
+                                <span className="text-sm text-foreground">{p.nilai || 'tercatat abnormal di dokumen'}</span>
                               </li>
                               {p.kutipan && (
                                 <li className="flex flex-col gap-1">
-                                  <span className="text-sm font-semibold text-gray-400">Kutipan Dokumen:</span>
-                                  <span className="text-sm italic text-gray-300">&ldquo;{p.kutipan}&rdquo;{p.page_number ? ` (hal. ${p.page_number})` : ''}</span>
+                                  <span className="text-sm font-semibold text-muted-foreground">Kutipan Dokumen:</span>
+                                  <span className="text-sm italic text-muted-foreground">&ldquo;{p.kutipan}&rdquo;{p.page_number ? ` (hal. ${p.page_number})` : ''}</span>
                                 </li>
                               )}
                               <li className="flex flex-col gap-1">
-                                <span className="text-sm font-semibold text-gray-400">Kenapa Abnormal?</span>
-                                <span className="text-sm text-gray-300">
+                                <span className="text-sm font-semibold text-muted-foreground">Kenapa Abnormal?</span>
+                                <span className="text-sm text-muted-foreground">
                                   {PARAMETER_ABNORMAL_INFO[p.key] || 'Temuan ini tercatat abnormal dan menjadi salah satu parameter yang diperiksa pada penilaian kegawatdaruratan.'}
                                   {p.retraksi_grade ? <span className="block mt-1">Grade retraksi: <strong className="text-red-400">{p.retraksi_grade}</strong> — retraksi interkostal menandakan distres napas lebih berat dibanding subkostal.</span> : null}
                                 </span>
@@ -1936,286 +2079,82 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
 
                   return <Fragment key={p.key}>{paramCard}</Fragment>;
                 })}
-              </div>
-            ) : (
-              <div className="rounded border border-white/10 px-4 py-6 text-center text-gray-500 text-sm">
-                Tidak ada parameter yang terdokumentasi di formulir
-              </div>
-            )}
-
-            {undocumentedParams.length > 0 && (
-              <div className="mt-3">
-                <button
-                  type="button"
-                  className="text-sm text-emerald-400 font-medium hover:underline transition-colors"
-                  onClick={() => setShowUndocumented(v => !v)}
-                >
-                  📋 {showUndocumented ? 'Sembunyikan' : `Lihat ${undocumentedParams.length} parameter tidak tercatat`} →
-                </button>
-                {showUndocumented && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {undocumentedParams.map(p => (
-                      <span key={p.key} className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-gray-400 bg-white/[0.02]">{p.label}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Section 2: Tanda Vital ── */}
-          <div>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">2</div>
-                <h3 className="text-sm text-gray-100 font-semibold">
-                  Nilai Vital &amp; Ambang Batas
-                  {age_group ? <span className="ml-2 font-normal text-gray-400 text-xs">({AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
-                </h3>
-              </div>
-              <span className={cn(
-                'text-[11px] font-medium px-2.5 py-1 rounded-full border',
-                vitalGawatCount > 0
-                  ? 'bg-red-950/40 border-red-900/50 text-red-400 dark:text-red-400'
-                  : vitalMissingCount > 0
-                    ? 'bg-amber-950/40 border-amber-900/50 text-amber-500 dark:text-amber-500'
-                    : 'bg-emerald-900/30 border-emerald-800/50 text-emerald-400 dark:text-emerald-400'
-              )}>
-                {vitalGawatCount > 0 ? `${vitalGawatCount} kritis` : 'Semua normal'}
-                {vitalPresentCount}/{vitalEntries.length} tercatat
-              </span>
-            </div>
-
-            {spo2Missing && (
-              <div className={cn(
-                'mb-3 rounded-lg border px-3.5 py-2.5 text-sm font-medium',
-                vitalGawatCount > 0
-                  ? 'border-red-900/50 bg-red-950/40 dark:bg-red-950/40 text-red-400 dark:text-red-400'
-                  : 'border-amber-900/50 bg-amber-950/40 dark:bg-amber-950/40 text-amber-500 dark:text-amber-500'
-              )}>
-                ⚠️ SpO2 tidak tercatat — parameter kunci gangguan pernapasan
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-              {vitalPresentEntries.map(({ key, meta, vf, isEmpty, tercatatNol, level }) => {
-                const instrumenDiharapkan = key === 'Nyeri' ? vf?.instrumen_diharapkan : undefined;
-                const nyeriTip = key === 'Nyeri' && isEmpty
-                  ? `Skala nyeri kertas/PDF biasanya diisi dengan melingkari angka pada skala cetak — tidak terbaca sistem.${instrumenDiharapkan ? ` Instrumen: ${instrumenDiharapkan}.` : ''}`
-                  : undefined;
-                const cardBorder = level === 'gawat'
-                  ? 'border-red-900/50 bg-red-950/40 bg-red-950/40'
-                  : level === 'borderline'
-                    ? 'border-amber-900/50 bg-amber-950/40 bg-amber-950/40'
-                    : level === 'missing'
-                      ? 'border-white/10 bg-white/[0.02] opacity-60'
-                      : 'border-emerald-800/50 bg-emerald-900/30 bg-emerald-900/30';
-                const valueColor = level === 'gawat'
-                  ? 'text-red-400 dark:text-red-400'
-                  : level === 'borderline'
-                    ? 'text-amber-500 dark:text-amber-500'
-                    : level === 'missing'
-                      ? 'text-gray-400 italic'
-                      : 'text-gray-100';
-                const CardContent = (
-                  <div className={cn('rounded-xl border p-3 flex flex-col gap-1', cardBorder, (level === 'gawat' || level === 'borderline') && 'cursor-pointer hover:bg-[color:inherit]/60 transition-colors')} title={nyeriTip}>
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider truncate">{meta.label}</span>
-                      <SeverityDot level={level} />
                     </div>
-                    <div className={cn('text-2xl font-light leading-none mt-0.5', valueColor)}>
-                      {isEmpty ? '—' : vf!.nilai}
-                    </div>
-                    <div className="flex items-center justify-between mt-0.5">
-                      {!isEmpty && (
-                        <span className="text-[10px] text-gray-400">{meta.unit}</span>
-                      )}
-                      <span className={cn(
-                        'text-[9px] font-bold px-1.5 py-0.5 rounded ml-auto',
-                        level === 'gawat' ? 'bg-red-950/60 text-red-400 border border-red-900/50'
-                          : level === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
-                            : level === 'missing' ? 'bg-white/[0.05] text-gray-400 border border-white/10'
-                              : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
-                      )}>
-                        {level === 'gawat' ? 'KRITIS' : level === 'borderline' ? labelBand(key, vf?.nilai, 'borderline').toUpperCase() : level === 'missing' ? (tercatatNol ? 'TIDAK DIUKUR' : 'KOSONG') : '✓ Normal'}
-                      </span>
-                    </div>
-                    {tercatatNol && (
-                      <div
-                        className="mt-1 text-[9px] leading-snug text-gray-400"
-                        title={penjelasanTercatatNol(key)}
-                      >
-                        {key === "GCS" ? "Nilai di dokumen tidak mungkin — tidak dihitung sebagai kondisi gawat." : "Di dokumen tertulis 0 — tidak dihitung sebagai kondisi gawat."}
+                    {missing.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {missing.map(p => (
+                          <span key={p.key} className="rounded-full border border-border bg-card px-2.5 py-1 text-sm text-muted-foreground dark:border-border dark:bg-white/[0.02]">
+                            {p.label} · {p.perluBacaUlang ? 'Perlu Baca Ulang' : 'tidak tercatat'}
+                          </span>
+                        ))}
                       </div>
                     )}
-                  </div>
+                  </section>
                 );
-
-                if (level === 'gawat') {
-                  return (
-                    <Dialog key={key}>
-                      <DialogTrigger asChild>
-                        {CardContent}
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-gray-100">
-                        <DialogHeader>
-                          <DialogTitle className="text-red-400">Parameter Kritis: {meta.label}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-2">
-                          <ul className="space-y-3 list-none">
-                            <li className="flex flex-col gap-1">
-                              <span className="text-sm font-semibold text-gray-400">Nilai Tercatat:</span>
-                              <span className="text-lg font-mono text-red-400">{vf!.nilai} {meta.unit}</span>
-                            </li>
-                            {vf!.kutipan && (
-                              <li className="flex flex-col gap-1">
-                                <span className="text-sm font-semibold text-gray-400">Kutipan Dokumen:</span>
-                                <span className="text-sm italic text-gray-300">"{vf!.kutipan}" {vf!.page_number && `(hal. ${vf!.page_number})`}</span>
-                              </li>
-                            )}
-                            <li className="flex flex-col gap-1">
-                              <span className="text-sm font-semibold text-gray-400">Kenapa Kritis?</span>
-                              <span className="text-sm text-gray-300">
-                                Berdasarkan aturan medis untuk kategori umur <strong>{age_group ? AGE_GROUP_LABELS[age_group] || age_group : 'pasien ini'}</strong>, nilai <span className="text-red-400 font-mono">{vf!.nilai} {meta.unit}</span> berada di luar batas aman (di zona kritis).
-                              </span>
-                            </li>
-                          </ul>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  );
-                }
-
-                return <Fragment key={key}>{CardContent}</Fragment>;
-              })}
-            </div>
-
-            <button
-              type="button"
-              className="mt-3 text-sm text-emerald-400 dark:text-emerald-400 font-medium hover:underline transition-colors"
-              onClick={() => setShowFullDetail(true)}
-            >
-              📄 Lihat detail lengkap →
-            </button>
-          </div>
-
-          {/* ── Section 3: Kriteria K1–K5 ── */}
-          <div>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">3</div>
-                <h3 className="text-sm text-gray-100 font-semibold">Agregasi Kriteria (K1–K5)</h3>
-              </div>
-              <span className={cn(
-                'text-[11px] font-medium px-2.5 py-1 rounded-full border',
-                yaCount > 0
-                  ? 'bg-red-950/40 border-red-900/50 text-red-400 dark:text-red-400'
-                  : borderlineCount > 0
-                    ? 'bg-amber-950/40 border-amber-900/50 text-amber-500 dark:text-amber-500'
-                    : 'bg-emerald-900/30 border-emerald-800/50 text-emerald-400 dark:text-emerald-400'
-              )}>
-                {yaCount > 0 ? `${yaCount} terpenuhi` : borderlineCount > 0 ? `${borderlineCount} borderline` : 'Tidak ada'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {kriteria.map(k => {
-                const CardContent = (
-                  <div
-                    className={cn(
-                      'rounded-xl border-l-[3px] border border-l-current p-3.5 flex flex-col gap-2',
-                      k.status === 'ya'
-                        ? 'border-red-900/50 border-l-red-500 bg-red-950/40 cursor-pointer hover:bg-red-950/60 transition-colors'
-                        : k.status === 'borderline'
-                          ? 'border-amber-900/50 border-l-amber-500 bg-amber-950/40'
-                          : 'border-emerald-800/50 border-l-emerald-500 bg-emerald-900/30'
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        {k.status === 'ya'
-                          ? <XCircle className="size-4 text-red-400 shrink-0" />
-                          : k.status === 'borderline'
-                            ? <AlertTriangle className="size-4 text-amber-500 dark:text-amber-500 shrink-0" />
-                            : <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />}
-                        <span className="text-sm font-medium font-bold text-gray-100">{k.kriteria}</span>
-                      </div>
-                      <span className={cn(
-                        'text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0',
-                        k.status === 'ya' ? 'bg-red-950/60 text-red-400 border border-red-900/50'
-                          : k.status === 'borderline' ? 'bg-amber-950/60 text-amber-500 dark:text-amber-500 border border-amber-900/50'
-                            : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50'
-                      )}>
-                        {k.status === 'ya' ? 'TERPENUHI' : k.status === 'borderline' ? 'BORDERLINE' : 'TIDAK'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] font-semibold text-gray-100 leading-snug">{KRITERIA_SHORT_LABEL[k.kriteria] || k.label}</p>
-                    {k.catatan && (
-                      <p className="text-[10px] text-gray-400 leading-relaxed border-t border-white/10 pt-1.5">{k.catatan}</p>
-                    )}
-                  </div>
-                );
-
-                if (k.status === 'ya') {
-                  return (
-                    <Dialog key={k.kriteria}>
-                      <DialogTrigger asChild>
-                        {CardContent}
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-gray-100">
-                        <DialogHeader>
-                          <DialogTitle className="text-red-400">Kriteria Kritis: {k.kriteria}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-2">
-                          <ul className="space-y-3 list-none">
-                            <li className="flex flex-col gap-1">
-                              <span className="text-sm font-semibold text-gray-400">Definisi Kriteria:</span>
-                              <span className="text-sm text-gray-100">{k.label}</span>
-                            </li>
-                            <li className="flex flex-col gap-1">
-                              <span className="text-sm font-semibold text-gray-400">Status Sistem:</span>
-                              <span className="text-sm text-red-400 font-medium">TERPENUHI (KRITIS)</span>
-                            </li>
-                            {k.catatan && k.catatan.trim() && k.catatan.toLowerCase() !== 'null' && k.catatan.toLowerCase() !== 'undefined' && (
-                              <li className="flex flex-col gap-1">
-                                <span className="text-sm font-semibold text-gray-400">Alasan / Bukti:</span>
-                                <span className="text-sm text-gray-300">- {k.catatan}</span>
-                              </li>
-                            )}
-                          </ul>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  );
-                }
-
-                return <Fragment key={k.kriteria}>{CardContent}</Fragment>;
               })}
             </div>
           </div>
+
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-foreground">Nilai Vital &amp; Rentang Usia</h3>
+              <span className="text-sm text-muted-foreground">{vitalPresentCount}/{vitalEntries.length} tercatat{vitalGawatCount > 0 ? ` · ${vitalGawatCount} gawat` : ''}{vitalBorderlineCount > 0 ? ` · ${vitalBorderlineCount} perlu ditinjau` : ''}</span>
+            </div>
+            {referenceNotice}
+            {spo2Missing && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">SpO₂ belum tersedia. Periksa hasil pengukuran pada dokumen.</p>}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {vitalEntries.map(({ key, meta, vf, isEmpty, tercatatNol, level }) => (
+                <div key={key} className={cn('min-w-0 rounded-xl border bg-card p-4', level === 'gawat' ? 'border-red-300 dark:border-red-900' : level === 'borderline' ? 'border-amber-300 dark:border-amber-900' : 'border-border')}>
+                  <p className="text-sm font-medium text-muted-foreground">{meta.label}</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">{isEmpty ? '—' : vf!.nilai}<span className="ml-2 text-sm font-normal text-muted-foreground">{!isEmpty ? meta.unit : ''}</span></p>
+                  <p className={cn('mt-2 flex items-center gap-1.5 text-sm font-medium', level === 'gawat' ? 'text-red-700 dark:text-red-400' : level === 'borderline' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground')}>
+                    {isEmpty || !vf?.band ? <FileText className="size-4" /> : level === 'gawat' || level === 'borderline' ? <AlertTriangle className="size-4" /> : <CheckCircle2 className="size-4" />}
+                    {isEmpty ? tercatatNol ? key === 'GCS' ? 'Nilai tidak sah' : 'Tidak diukur' : 'Belum tercatat' : labelBand(key, vf?.nilai, vf?.band, age_group)}
+                  </p>
+                  {tercatatNol && <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{key === 'GCS' ? 'Nilai di dokumen tidak sah untuk GCS.' : 'Dokumen mencatat 0; nilai tidak dipakai untuk penilaian.'}</p>}
+                  <details className="mt-3 border-t border-border pt-3">
+                    <summary className="cursor-pointer text-sm font-medium text-primary">Rentang &amp; bukti</summary>
+                    <div className="mt-3 space-y-3">
+                      <VitalRangeText references={references} parameter={key} ageGroup={age_group} />
+                      {key === 'Nyeri' && isEmpty && <p className="text-sm text-muted-foreground">Tanda lingkaran atau centang pada skala nyeri mungkin belum terbaca. Periksa PDF asli.</p>}
+                      {vf?.instrumen_diharapkan && <p className="text-sm text-muted-foreground">Instrumen: {vf.instrumen_diharapkan}</p>}
+                      <QuoteCell kutipan={vf?.kutipan} page_number={vf?.page_number} onOpenPdf={onOpenPdf} />
+                    </div>
+                  </details>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {criteriaPanel}
 
         </div>
       ) : (
         <>
           {/* Tabel 1: Parameter pemeriksaan fisik */}
-          <div className="px-6 py-4 border-b border-white/10">
+          <div className="px-6 py-4 border-b border-border">
             <div className="mb-4 flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">1</div>
-              <h3 className="text-sm text-gray-100 font-semibold">Parameter Pemeriksaan Fisik</h3>
+              <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-sm font-bold">1</div>
+              <h3 className="text-sm text-foreground font-semibold">Parameter Pemeriksaan Fisik</h3>
             </div>
-            <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
+            <div className="rounded-xl border border-border overflow-hidden overflow-x-auto dark:border-border">
               <table className="w-full text-sm border-collapse">
-                <thead className="bg-white/[0.02] border-b border-white/10">
+                <thead className="bg-white/[0.02] border-b border-border">
                   <tr>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Parameter</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[100px]">Status</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Kutipan Dokumen</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-muted-foreground uppercase tracking-wider">Parameter</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">Status</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-muted-foreground uppercase tracking-wider">Kutipan Dokumen</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {parameter_findings.map((p, idx) => (
+                  {groupedParams.map(group => (
+                    <Fragment key={group.nama}>
+                      <tr className="bg-white/[0.06] border-b border-border">
+                        <th colSpan={3} scope="rowgroup" className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-400">{group.nama}</th>
+                      </tr>
+                      {group.params.map((p, idx) => (
                     <tr key={p.key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-100">{p.label}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-foreground">{p.label}</td>
                       <td className="px-4 py-3 text-sm" style={p.status ? BAND_COLOR[p.status === 'abnormal' ? 'gawat' : 'normal'] : { color: 'var(--on-surface-variant)' }}>
                         {p.status === 'abnormal' ? (
                           <Dialog>
@@ -2229,25 +2168,25 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                                 <AlertTriangle className="size-3.5" />
                               </button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-gray-100">
+                            <DialogContent className="sm:max-w-md bg-card border-border text-foreground">
                               <DialogHeader>
                                 <DialogTitle className="text-red-400">Parameter Abnormal: {p.label}</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-4 py-2">
                                 <ul className="space-y-3 list-none">
                                   <li className="flex flex-col gap-1">
-                                    <span className="text-sm font-semibold text-gray-400">Temuan Tercatat:</span>
-                                    <span className="text-sm text-gray-100">{p.nilai || 'tercatat abnormal di dokumen'}</span>
+                                    <span className="text-sm font-semibold text-muted-foreground">Temuan Tercatat:</span>
+                                    <span className="text-sm text-foreground">{p.nilai || 'tercatat abnormal di dokumen'}</span>
                                   </li>
                                   {p.kutipan && (
                                     <li className="flex flex-col gap-1">
-                                      <span className="text-sm font-semibold text-gray-400">Kutipan Dokumen:</span>
-                                      <span className="text-sm italic text-gray-300">&ldquo;{p.kutipan}&rdquo;{p.page_number ? ` (hal. ${p.page_number})` : ''}</span>
+                                      <span className="text-sm font-semibold text-muted-foreground">Kutipan Dokumen:</span>
+                                      <span className="text-sm italic text-muted-foreground">&ldquo;{p.kutipan}&rdquo;{p.page_number ? ` (hal. ${p.page_number})` : ''}</span>
                                     </li>
                                   )}
                                   <li className="flex flex-col gap-1">
-                                    <span className="text-sm font-semibold text-gray-400">Kenapa Abnormal?</span>
-                                    <span className="text-sm text-gray-300">
+                                    <span className="text-sm font-semibold text-muted-foreground">Kenapa Abnormal?</span>
+                                    <span className="text-sm text-muted-foreground">
                                       {PARAMETER_ABNORMAL_INFO[p.key] || 'Temuan ini tercatat abnormal dan menjadi salah satu parameter yang diperiksa pada penilaian kegawatdaruratan.'}
                                       {p.retraksi_grade ? <span className="block mt-1">Grade retraksi: <strong className="text-red-400">{p.retraksi_grade}</strong> — retraksi interkostal menandakan distres napas lebih berat dibanding subkostal.</span> : null}
                                     </span>
@@ -2256,14 +2195,16 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                               </div>
                             </DialogContent>
                           </Dialog>
-                        ) : p.status === 'normal' ? 'Normal' : 'Tidak tercatat'}
+                        ) : p.status === 'normal' ? 'Normal' : p.perluBacaUlang ? 'Perlu Baca Ulang' : 'Tidak tercatat'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
-                        <QuoteCell kutipan={p.kutipan} page_number={p.page_number} />
-                        {p.nilai ? <span className="block text-label-md">Nilai: {p.nilai}</span> : null}
+                      <td className="px-4 py-3 text-sm text-muted-foreground space-y-1">
+                        {p.perluBacaUlang
+                          ? <span className="italic">Belum diekstrak dari PDF. Klik Baca Ulang untuk memperbarui.</span>
+                          : <QuoteCell kutipan={p.kutipan} page_number={p.page_number} onOpenPdf={onOpenPdf} />}
+                        {p.nilai ? <span className="block text-sm">Nilai: {p.nilai}</span> : null}
                         {p.sumber_dokumen === 'resume_medis' ? (
                           <span
-                            className="inline-block rounded border border-amber-900/50 px-2 py-0.5 text-label-md text-amber-500 dark:text-amber-500 bg-amber-950/40"
+                            className="inline-block rounded border border-amber-900/50 px-2 py-0.5 text-sm text-amber-500 dark:text-amber-500 bg-amber-950/40"
                             title="Tidak tercatat di formulir Triase IGD — ditampilkan dari Resume Medis Rawat Inap sebagai konteks tambahan. Tidak ikut menentukan Ya/Tidak/Borderline pada Tabel 3 (K1-K5 tetap dihitung khusus dari Triase IGD saja)."
                           >
                             Resume Medis
@@ -2271,7 +2212,7 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                         ) : null}
                         {p.retraksi_grade ? (
                           <span
-                            className="inline-block rounded border border-red-900/50 px-2 py-0.5 text-label-md text-red-400 dark:text-red-400 bg-red-950/40 ml-1"
+                            className="inline-block rounded border border-red-900/50 px-2 py-0.5 text-sm text-red-400 dark:text-red-400 bg-red-950/40 ml-1"
                             title="Retraksi interkostal menandakan distres napas lebih berat dibanding subkostal (PNPK Tatalaksana Pneumonia pada Anak IDAI)"
                           >
                             {p.retraksi_grade}
@@ -2279,6 +2220,8 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                         ) : null}
                       </td>
                     </tr>
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -2286,23 +2229,23 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
           </div>
 
           {/* Tabel 2: Nilai vital + ambang batas (referensi dewasa + hasil per-record) */}
-          <div className="px-6 py-4 border-b border-white/10">
+          <div className="px-6 py-4 border-b border-border">
             <div className="mb-4 flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">2</div>
-              <h3 className="text-sm text-gray-100 font-semibold">
-                Nilai Vital &amp; Ambang Batas
-                {age_group ? <span className="ml-2 font-normal text-gray-400 text-label-md">(Usia: {AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
+              <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-sm font-bold">2</div>
+              <h3 className="text-sm text-foreground font-semibold">
+                Nilai Vital &amp; Rentang Usia
+                {age_group ? <span className="ml-2 font-normal text-muted-foreground text-sm">(Usia: {AGE_GROUP_LABELS[age_group] || age_group})</span> : null}
               </h3>
             </div>
-            <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
+            <div className="rounded-xl border border-border overflow-hidden overflow-x-auto dark:border-border">
               <table className="w-full text-sm border-collapse">
-                <thead className="bg-white/[0.02] border-b border-white/10">
+                <thead className="bg-white/[0.02] border-b border-border">
                   <tr>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Parameter</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[90px]">Nilai</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[100px]">Band</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Ambang (Dewasa)</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Dokumen</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-muted-foreground uppercase tracking-wider">Parameter</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-muted-foreground uppercase tracking-wider w-[90px]">Nilai</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">Penilaian</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-muted-foreground uppercase tracking-wider">Rentang sesuai usia</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-muted-foreground uppercase tracking-wider">Dokumen</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2329,19 +2272,16 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                       : undefined;
                     return (
                       <tr key={key} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-100">{meta.label}</td>
-                        <td className="px-4 py-3 text-sm font-mono">{!isEmpty ? `${vf.nilai} ${meta.unit}` : <span className="italic text-gray-400" title={nyeriCaveat}>{nyeriCaveat ? '—' : '—'}</span>}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-foreground">{meta.label}</td>
+                        <td className="px-4 py-3 text-sm font-mono">{!isEmpty ? `${vf.nilai} ${meta.unit}` : <span className="italic text-muted-foreground" title={nyeriCaveat}>{nyeriCaveat ? '—' : '—'}</span>}</td>
                         <td className="px-4 py-3 text-sm font-medium" style={vf?.band ? BAND_COLOR[vf.band] : { color: 'var(--on-surface-variant)' }}>
-                          {labelBand(key, vf?.nilai, vf?.band)}
+                          {vf?.tercatat_nol ? key === 'GCS' ? 'Nilai tidak sah' : 'Tidak diukur' : isEmpty ? 'Belum tercatat' : labelBand(key, vf?.nilai, vf?.band, age_group)}
                         </td>
-                        <td className="px-4 py-3 text-label-md text-gray-400">{meta.referensiDewasa}</td>
-                        <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
-                          {nyeriCaveat
-                            ? <span className="italic text-[12px]" title={nyeriCaveat}>Catatan spesial lihat detail</span>
-                            : <>
-                              <QuoteCell kutipan={vf?.kutipan} page_number={vf?.page_number} />
-                              {instrumenDiharapkan ? <span className="block text-label-md italic">Instrumen: {instrumenDiharapkan}</span> : null}
-                            </>}
+                        <td className="px-4 py-3 text-sm text-muted-foreground"><VitalRangeText references={references} parameter={key} ageGroup={age_group} /></td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground space-y-1">
+                          {nyeriCaveat && <p className="text-sm text-muted-foreground">Tanda pada skala nyeri mungkin belum terbaca. Periksa PDF asli.</p>}
+                          <QuoteCell kutipan={vf?.kutipan} page_number={vf?.page_number} onOpenPdf={onOpenPdf} />
+                          {instrumenDiharapkan && <p className="text-sm text-muted-foreground">Instrumen: {instrumenDiharapkan}</p>}
                         </td>
                       </tr>
                     );
@@ -2349,65 +2289,10 @@ function KegawatdaruratanTable({ recordData }: { recordData: Record<string, any>
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-label-md text-gray-400 italic">
-              Ambang untuk Dewasa (Lansia menggunakan ambang sama, kecuali HR &lt;60/&gt;100). Anak/bayi punya ambang per kelompok usia (PALS) — sudah disesuaikan otomatis pada kolom Band berdasarkan usia pasien.
-            </p>
+            {referenceNotice}
           </div>
 
-          {/* Tabel 3: Agregasi kriteria K1-K5 */}
-          <div className="px-6 py-4">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-400 flex items-center justify-center text-[12px] font-bold">3</div>
-              <h3 className="text-sm text-gray-100 font-semibold">Agregasi Kriteria (K1-K5)</h3>
-            </div>
-            <div className="rounded-xl border border-white/10 overflow-hidden overflow-x-auto dark:border-white/10">
-              <table className="w-full text-sm border-collapse">
-                <thead className="bg-white/[0.02] border-b border-white/10">
-                  <tr>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[240px]">Kriteria</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider w-[120px]">Status</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Bukti</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium font-semibold text-gray-400 uppercase tracking-wider">Catatan</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kriteria.map((k, idx) => (
-                    <tr key={k.kriteria} className={cn('border-b last:border-0 align-top', idx % 2 === 1 && 'bg-white/[0.02]')}>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-100">{k.kriteria} <span className="font-normal text-gray-400">{k.label}</span></td>
-                      <td className="px-4 py-3">
-                        <Badge className={cn('text-[10px] font-label-sm px-2.5 py-1', KRITERIA_STATUS_STYLE[k.status])} style={KRITERIA_STATUS_COLOR[k.status]}>
-                          {KRITERIA_STATUS_LABEL[k.status]}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-400 space-y-1">
-                        {k.evidence.length === 0
-                          ? <span className="italic">Tidak ada</span>
-                          : (
-                            <ul className="space-y-1">
-                              {k.evidence.map((e, i) => (
-                                <li key={i} className="text-[12px]">
-                                  {e.sumber === 'proclist'
-                                    ? <span className="font-mono">Kode {e.kode} — {e.deskripsi}</span>
-                                    : e.sumber === 'esi'
-                                    ? <span>ESI: {e.skor}{e.signal ? ' (sinyal konsisten dengan kegawatan)' : ' (sinyal pendukung, tidak menentukan status K5)'} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>
-                                    : e.sumber === 'tindakan_segera'
-                                    ? <span>Tindakan segera: {e.label} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>
-                                    : <span>{e.label || e.key}{e.nilai !== undefined ? `: ${e.nilai}` : ''}{e.band ? ` (${labelBand(e.key, e.nilai, e.band)})` : ''} <QuoteCell kutipan={e.kutipan} page_number={e.page_number} /></span>}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-400">{k.catatan || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-3 text-label-md text-gray-400">
-              K2-K5 dihitung otomatis dari Tabel 1 &amp; 2 (ambang baku) — K5 dari PROCLIST. K1 penilaian bahasa (risiko diri/orang/lingkungan). Ini bahan cek klinis sebelum submit, bukan keputusan final.
-            </p>
-          </div>
+          <div className="px-4 py-6 sm:px-6">{criteriaPanel}</div>
         </>
       )}
     </div>
@@ -2479,6 +2364,7 @@ export default function ResultsPage() {
   const [isSavingRecord, setIsSavingRecord] = useState(false);
   const [isRereading, setIsRereading] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
+  const [evidencePdfPage, setEvidencePdfPage] = useState<number | null>(null);
   const [maximizeData, setMaximizeData] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
@@ -2839,7 +2725,7 @@ export default function ResultsPage() {
                         </Badge>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-sm text-muted-foreground">
                       MRN: <span className="font-mono-data">{selectedRecord.mrn || '-'}</span> · Status:
                       <span className="ml-1"><RecordStatusBadge status={selectedRecord.validation_status} /></span>
                       {parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP && (
@@ -2848,51 +2734,50 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
-                  {/* Satu kartu untuk seluruh temuan. Sebelumnya tersebar di
-                      enam kartu terpisah di bawah tabel, sehingga koder harus
-                      menggulir dan membaca satu per satu untuk menjawab satu
-                      pertanyaan sederhana: pending atau tidak, dan kenapa. */}
+                  {/* Masalah validasi saat ini ditampilkan lebih dulu agar status klaim
+                      tidak tertutup oleh ringkasan risiko yang tersimpan sebelumnya. */}
+                  {(selectedRecord.errors?.length ?? 0) > 0 && (() => {
+                    const fieldNotes = parseAiReview(selectedRecord)?.field_notes;
+                    return (
+                      <section aria-label="Masalah validasi data" className="rounded-lg border border-amber-600/25 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10 sm:p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+                            <div>
+                              <h4 className="font-display text-base font-semibold text-amber-900 dark:text-amber-300">Perlu perbaikan data</h4>
+                              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-foreground/85">
+                                Ditemukan oleh pemeriksaan aturan aplikasi. Periksa data dan dokumen asli sebelum klaim dikirim.
+                              </p>
+                            </div>
+                          </div>
+                          <span className="rounded-full border border-amber-600/25 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                            {selectedRecord.errors.length} masalah
+                          </span>
+                        </div>
+                        <div className="mt-4 divide-y divide-amber-500/20 border-t border-amber-500/20">
+                          {selectedRecord.errors.map((err, i) => {
+                            const points = toBulletPoints(fieldNotes?.[err.field_name] || err.error_message);
+                            return (
+                              <div key={`${err.rule_id}-${i}`} className="py-3 last:pb-0">
+                                <p className="text-sm font-semibold text-foreground">{getFieldLabel(err.field_name)}</p>
+                                <ul className="mt-1.5 max-w-3xl list-disc space-y-1 break-words pl-5 text-sm leading-relaxed text-foreground/85">
+                                  {(points.length ? points : ['Periksa kembali nilai pada kolom ini.']).map((point, j) => <li key={j}>{point}</li>)}
+                                </ul>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })()}
+
                   <RingkasanTemuanCard
                     putusan={parseAiReview(selectedRecord)?.putusan_pending}
                     tindakan={parseAiReview(selectedRecord)?.temuan_tindakan}
                     validationStatus={selectedRecord.validation_status}
                     prosedurKosong={prosedurKosong}
+                    currentValidationIssues={selectedRecord.errors?.length ?? 0}
                   />
-
-                  {/* ─── Alasan Status Pending ─── beda dari "Pola Pending Risk" di
-                      bawah (itu pola heuristik AI, mis. kegawatan_lemah) — ini
-                      alasan RESMI dari rule engine: field mana yang gagal validasi.
-                      Ditampilkan untuk KEDUA status 'pending' (minor, non-blocking)
-                      MAUPUN 'error' (major/critical, blocking) — badge/label di
-                      halaman ini sama-sama tampil "PENDING" untuk keduanya (lihat
-                      RecordStatusBadge), jadi alasannya juga harus tampil untuk
-                      keduanya, bukan cuma severity minor. Konsisten dengan kolom
-                      "Alasan Pending" di halaman Riwayat Upload (semua severity). ─── */}
-                  {(selectedRecord.validation_status === 'pending' || selectedRecord.validation_status === 'error') && (selectedRecord.errors?.length ?? 0) > 0 && (() => {
-                    // Pakai catatan AI (field_notes) yang lebih detail & manusiawi
-                    // kalau tersedia untuk field itu — jauh lebih jelas buat
-                    // verifikator dibanding error_message rule engine yang singkat
-                    // (mis. "Tindakan Rehab Medik terdeteksi. Pastikan dokumen
-                    // lengkap." vs catatan AI yang menyebut kode prosedur, temuan
-                    // dokumen aktual, dan langkah perbaikan spesifik). Fallback ke
-                    // error_message kalau field itu tidak punya catatan AI.
-                    const fieldNotes = parseAiReview(selectedRecord)?.field_notes;
-                    return (
-                      <div className="px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs space-y-1.5">
-                        <div className="font-display font-semibold text-amber-700 dark:text-amber-400">
-                          Kenapa Status Pending?
-                        </div>
-                        {selectedRecord.errors.map((err, i) => (
-                          <div key={i} className="text-muted-foreground">
-                            <strong className="text-foreground">{getFieldLabel(err.field_name)}:</strong>{' '}
-                            {/* whitespace-pre-wrap: catatan AI berformat bullet point (baris "- ..."
-                                dipisah \n) -- tanpa ini, newline-nya collapse jadi satu baris panjang */}
-                            <span className="whitespace-pre-wrap">{fieldNotes?.[err.field_name] || err.error_message}</span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
 
                   {/* ─── Pola Pending Risk ───────────────────── */}
                   {(() => {
@@ -2941,13 +2826,13 @@ export default function ResultsPage() {
                   )}
 
                   {/* ─── Controls ──────────────────────────── */}
-                  <div className="flex gap-2 items-center flex-wrap">
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <input type="checkbox" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
-                      Tampilkan hanya yang bermasalah
+                  <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-foreground hover:bg-muted/50">
+                      <input type="checkbox" className="size-4 accent-primary" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
+                      Hanya tampilkan masalah
                     </label>
                     {SHOW_RV20 && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
-                      <Button variant="outline" size="sm" onClick={() => setSuratKlarifikasiOpen(true)}>
+                      <Button variant="outline" size="sm" className="min-h-10 px-3 text-sm" onClick={() => setSuratKlarifikasiOpen(true)}>
                         Buat Surat Klarifikasi
                       </Button>
                     )}
@@ -2965,6 +2850,7 @@ export default function ResultsPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="min-h-10 px-3 text-sm"
                       disabled={isRereading}
                       onClick={handleReread}
                       title="Ekstraksi ulang dari PDF asli — dipakai kalau ada field kosong/error yang dicurigai sebenarnya ada di dokumen, atau kalau AI review gagal dibuat"
@@ -2972,12 +2858,13 @@ export default function ResultsPage() {
                       {isRereading ? 'Membaca ulang...' : 'Baca Ulang'}
                     </Button>
                     {!isEditing ? (
-                      <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>Edit</Button>
+                      <Button variant="secondary" size="sm" className="min-h-10 px-3 text-sm" onClick={() => setIsEditing(true)}>Edit data</Button>
                     ) : (
                       <>
-                        <Button variant="secondary" size="sm" onClick={() => { setIsEditing(false); setEditedValues({}); }}>Batal</Button>
+                        <Button variant="secondary" size="sm" className="min-h-10 px-3 text-sm" onClick={() => { setIsEditing(false); setEditedValues({}); }}>Batal</Button>
                         <Button
                           size="sm"
+                          className="min-h-10 px-3 text-sm"
                           disabled={Object.keys(editedValues).length === 0 || isSavingRecord}
                           onClick={handleSaveRecord}
                         >
@@ -2990,7 +2877,19 @@ export default function ResultsPage() {
               </Card>
 
               {/* ─── Card Data Klaim ────────────────────────── */}
-              <Card className="p-5">
+              <Card className="gap-5 p-5 sm:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-foreground sm:text-xl">Data klaim</h2>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Periksa kolom yang perlu ditindaklanjuti dan cocokkan dengan dokumen asli.</p>
+                  </div>
+                  {String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') && (
+                    <Button variant="outline" size="sm" className="min-h-10 px-3 text-sm" onClick={() => setShowPdf(v => !v)}>
+                      <FileText aria-hidden="true" className="size-4" />
+                      {showPdf ? 'Sembunyikan PDF' : 'Lihat PDF asli'}
+                    </Button>
+                  )}
+                </div>
 
                 {/* ─── RV-13 s/d RV-16: silent-valid ────────────────────────
                   Prinsip (disepakati dengan user): "tidak ada data terkait"
@@ -3017,28 +2916,7 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {/* ─── Bukti primer: dokumen PDF asli vs data klaim ───────── */}
-                {/* Tampil jika berkas aslinya PDF (via nama file, tidak bergantung
-                    flag has_pdf dari backend) — kalau file ternyata hilang di disk,
-                    PdfViewer menampilkan pesan yang jelas. */}
-                {String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') && (
-                  <div className="mb-4">
-                    <Button variant="outline" size="sm" onClick={() => setShowPdf(v => !v)}>
-                      <FileText className="size-3.5" />
-                      {showPdf ? 'Sembunyikan Dokumen PDF Asli' : 'Lihat Dokumen PDF Asli'}
-                    </Button>
-                  </div>
-                )}
-
-                {/* ─── The single 60-column table (side-by-side dengan PDF saat dibuka)
-                    DAN Tabel Kegawatdaruratan — urutan render KEDUANYA ditukar
-                    KONDISIONAL (bukan cuma CSS `order`, supaya tab order/screen
-                    reader juga ikut benar) khusus utk GAWAT_DARURAT (IGD):
-                    Kegawatdaruratan paling relevan buat kasus IGD, jadi
-                    dimunculkan PALING ATAS. Utk RAWAT_INAP/RAWAT_JALAN, urutan
-                    lama dipertahankan (tabel 60-kolom dulu, Kegawatdaruratan
-                    tetap ada di bawah -- TIDAK dihapus total krn sebagian
-                    RAWAT_INAP masih masuk lewat IGD dulu). ─── */}
+                {/* ─── Tabel data klaim, INA-CBG, dan kegawatdaruratan ─── */}
                 {(() => {
                   const fieldsTable = showPdf ? (
                     <div>
@@ -3049,9 +2927,8 @@ export default function ResultsPage() {
                       </div>
                       <div className={cn('grid gap-4', maximizeData ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2')}>
                         <div
-                          className="min-w-0"
+                          className={cn('min-w-0', maximizeData ? 'order-1' : 'order-2 xl:order-1')}
                           style={{
-                            order: maximizeData ? 1 : 0,
                             maxHeight: maximizeData ? 'none' : 780,
                             overflowY: maximizeData ? 'visible' : 'auto',
                           }}
@@ -3067,7 +2944,7 @@ export default function ResultsPage() {
                             highlightFields={highlightFields}
                           />
                         </div>
-                        <div className="min-w-0" style={{ order: maximizeData ? 2 : 0 }}>
+                        <div className={cn('min-w-0', maximizeData ? 'order-2' : 'order-1 xl:order-2')}>
                           {/* ─── ErrorBoundary lokal, BUKAN global ───────────────
                               PdfViewer pakai pdf.js (canvas + web worker) yang
                               perilakunya bisa beda-beda tergantung browser/PC
@@ -3120,7 +2997,7 @@ export default function ResultsPage() {
                   // bukan dari jenis_klaim. Komponennya sendiri return null kalau
                   // kosong, jadi tidak perlu gating tambahan di sini.
                   const kegawatdaruratanTable = (
-                    <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} />
+                    <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined} />
                   );
 
                   // INA-CBG & Tarif card — now integrated with clinical coherence validation (19 Sep 2026)
@@ -3160,6 +3037,16 @@ export default function ResultsPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={evidencePdfPage !== null} onOpenChange={open => { if (!open) setEvidencePdfPage(null); }}>
+        <DialogContent className="w-[96vw] max-w-none sm:max-w-5xl">
+          <DialogHeader><DialogTitle>Bukti dokumen</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Bukti yang dipilih ada di halaman {evidencePdfPage}. Tutup dokumen untuk kembali ke hasil pemeriksaan.</p>
+          {evidencePdfPage !== null && fileInfo && <ErrorBoundary key={`${fileId}-${evidencePdfPage}`}>
+            <PdfViewer fileId={fileId} fileName={fileInfo.file_name} initialPage={evidencePdfPage} singlePage height="70vh" />
+          </ErrorBoundary>}
+        </DialogContent>
+      </Dialog>
 
       {selectedRecord && (
         <SuratKlarifikasiModal
