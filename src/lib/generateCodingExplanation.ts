@@ -230,6 +230,10 @@ export interface CodeReviewFlag {
 
 export interface CodeEvidenceEntry {
   code: string;
+  evidence_found?: boolean;
+  dictionary_status?: 'valid' | 'not_found' | 'unavailable';
+  coding_review_status?: 'VALID' | 'PENDING';
+  diganti_menjadi?: string;
   type?: string;
   found?: boolean;
   page_number?: number | null;
@@ -263,7 +267,8 @@ function describeStatusLabel(status: 'valid' | 'approved', evidenceEntry?: CodeE
   // "Perlu Review" dihapus 21 Sep 2026 (permintaan klien) -- evidenceEntry
   // tidak lagi memengaruhi label, disisakan di signature supaya pemanggil
   // tidak ikut berubah.
-  void evidenceEntry;
+  if (evidenceEntry?.dictionary_status === 'not_found') return 'Tercantum di dokumen; perlu verifikasi kode';
+  if (evidenceEntry?.dictionary_status === 'unavailable') return 'Validasi kamus belum tersedia';
   return status === 'approved' ? 'Disetujui' : 'Valid';
 }
 

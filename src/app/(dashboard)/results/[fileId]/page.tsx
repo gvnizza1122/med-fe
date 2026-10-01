@@ -180,6 +180,10 @@ const FIELD_CATEGORIES: Record<string, string[]> = {
 
 interface CodeEvidence {
   code: string;
+  evidence_found?: boolean;
+  dictionary_status?: 'valid' | 'not_found' | 'unavailable';
+  coding_review_status?: 'VALID' | 'PENDING';
+  diganti_menjadi?: string;
   type: 'diagnosis' | 'procedure';
   found: boolean;
   page_number: number | null;
@@ -769,7 +773,10 @@ function FieldRowTr({
               // review_status sengaja TIDAK lagi mewarnai chip (status
               // "Perlu Review" dihapus 21 Sep 2026) -- chip cuma bedakan
               // ada-bukti vs tidak-ada-bukti.
-              const needsReview = false;
+              const needsReview = ev.dictionary_status === 'not_found' || ev.dictionary_status === 'unavailable';
+              const dictionaryLabel = ev.dictionary_status === 'not_found'
+                ? 'Tercantum di dokumen; perlu verifikasi kode'
+                : ev.dictionary_status === 'unavailable' ? 'Validasi kamus belum tersedia' : null;
               const docLabel = ev.document_type ? DOCUMENT_TYPE_LABELS[ev.document_type] : 'dokumen';
               const reasonText = ev.review_flags?.map(f => f.reason).join(' ');
               const title = !ev.found
@@ -779,7 +786,7 @@ function FieldRowTr({
                 : reasonText;
               return (
                 <span
-                  key={ev.code}
+                  key={`evidence-${ev.type}-${ev.code}-${ev.page_number}`}
                   className={cn(
                     'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono border',
                     !ev.found
@@ -791,7 +798,9 @@ function FieldRowTr({
                   )}
                   title={title}
                 >
-                  {ev.found ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />} {ev.code}
+                  {ev.found && !needsReview ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />} {ev.code}
+                  {dictionaryLabel && <span className="font-sans">{dictionaryLabel}</span>}
+                  {ev.diganti_menjadi && <span className="font-sans">Diganti menjadi {ev.diganti_menjadi}</span>}
                 </span>
               );
             })}

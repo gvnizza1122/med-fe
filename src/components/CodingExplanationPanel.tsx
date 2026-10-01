@@ -77,8 +77,14 @@ export function CodingExplanationPanel({
   // (field-level, dari rule engine) belum tahu soal review_flags ini.
   // "Perlu Review" dihapus 21 Sep 2026 (permintaan klien) -- kode dengan
   // reviewStatus PENDING kini dilabeli Valid/Disetujui seperti kode lain.
-  const hasReviewFlag = false;
-  const statusLabel = hasReviewFlag ? 'Perlu Review' : status === 'approved' ? 'Disetujui' : 'Valid';
+  const currentCodes = codeString.split(/[;,]/).map(code => code.trim().toUpperCase());
+  const dictionaryEvidence = codeEvidence?.filter(e => currentCodes.includes(e.code.toUpperCase()));
+  const unavailable = dictionaryEvidence?.some(e => e.dictionary_status === 'unavailable');
+  const notFound = dictionaryEvidence?.some(e => e.dictionary_status === 'not_found');
+  const hasReviewFlag = Boolean(unavailable || notFound);
+  const statusLabel = unavailable ? 'Validasi kamus belum tersedia'
+    : notFound ? 'Tercantum di dokumen; perlu verifikasi kode'
+    : status === 'approved' ? 'Disetujui' : 'Valid';
   const statusColor = hasReviewFlag
     ? 'text-amber-600 dark:text-amber-400'
     : status === 'approved'
