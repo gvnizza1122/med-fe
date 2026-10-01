@@ -244,6 +244,8 @@ export const api = {
   login: (username: string, password: string) =>
     request('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   getMe: () => request('/api/v1/auth/me'),
+  lookupCodeDescriptions: (diagnosis: string[], procedure: string[]): Promise<{ diagnosis: Record<string, string>; procedure: Record<string, string> }> =>
+    request('/api/v1/code-descriptions/lookup', { method: 'POST', body: JSON.stringify({ diagnosis, procedure }) }),
 
   // Dashboard
   getDashboard: (period?: string) =>

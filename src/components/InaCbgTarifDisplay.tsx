@@ -9,7 +9,9 @@
  * props instead of parsing raw record data.
  */
 
+import { useEffect, useState } from 'react';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 interface Evidence {
@@ -104,11 +106,13 @@ function EvidenceBadge({ evidence }: { evidence?: Evidence }) {
 function CodeDisplay({
   label,
   code,
+  description,
   evidence,
   withBorder = true,
 }: {
   label: string;
   code: string;
+  description?: string;
   evidence?: Evidence;
   withBorder?: boolean;
 }) {
@@ -120,8 +124,13 @@ function CodeDisplay({
       )}
     >
       <div className="col-span-3 text-sm font-semibold text-gray-100">{label}</div>
-      <div className="col-span-3 text-center font-mono text-sm text-gray-200">
-        {code || '—'}
+      <div className="col-span-3 text-center">
+        <div className="font-mono text-sm text-gray-200">{code || '—'}</div>
+        {code && description && (
+          <div className="mt-0.5 text-[11px] leading-snug text-gray-400" title={description}>
+            {description}
+          </div>
+        )}
       </div>
       <div className="col-span-6 flex justify-end">
         <EvidenceBadge evidence={evidence} />
@@ -207,6 +216,20 @@ export function InaCbgTarifDisplay({
   tariff_result,
   className,
 }: InaCbgTarifDisplayProps) {
+  // Keterangan kamus ICD-10 WHO / ICD-9-CM dari backend (bukan AI). Hanya
+  // kode yang dikirim; kode yang tidak dikenal kamus dibiarkan tanpa keterangan.
+  const [descriptions, setDescriptions] = useState<{ diagnosis: Record<string, string>; procedure: Record<string, string> }>({ diagnosis: {}, procedure: {} });
+  const diagnosisKey = (diagnosis_code || '').trim().toUpperCase();
+  const procedureKey = (prosedur_code || '').trim().toUpperCase();
+  useEffect(() => {
+    if (!diagnosisKey && !procedureKey) return;
+    let active = true;
+    api.lookupCodeDescriptions(diagnosisKey ? [diagnosisKey] : [], procedureKey ? [procedureKey] : [])
+      .then(result => { if (active) setDescriptions(result); })
+      .catch(() => { /* panel tetap tampil tanpa keterangan */ });
+    return () => { active = false; };
+  }, [diagnosisKey, procedureKey]);
+
   return (
     <div
       className={cn(
@@ -214,10 +237,16 @@ export function InaCbgTarifDisplay({
         className
       )}
     >
-      <CodeDisplay label="Diagnosis" code={diagnosis_code} evidence={diagnosis_evidence} />
+      <CodeDisplay
+        label="Diagnosis"
+        code={diagnosis_code}
+        description={descriptions.diagnosis?.[diagnosisKey]}
+        evidence={diagnosis_evidence}
+      />
       <CodeDisplay
         label="Prosedur"
         code={prosedur_code}
+        description={descriptions.procedure?.[procedureKey]}
         evidence={prosedur_evidence}
         withBorder={false}
       />
