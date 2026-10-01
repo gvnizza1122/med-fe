@@ -13,6 +13,7 @@ import {
   ClipboardList,
   ListChecks,
   ScrollText,
+  ChartNoAxesCombined,
   Sun,
   Moon,
   LogOut,
@@ -61,6 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/users", icon: Users, label: "Manajemen User", roles: ["superadmin"] },
       { href: "/rules", icon: ShieldCheck, label: "Aturan Validasi", roles: ["superadmin", "admin"] },
+      { href: "/penggunaan-ai", icon: ChartNoAxesCombined, label: "Penggunaan AI", roles: ["superadmin", "admin"] },
       { href: "/audit-log", icon: ScrollText, label: "Audit Log", roles: ["superadmin", "admin"] },
     ],
   },

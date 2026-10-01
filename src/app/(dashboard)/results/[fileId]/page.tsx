@@ -12,6 +12,8 @@ import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { Header } from '@/components/dashboard/header';
+import { SaranKodingPanel } from '@/components/SaranKodingPanel';
+import { KodingReadinessNotice, type KesiapanKoding } from '@/components/KodingReadinessNotice';
 import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
 import type { TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
 import type { TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
@@ -28,6 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { FIELD_TYPE_REGISTRY } from '@/lib/fieldTypeRegistry';
@@ -371,6 +374,8 @@ interface TariffResult {
 }
 
 interface AiReview {
+  kesiapan_koding?: KesiapanKoding;
+  penjaminan?: { jenis: string; dasar: string; catatan: string } | null;
   // Tipe 3 ketentuan klaim (aturan kombinasi kode) -- diisi backend di
   // aiReviewService.js, kosong kalau tidak ada aturan yang terpicu.
   kombinasi_kode?: TemuanKombinasiKode[];
@@ -670,8 +675,9 @@ const ALWAYS_HIDDEN_FIELDS = new Set([
 // TANPA menduplikasi logika edit/AI-note/code-evidence — jadi mode ringkas
 // & tabel lengkap selalu tampil identik per-baris, cuma beda pengelompokan.
 function FieldRowTr({
-  field, editing, editedValues, onEdit, autofilledFrom, isHighlighted, isZebra, rowRef, recordData,
+  field, editing, editedValues, onEdit, autofilledFrom, isHighlighted, isZebra, rowRef, recordData, compact = false,
 }: {
+  compact?: boolean;
   field: FieldRow;
   editing: boolean;
   editedValues: Record<string, any>;
@@ -688,6 +694,7 @@ function FieldRowTr({
   const isChanged = editedValues[field.column_name] !== undefined;
   const codeType = field.column_name === 'DIAGLIST' ? 'diagnosis' : field.column_name === 'PROCLIST' ? 'procedure' : null;
   const valueCodes = codeType ? String(currentValue ?? '').split(/[;,]/).map(code => code.trim().toUpperCase()).filter(Boolean) : [];
+  const visibleSuggestions = (field.suggestedCodes ?? []).filter(s => !compact || !valueCodes.includes(s.code.trim().toUpperCase()));
   const allCodes = [...new Set([...valueCodes, ...(field.suggestedCodes ?? []).map(item => item.code.trim().toUpperCase())])].slice(0, 50);
   const codeRequestKey = codeType && allCodes.length ? `${codeType}:${allCodes.join(';')}` : '';
   const [codeLookup, setCodeLookup] = useState<{ key: string; descriptions: Record<string, string>; error: boolean } | null>(null);
@@ -717,16 +724,17 @@ function FieldRowTr({
     <tr
       ref={rowRef}
       className={cn(
-        'border-b last:border-0 hover:bg-muted/30 align-top',
+        compact ? 'grid grid-cols-[minmax(0,1fr)_auto] rounded-lg border border-border bg-background/40 p-4' : 'border-b last:border-0 hover:bg-muted/30 align-top',
         isZebra && !isHighlighted && 'bg-muted/25',
         isHighlighted && 'bg-amber-500/15 ring-1 ring-inset ring-amber-500/40'
       )}
     >
-      <td className="px-4 py-3 text-sm font-semibold leading-relaxed text-foreground">{getFieldLabel(field.column_name)}</td>
-      <td className="px-4 py-3">
+      <td className={cn("text-sm font-semibold leading-relaxed text-foreground", compact ? "col-start-1 row-start-1 pb-3 text-base" : "px-4 py-3")}>{compact ? (codeType === 'diagnosis' ? 'Diagnosis' : 'Prosedur') : getFieldLabel(field.column_name)}{compact && <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{codeType === 'diagnosis' ? 'ICD-10 · Kamus SATUSEHAT' : 'ICD-9-CM · Kamus SATUSEHAT'}</span>}</td>
+      <td className={cn(compact ? "col-span-2 row-start-2 min-w-0" : "px-4 py-3")}>
         {editing && !isSystem ? (
           <input
             type="text"
+            aria-label={getFieldLabel(field.column_name)}
             value={String(currentValue ?? '')}
             onChange={e => onEdit(field.column_name, e.target.value)}
             className={cn(
@@ -738,12 +746,25 @@ function FieldRowTr({
         ) : codeType && valueCodes.length > 0 ? (
           <div className="space-y-2" aria-label={codeType === 'diagnosis' ? 'Daftar diagnosis ICD-10' : 'Daftar prosedur ICD-9-CM'}>
             {valueCodes.map((code, index) => (
-              <div key={`${code}-${index}`} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm leading-relaxed">
-                <code className="shrink-0 font-mono font-semibold text-foreground">{code}</code>
-                <span className="min-w-0 break-words text-foreground/85">{codeDescription(code)}</span>
+              <div key={`${code}-${index}`} className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-relaxed", compact && "border-t border-border/60 py-3 first:border-0 first:pt-0")}>
+                <code className={cn("shrink-0 font-mono font-semibold text-foreground", compact && "rounded-md bg-muted px-2.5 py-1 text-lg font-bold")}>{code}</code>
+                {compact && codeType === 'diagnosis' && <span className="text-sm font-medium text-foreground/85">{index === 0 ? 'Diagnosis utama' : 'Diagnosis sekunder'}</span>}
+                <span className={cn("min-w-0 break-words text-foreground", compact ? "w-full text-base leading-relaxed" : "flex-1")}>{codeDescription(code)}</span>
+                {compact && field.codeEvidence?.filter(ev => ev.code.toUpperCase() === code).map((ev, i) => (
+                  <span key={i} className={cn('w-full text-sm leading-relaxed', ev.found ? 'text-foreground/80' : 'text-destructive')}>
+                    {ev.found
+                      ? `${ev.document_type ? DOCUMENT_TYPE_LABELS[ev.document_type] || 'Dokumen' : 'Dokumen'}${ev.page_number ? ` · Hal. ${ev.page_number}` : ''}${ev.quotation ? `: “${ev.quotation}”` : ' · Bukti tercatat'}`
+                      : 'Bukti dokumen belum ditemukan. Periksa manual.'}
+                  </span>
+                ))}
+                {compact && !field.codeEvidence?.some(ev => ev.code.toUpperCase() === code) && field.suggestedCodes?.filter(item => item.code.trim().toUpperCase() === code && item.quotation).map((item, i) => (
+                  <span key={`usulan-${i}`} className="w-full text-sm leading-relaxed text-foreground/80">
+                    Referensi usulan{item.page_number ? ` · Hal. ${item.page_number}` : ''}: “{item.quotation}”
+                  </span>
+                ))}
               </div>
             ))}
-            <span className="text-xs text-muted-foreground">{codeType === 'diagnosis' ? 'ICD-10' : 'ICD-9-CM'} · Keterangan kamus SATUSEHAT</span>
+            {!compact && <span className="text-xs text-muted-foreground">{codeType === 'diagnosis' ? 'ICD-10' : 'ICD-9-CM'} · Keterangan kamus SATUSEHAT</span>}
           </div>
         ) : (
           <span className={cn('font-mono text-sm leading-relaxed break-words whitespace-pre-wrap', field.status === 'error' ? 'text-destructive' : 'text-foreground')}>
@@ -770,10 +791,12 @@ function FieldRowTr({
           </Badge>
         )}
       </td>
-      <td className="px-4 py-3">
-        <StatusBadge status={field.status} />
+      <td className={cn(compact ? "col-start-2 row-start-1 pl-3" : "px-4 py-3")}>
+        {compact && !isIssueStatus(field.status)
+          ? <span className="rounded-md bg-muted px-2 py-1 text-xs text-foreground/80" title="Kode terbaca dan lolos pemeriksaan kolom. Kesiapan upload ditampilkan terpisah.">Kode terbaca</span>
+          : <StatusBadge status={field.status} />}
       </td>
-      <td className="px-4 py-3 text-sm leading-relaxed text-muted-foreground break-words">
+      <td className={cn("text-sm leading-relaxed text-muted-foreground break-words", compact ? "col-span-2 row-start-3 min-w-0 pt-2" : "px-4 py-3")}>
         {field.status === 'error' && field.error_message && (
           <div>
             <div className="text-destructive mb-1">
@@ -799,7 +822,7 @@ function FieldRowTr({
             <strong className="inline-flex items-center gap-1"><Sparkles className="size-3" /> AI:</strong> {field.aiNote}
           </div>
         )}
-        {field.codeEvidence && field.codeEvidence.length > 0 && (
+        {!compact && field.codeEvidence && field.codeEvidence.length > 0 && (
           <div className={cn('flex flex-wrap gap-1', (field.status === 'error' || field.aiNote) ? 'mt-1.5' : '')}>
             {field.codeEvidence.map(ev => {
               // Fix item 7/8/9 (19 Sep 2026): warna chip & tooltip WAJIB ikut
@@ -843,6 +866,7 @@ function FieldRowTr({
         {(field.column_name === 'DIAGLIST' || field.column_name === 'PROCLIST') &&
           !isBlankValue(currentValue) && (
             <CodingExplanationPanel
+              showStatusBadge={!compact}
               codeString={String(currentValue ?? '')}
               fieldType={field.column_name === 'DIAGLIST' ? 'diagnosis' : 'procedure'}
               status={field.status as any}
@@ -856,13 +880,13 @@ function FieldRowTr({
               codeEvidence={field.codeEvidence}
             />
           )}
-        {field.suggestedCodes && field.suggestedCodes.length > 0 && (
+        {visibleSuggestions.length > 0 && (
           <div className="mt-3 rounded-lg border border-blue-500/25 bg-blue-500/5 p-3 text-foreground">
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
               <Lightbulb className="size-3.5" /> {codeType === 'diagnosis' ? 'Saran diagnosis AI (ICD-10)' : 'Saran prosedur AI (ICD-9-CM)'} · periksa dengan dokumen sebelum digunakan
             </div>
             <div className="space-y-2">
-              {field.suggestedCodes.map((suggestion, index) => {
+              {visibleSuggestions.map((suggestion, index) => {
                 const code = suggestion.code.trim().toUpperCase();
                 const alreadyApplied = valueCodes.includes(code);
                 return (
@@ -1391,6 +1415,7 @@ function RecordFieldsTable({
           </table>
         </div>
       )}
+      {(onlyIssues || showFullTable) && <InaCbgCoherenceDisplay recordData={recordData} />}
     </div>
   );
 }
@@ -1419,11 +1444,14 @@ function SimplifiedFieldAccordion({
     [categories]
   );
   const [expandOverride, setExpandOverride] = useState<Record<string, boolean>>({});
+  // Tab di bagian Diagnosis & Prosedur: data berkas (tabel) atau Saran AI.
+  const [tabDiagnosis, setTabDiagnosis] = useState<'berkas' | 'saran' | 'tarif'>('berkas');
   // Reset override expand/collapse saat pindah record (tidak pakai key-based
   // remount, lihat catatan di RecordFieldsTable) supaya kategori yang di-expand
   // manual utk record A tidak "bocor" ke record B.
   useEffect(() => {
     setExpandOverride({});
+    setTabDiagnosis('berkas');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordData.id]);
   // Diagnosis & Prosedur selalu terbuka: keterangan kamus ICD-10/ICD-9-CM
@@ -1442,8 +1470,10 @@ function SimplifiedFieldAccordion({
         const expanded = isExpanded(category);
         const issueCount = rows.filter(f => isIssueStatus(f.status)).length;
         const validCount = rows.length - issueCount;
+        const kesiapan = category === 'Diagnosis & Prosedur' ? parseAiReview(recordData)?.kesiapan_koding : undefined;
+        const risikoKoding = kesiapan?.status === 'berisiko_pending';
         return (
-          <section key={category} className={cn('overflow-hidden rounded-xl border', issueCount > 0 ? 'border-amber-500/30' : 'border-border')}>
+          <section key={category} className={cn('overflow-hidden rounded-xl border', risikoKoding ? 'border-red-500/40' : issueCount > 0 ? 'border-amber-500/30' : 'border-border')}>
             <button
               type="button"
               aria-expanded={expanded}
@@ -1454,11 +1484,47 @@ function SimplifiedFieldAccordion({
               )}
             >
               <span className="flex min-w-0 items-center gap-2.5"><ChevronDown aria-hidden="true" className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !expanded && '-rotate-90')} />{category}</span>
-              <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:text-sm', issueCount > 0 ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400')}>
-                {issueCount > 0 ? `${issueCount} perlu diperiksa` : `${validCount}/${rows.length} valid`}
+              <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:text-sm', risikoKoding ? 'bg-red-500/15 text-red-800 dark:text-red-200' : issueCount > 0 ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300' : category === 'Diagnosis & Prosedur' ? 'bg-muted text-foreground/80' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400')}>
+                {risikoKoding ? 'Berisiko pending' : issueCount > 0 ? `${issueCount} perlu diperiksa` : category === 'Diagnosis & Prosedur' ? 'Data kode' : `${validCount}/${rows.length} valid`}
               </span>
             </button>
-            {expanded && (
+            {expanded && category === 'Diagnosis & Prosedur' && (
+              <Tabs value={tabDiagnosis} onValueChange={value => setTabDiagnosis(value as typeof tabDiagnosis)} className="gap-0 border-t border-border">
+                <div className="border-b border-border bg-muted/10 px-4 py-3">
+                  <TabsList aria-label="Tampilan diagnosis, prosedur, dan tarif" className="h-auto w-full flex-wrap justify-start gap-1 sm:w-fit">
+                    <TabsTrigger value="berkas" className="min-h-10 px-3">Data klaim</TabsTrigger>
+                    <TabsTrigger value="saran" className="min-h-10 px-3">Saran AI</TabsTrigger>
+                    <TabsTrigger value="tarif" className="min-h-10 px-3">INA-CBG & Tarif</TabsTrigger>
+                  </TabsList>
+                </div>
+                <TabsContent value="berkas" className="space-y-3 p-4 sm:p-5">
+                  <KodingReadinessNotice kesiapan={kesiapan} />
+                  {editing && <p className="rounded-md bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">Pisahkan kode dengan titik koma (;). Perubahan tersimpan setelah menekan Simpan.</p>}
+                  <div className="grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))]">
+                  {rows.map(field => (
+                    <table key={field.column_name} aria-label={getFieldLabel(field.column_name)} className="block w-full">
+                      <tbody className="block">
+                        <FieldRowTr field={field} editing={editing} editedValues={editedValues} onEdit={onEdit}
+                          autofilledFrom={parseRawData(recordData)[`_autofill_${field.column_name}`]}
+                          isHighlighted={!!highlightFields?.has(field.column_name)} isZebra={false}
+                          rowRef={highlightFields?.has(field.column_name) ? highlightRowRef : undefined}
+                          recordData={recordData} compact />
+                      </tbody>
+                    </table>
+                  ))}
+                  </div>
+                </TabsContent>
+                <TabsContent value="saran"><SaranKodingPanel recordId={recordData.id} /></TabsContent>
+                <TabsContent value="tarif" className="p-4 sm:p-5">
+                  <SaranKodingPanel recordId={recordData.id} mode="tarif" />
+                  <section aria-label="Detail grouping data klaim" className="mt-4 border-t border-border pt-4">
+                    <h4 className="text-sm font-medium">Detail grouping dan kesesuaian klinis data klaim</h4>
+                    <div className="mt-3"><InaCbgCoherenceDisplay recordData={recordData} /></div>
+                  </section>
+                </TabsContent>
+              </Tabs>
+            )}
+            {expanded && category !== 'Diagnosis & Prosedur' && (
               <div className="overflow-x-auto border-t border-border">
               <table className="w-full min-w-[800px] table-fixed border-collapse text-sm">
                 <colgroup><col className="w-[20%]" /><col className="w-[29%]" /><col className="w-[16%]" /><col className="w-[35%]" /></colgroup>
@@ -2806,6 +2872,7 @@ export default function ResultsPage() {
                     );
                   })()}
 
+                  {parseAiReview(selectedRecord)?.penjaminan && <p className="rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-foreground"><strong>Penjamin BPJS · SEP tersedia.</strong> Label UMUM pada resume tidak menjadi alasan pending.</p>}
                   <RingkasanTemuanCard
                     putusan={parseAiReview(selectedRecord)?.putusan_pending}
                     tindakan={parseAiReview(selectedRecord)?.temuan_tindakan}
@@ -3033,20 +3100,9 @@ export default function ResultsPage() {
                     <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined} />
                   );
 
-                  // INA-CBG & Tarif card — now integrated with clinical coherence validation (19 Sep 2026)
-                  const inacbgCard = (
-                    <div className="mt-4">
-                      <div className="mb-2">
-                        <h3 className="text-sm font-semibold text-foreground">INA-CBG & Tarif</h3>
-                      </div>
-                      <InaCbgCoherenceDisplay key={`inacbg-${selectedRecord.id}`} recordData={selectedRecord} />
-                    </div>
-                  );
-
                   return (
                     <>
                       {fieldsTable}
-                      {inacbgCard}
                       {kegawatdaruratanTable}
                     </>
                   );

@@ -246,6 +246,20 @@ export const api = {
   getMe: () => request('/api/v1/auth/me'),
   lookupCodeDescriptions: (diagnosis: string[], procedure: string[]): Promise<{ diagnosis: Record<string, string>; procedure: Record<string, string> }> =>
     request('/api/v1/code-descriptions/lookup', { method: 'POST', body: JSON.stringify({ diagnosis, procedure }) }),
+  // Tab "Saran AI": diagnosis, prosedur, INA-CBG & tarif yang disusun dari isi
+  // berkas. Hanya dibaca, tidak mengubah data klaim.
+  getSaranKoding: (recordId: string) =>
+    request(`/api/v1/claim-files/records/${recordId}/saran-koding`),
+
+  tinjauDiagnosis: (recordId: string, paksaSol = false) =>
+    request(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }) }),
+
+  getTestingPending: (jenisKlaim: string, page = 1, search = '', includeArsip = false) =>
+    request(`/api/v1/testing-pending?${new URLSearchParams({ jenis_klaim: jenisKlaim, page: String(page), search, include_arsip: includeArsip ? '1' : '0' })}`),
+  saveTestingPending: (recordId: string, data: { actual_result: string; reference_source: string; actual_reason: string; reason_match: string; notes: string }) =>
+    request(`/api/v1/testing-pending/${encodeURIComponent(recordId)}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  getAiUsage: (month: string) => request(`/api/v1/ai-usage?month=${encodeURIComponent(month)}`),
 
   // Dashboard
   getDashboard: (period?: string) =>
