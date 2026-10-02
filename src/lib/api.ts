@@ -424,6 +424,18 @@ export const api = {
   // toggle 1/2/3 kategori sebelum drag file) — BUKAN kategori pasti per file.
   // Backend mendeteksi kategori tiap file dari isi dokumennya sendiri,
   // dibatasi ke daftar ini (lihat /upload-pdf-batch, allowed_jenis_klaim).
+  // Unggah berantrean: server membalas 202 + id proses; pembacaan berjalan di
+  // latar belakang dan dipantau lewat getProsesUnggah (tahan refresh).
+  uploadPdfAntre: (files: File[], allowedJenisKlaim: string[]) => {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    fd.append('allowed_jenis_klaim', JSON.stringify(allowedJenisKlaim));
+    return request('/api/v1/claim-files/upload-pdf-antre', { method: 'POST', body: fd, timeout: 600000 });
+  },
+  getProsesUnggah: () => request('/api/v1/claim-files/proses-unggah'),
+  tutupProsesUnggah: (ids: string[]) =>
+    request('/api/v1/claim-files/proses-unggah/tutup', { method: 'POST', body: JSON.stringify({ ids }) }),
+
   uploadPdfBatch: (files: File[], allowedJenisKlaim: string[]) => {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));

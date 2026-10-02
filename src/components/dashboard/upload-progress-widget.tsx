@@ -13,7 +13,10 @@ export function UploadProgressWidget({ compact = false }: { compact?: boolean })
   if (!job) return null;
 
   const processed = job.doneCount + job.failedCount;
-  const pct = job.total > 0 ? Math.round((processed / job.total) * 100) : 0;
+  const aktifSekarang = job.statuses.find(s => s.status === 'processing');
+  const sisa = job.sisaDetik ? (job.sisaDetik < 60 ? `${Math.max(5, Math.round(job.sisaDetik / 5) * 5)} dtk` : `${Math.round(job.sisaDetik / 60)} mnt`) : null;
+  // Unggahan berantrean: persen berjalan halus dari server; lainnya per berkas selesai.
+  const pct = job.server && job.persen != null ? job.persen : job.total > 0 ? Math.round((processed / job.total) * 100) : 0;
   const label = job.testing ? `Testing Batch (${job.total} file)` : job.type === 'batch' ? `Upload Batch (${job.total} file)` : 'Upload PDF';
 
   if (compact) {
@@ -63,8 +66,9 @@ export function UploadProgressWidget({ compact = false }: { compact?: boolean })
             />
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground">
-            Memproses {processed}/{job.total} file — bisa sambil buka halaman lain.
+            <span className="font-semibold text-foreground">{pct}%</span> · Memproses {processed}/{job.total} file{sisa ? ` · sisa ±${sisa}` : ''}{aktifSekarang?.tahapLabel ? ` · ${aktifSekarang.tahapLabel}` : ''}
           </p>
+          {job.server && <p className="text-[10px] text-muted-foreground">Aman di-refresh — proses tetap berjalan di server.</p>}
         </>
       ) : job.error ? (
         <p className="text-[10px] text-destructive">{job.error}</p>

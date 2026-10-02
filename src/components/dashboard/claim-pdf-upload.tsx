@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useUploadJob } from '@/contexts/UploadJobContext';
+import { useUploadJob, persenKeseluruhan } from '@/contexts/UploadJobContext';
 import {
   FileText,
   UploadCloud,
@@ -46,6 +46,13 @@ const PROCESS_STEPS = [
   { icon: ShieldCheck, title: 'Validasi & Audit', desc: 'Dicek terhadap aturan BPJS/INA-CBG, hasilnya langsung terlihat di Riwayat Upload.' },
 ];
 
+/** Perkiraan sisa waktu: "45 detik", "3 menit", "1 jam 5 menit". */
+function formatSisa(detik: number): string {
+  if (detik < 60) return `${Math.max(5, Math.round(detik / 5) * 5)} detik`;
+  const menit = Math.round(detik / 60);
+  return menit >= 60 ? `${Math.floor(menit / 60)} jam ${menit % 60} menit` : `${menit} menit`;
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -65,8 +72,10 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
   // (lewat widget sidebar) walau verifikator pindah ke halaman lain, tidak
   // terikat ke lifecycle komponen halaman ini lagi.
   const uploading = job?.active ?? false;
-  const ownJob = job?.type === 'batch' && !!job.testing === testing ? job : null;
-  const batchStatuses = ownJob?.statuses || [];
+  const ownJob = (job?.type === 'batch' || job?.server) && !!job.testing === testing ? job : null;
+  // Unggahan berantrean: status berkas di sesi ini dicocokkan per batch
+  // (daftar server juga memuat unggahan lain yang belum ditutup).
+  const batchStatuses = (ownJob?.batchId ? ownJob.statuses.filter(s => s.batchId === ownJob.batchId) : ownJob?.statuses) || [];
   const batchDone = ownJob && !ownJob.active && !ownJob.error
     ? { successful: ownJob.doneCount, failed: ownJob.failedCount }
     : null;
@@ -88,7 +97,9 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
   // memaksa pindah halaman saat mereka sedang lihat halaman lain justru
   // mengulang masalah yang fitur ini coba perbaiki).
   useEffect(() => {
-    if (pathname === '/extract' && job?.type === 'single' && !job.active && job.resultFileId) {
+    // Hanya untuk unggahan yang dimulai di sesi ini (batchId); hasil yang
+    // dilanjutkan setelah refresh ditampilkan di panel, tidak melompat sendiri.
+    if (pathname === '/extract' && job?.type === 'single' && !job.active && job.resultFileId && (!job.server || job.batchId)) {
       router.push(`/results/${job.resultFileId}`);
       dismissJob();
     }
@@ -154,8 +165,11 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
   }, [files, allowedCategories, startBatchUpload, testing]);
 
   const batchProgressDone = batchStatuses.filter(s => s.status === 'done' || s.status === 'failed').length;
+  const serverStatuses = ownJob?.server ? ownJob.statuses : [];
   const batchTotal = ownJob?.total || files.length;
-  const batchProgressPct = batchTotal > 0 ? Math.round((batchProgressDone / batchTotal) * 100) : 0;
+  // Berantrean: persen halus dari server (rata-rata berkas); testing: per berkas selesai.
+  const batchProgressPct = ownJob?.server && batchStatuses.length ? persenKeseluruhan(batchStatuses)
+    : batchTotal > 0 ? Math.round((batchProgressDone / batchTotal) * 100) : 0;
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -166,6 +180,36 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
 
       {testing && <HistoryTabs />}
       {ownJob?.error && <Alert variant="destructive"><AlertDescription>{ownJob.error}</AlertDescription></Alert>}
+      {/* Proses di server (tetap berjalan walau halaman di-refresh atau ditutup). */}
+      {!testing && files.length === 0 && serverStatuses.length > 0 && (
+        <Card className="mx-auto w-full max-w-5xl space-y-3 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium">
+              {ownJob?.active ? `Sedang diproses di server · ${serverStatuses.filter(s => s.status === 'done' || s.status === 'failed').length}/${serverStatuses.length} selesai` : `Unggahan selesai · ${ownJob?.doneCount} berhasil${ownJob?.failedCount ? `, ${ownJob.failedCount} gagal` : ''}`}
+            </p>
+            {ownJob?.active && <span className="text-sm text-muted-foreground"><strong className="text-foreground">{ownJob.persen ?? 0}%</strong>{ownJob.sisaDetik ? ` · perkiraan selesai ±${formatSisa(ownJob.sisaDetik)}` : ''}</span>}
+          </div>
+          {ownJob?.active && <Progress value={ownJob.persen ?? 0} className="h-2" />}
+          <p className="text-xs text-muted-foreground">Halaman boleh di-refresh, dipindah, atau ditutup — pembacaan berkas tetap berjalan di server.</p>
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {serverStatuses.map(s => (
+              <div key={s.prosesId} className="rounded-md border border-border p-2.5 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="min-w-0 truncate font-medium">{s.fileName}</span>
+                  <span className={cn('text-xs', s.status === 'failed' ? 'text-destructive' : 'text-muted-foreground')}>
+                    {s.status === 'done' ? '100% · Selesai' : s.status === 'failed' ? 'Gagal' : `${s.persen ?? 0}% · ${s.tahapLabel || 'Memproses'}${s.sisaDetik ? ` · sisa ±${formatSisa(s.sisaDetik)}` : ''}`}
+                  </span>
+                </div>
+                {(s.status === 'processing' || s.status === 'waiting') && <Progress value={s.persen || 0} className="mt-2 h-1.5" />}
+                {s.jumlahHalaman ? <p className="mt-1 text-xs text-muted-foreground">{s.jumlahHalaman} halaman</p> : null}
+                {s.status === 'failed' && s.error && <p className="mt-1 text-xs text-destructive/90">{s.error}</p>}
+                {s.status === 'done' && s.fileId && <button type="button" onClick={() => router.push(`/results/${s.fileId}`)} className="mt-1 text-xs font-medium text-primary hover:underline">Lihat hasil →</button>}
+              </div>
+            ))}
+          </div>
+          {!ownJob?.active && <Button variant="secondary" size="sm" onClick={dismissJob}>Tutup daftar</Button>}
+        </Card>
+      )}
       {testing && files.length === 0 && batchStatuses.length > 0 && <Card className="p-5 space-y-3"><p className="text-sm font-medium">Batch testing: {batchProgressDone}/{batchTotal} berkas selesai</p><Progress value={batchProgressPct} /><div className="max-h-64 overflow-y-auto text-sm space-y-2">{batchStatuses.map((s, i) => <div key={i} className="flex flex-wrap justify-between gap-2"><span className="truncate">{s.fileName}</span><span>{s.status === "done" ? "Selesai" : s.status === "failed" ? "Gagal" : s.status === "processing" ? "Memproses…" : "Menunggu"}</span>{s.error && <p className="w-full text-destructive">{s.error}</p>}</div>)}</div><Button variant="secondary" onClick={() => router.push("/testing-pending")}>Lihat hasil testing</Button></Card>}
       <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-5 lg:grid-cols-[1fr_320px] lg:items-start">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full">
@@ -257,7 +301,7 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
                       <span>{files.length} file dipilih ({formatFileSize(files.reduce((s, f) => s + f.size, 0))})</span>
-                      {uploading && <span className="font-mono-data">{batchProgressDone}/{files.length}</span>}
+                      {uploading && <span className="font-mono-data">{batchProgressPct}% · {batchProgressDone}/{files.length}</span>}
                     </div>
                     {uploading && <Progress value={batchProgressPct} />}
                     <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-border p-2">
@@ -308,9 +352,9 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
                                   ) : status.status === 'failed' ? (
                                     <><XCircle className="size-3" /> Gagal</>
                                   ) : status.status === 'processing' ? (
-                                    'Memproses...'
+                                    status.tahapLabel ? `${status.persen ?? 0}% · ${status.tahapLabel}${status.sisaDetik ? ` · sisa ±${formatSisa(status.sisaDetik)}` : ''}` : 'Memproses...'
                                   ) : (
-                                    'Menunggu'
+                                    status.sisaDetik ? `Menunggu · ±${formatSisa(status.sisaDetik)}` : 'Menunggu'
                                   )}
                                 </Badge>
                               )}
