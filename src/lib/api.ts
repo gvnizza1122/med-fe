@@ -251,6 +251,9 @@ export const api = {
   getSaranKoding: (recordId: string) =>
     request(`/api/v1/claim-files/records/${recordId}/saran-koding`),
 
+  getPemeriksaanPenunjang: (recordId: string) =>
+    request(`/api/v1/claim-files/records/${recordId}/pemeriksaan-penunjang`),
+
   tinjauDiagnosis: (recordId: string, paksaSol = false) =>
     request(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }) }),
 

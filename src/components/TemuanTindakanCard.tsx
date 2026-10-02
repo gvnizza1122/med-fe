@@ -59,8 +59,9 @@ export function TemuanTindakanCard({
       </p>
 
       <div className="space-y-2">
-        {temuan.map((t) => (
-          <div key={t.id} className="rounded-md border border-gray-200 p-3">
+        {temuan.map((t, i) => (
+          // id bisa kembar (AI menulis temuan yang sama dua kali, mis. ai_99.29).
+          <div key={`${t.id}-${i}`} className="rounded-md border border-gray-200 p-3">
             <div className="mb-1.5 flex flex-wrap items-baseline gap-2">
               <span className="text-xs font-semibold text-gray-900">{t.nama}</span>
               {t.kode_usulan ? (

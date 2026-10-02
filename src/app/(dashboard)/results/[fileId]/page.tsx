@@ -13,6 +13,7 @@ import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { Header } from '@/components/dashboard/header';
 import { SaranKodingPanel } from '@/components/SaranKodingPanel';
+import { PemeriksaanPenunjangPanel } from '@/components/PemeriksaanPenunjangPanel';
 import { KodingReadinessNotice, type KesiapanKoding } from '@/components/KodingReadinessNotice';
 import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
 import type { TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
@@ -22,6 +23,7 @@ import type { TemuanTindakan, SilangTindakan } from '@/components/TemuanTindakan
 import type { TemuanKonsistensi } from '@/components/KonsistensiDataCard';
 import type { PutusanPending } from '@/components/PutusanPendingCard';
 import { RingkasanTemuanCard } from '@/components/RingkasanTemuanCard';
+import { AnalisisKritisCard, type AnalisisKritis } from '@/components/AnalisisKritisCard';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -344,6 +346,9 @@ interface KegawatdaruratanAssessment {
   // bebas, quote-validated) & skor ESI dari Triase IGD.
   tindakan_keperawatan?: { quotation: string; page_number: number }[];
   esi?: { skor: number | null; page_number: number | null; kutipan: string | null };
+  // false = bukan kunjungan IGD (poli/ranap terencana): K1-K5 & tanda vital
+  // bukan fokus penilaian dan disembunyikan secara bawaan.
+  kunjungan_igd?: boolean;
 }
 
 interface DiagnosisConsistencyFlag {
@@ -390,6 +395,7 @@ interface AiReview {
   suggested_codes?: SuggestedCode[];
   pending_risk_notes?: PendingRiskNote[];
   kegawatdaruratan_assessment?: KegawatdaruratanAssessment | null;
+  analisis_kritis?: AnalisisKritis | null;
   // Ditambah 19 Sep 2026 (fix item 9) -- lihat diagnosisConsistencyService.js.
   diagnosis_consistency_flags?: DiagnosisConsistencyFlag[];
   // Ditambah 19 Sep 2026 -- INA-CBG grouping hasil dan tarif lookup
@@ -569,7 +575,8 @@ function isIssueStatus(status: FieldRow['status']): boolean {
 }
 
 function StatusBadge({ status }: { status: FieldRow['status'] }) {
-  if (status === 'error') return <Badge variant="destructive" className="text-xs">Error</Badge>;
+  // "Error" di sini = data kolom perlu diperbaiki, bukan kegagalan aplikasi.
+  if (status === 'error') return <Badge variant="destructive" className="text-xs">Perlu diperbaiki</Badge>;
   if (status === 'empty') return <Badge className="text-xs border-transparent bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">Kosong</Badge>;
   if (status === 'system') return <Badge variant="secondary" className="text-xs">Otomatis vClaim</Badge>;
   // wajar_kosong: netral (bukan hijau "aman diperiksa", bukan kuning "perlu
@@ -981,7 +988,8 @@ function ActionChecklist({ categories, recordData }: { categories: { category: s
   const spo2 = parseAiReview(recordData)?.kegawatdaruratan_assessment?.vital_findings?.SpO2;
   const spo2Missing = spo2 && (spo2.nilai === null || spo2.nilai === undefined);
   const spo2NotInForm = spo2?.form_status === 'not_in_form';
-  if (spo2Missing && !spo2NotInForm) {
+  const bukanIgd = parseAiReview(recordData)?.kegawatdaruratan_assessment?.kunjungan_igd === false;
+  if (spo2Missing && !spo2NotInForm && !bukanIgd) {
     actions.push('Lengkapi/cek SpO2');
   }
 
@@ -1311,6 +1319,10 @@ function RecordFieldsTable({
           return true;
         })
         .map(c => fieldMap[c])
+        // Kolom yang sengaja dihapus dari fieldMap (mis. SEP/NOKARTU saat
+        // has_bpjs_page=false) dilewati -- dulu menjadi undefined dan halaman
+        // detail crash (YETY NOVIATI, 0170R0111225V003427).
+        .filter((f): f is FieldRow => Boolean(f))
         .filter(f => !onlyIssues || isIssueStatus(f.status)),
     }));
   const totalRows = categories.reduce((n, c) => n + c.rows.length, 0);
@@ -1853,6 +1865,13 @@ const PEMERIKSAAN_KELOMPOK = [
     ['crt', 'CRT (capillary refill time)'],
     ['deformitas_luka', 'Deformitas/luka'],
   ] },
+  // Pemeriksaan khusus: hanya parameter yang tercatat yang tampil (status
+  // neurologis, status lokalis bedah/kulit/ortopedi, obstetri/ginekologi).
+  { nama: 'Pemeriksaan khusus', opsional: true, items: [
+    ['status_neurologis', 'Status neurologis'],
+    ['status_lokalis', 'Status lokalis'],
+    ['obstetri_ginekologi', 'Status obstetri/ginekologi'],
+  ] },
 ] as const;
 
 type VitalRange = {
@@ -1960,6 +1979,7 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
   // sama; kalau useState dipanggil SETELAH early return, urutan hook call
   // bisa beda antar-render utk record yang sama -> React error.
   const [showFullDetail, setShowFullDetail] = useState(false);
+  const [tampilkanGawat, setTampilkanGawat] = useState(false);
   const [references, setReferences] = useState<VitalReferences | null>(null);
   const [referenceError, setReferenceError] = useState(false);
   const [referenceAttempt, setReferenceAttempt] = useState(0);
@@ -1994,14 +2014,15 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
   // showFullDetail dideklarasikan di atas (sebelum early return) agar urutan
   // hook tetap sama saat assessment berubah setelah Baca Ulang.
   const parameterByKey = new Map(parameter_findings.map(p => [p.key, p]));
-  const groupedParams = PEMERIKSAAN_KELOMPOK.map(group => ({
+  const groupedParams = PEMERIKSAAN_KELOMPOK.filter(group => !('opsional' in group)
+    || group.items.some(([key]) => parameter_findings.some(p => p.key === key && p.ditemukan))).map(group => ({
     nama: group.nama,
     params: group.items.map(([key, label]) => {
       const finding = parameterByKey.get(key);
       return finding
         ? { ...finding, label, perluBacaUlang: false }
         : { key, label, ditemukan: false, status: null, nilai: null, page_number: null, kutipan: null, sumber_dokumen: null, retraksi_grade: null, perluBacaUlang: true };
-    }),
+    }).filter(p => !('opsional' in group) || p.ditemukan),
   }));
   const documentedParams = parameter_findings.filter(p => p.ditemukan);
   const abnormalParams = documentedParams.filter(p => p.status === 'abnormal');
@@ -2024,6 +2045,9 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
   const spo2Entry = vitalEntries.find(v => v.key === 'SpO2');
   const spo2Missing = !!spo2Entry?.isEmpty && spo2Entry?.vf?.form_status !== 'not_in_form';
 
+  // Bukan kunjungan IGD (data lama tanpa penanda tetap dianggap IGD): tanda
+  // vital & K1-K5 bukan fokus klaim ini, disembunyikan sampai diminta.
+  const fokusGawat = assessment.kunjungan_igd !== false;
   const criteriaPanel = <EmergencyCriteriaList criteria={kriteria} hasData={assessment.has_data} ageGroup={age_group} onOpenPdf={onOpenPdf} />;
   const referenceNotice = referenceError
     ? <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-amber-700 dark:text-amber-400">Rentang usia belum dapat dimuat.<Button variant="outline" size="sm" onClick={() => setReferenceAttempt(n => n + 1)}>Coba lagi</Button></div>
@@ -2044,11 +2068,11 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
             <div className="w-8 h-8 rounded-lg bg-primary/15 text-emerald-400 flex items-center justify-center">
             </div>
             <div>
-              <h2 className="text-sm text-foreground font-semibold">Kegawatdaruratan</h2>
+              <h2 className="text-sm text-foreground font-semibold">{fokusGawat ? 'Kegawatdaruratan' : 'Pemeriksaan fisik'}</h2>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge
+            {fokusGawat && <Badge
               variant="outline"
               className={cn(
                 'text-sm font-label-sm px-2.5 py-1.5',
@@ -2058,7 +2082,7 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
               )}
             >
               {yaCount} kriteria terpenuhi
-            </Badge>
+            </Badge>}
             {toggleButton}
           </div>
         </div>
@@ -2110,13 +2134,13 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
                   const paramCard = (
                     <div
                       className={cn(
-                        'flex items-center justify-between py-2 px-3 rounded border',
+                        'flex flex-wrap items-center justify-between gap-2 py-2 px-3 rounded border',
                         p.status === 'abnormal'
                           ? 'border-red-200 bg-red-50 cursor-pointer hover:bg-red-100 transition-colors dark:border-red-900/30 dark:bg-red-950/20 dark:hover:bg-red-950/30'
                           : 'border-border bg-card dark:border-border dark:bg-white/[0.02]'
                       )}
                     >
-                      <div className="flex flex-col gap-0.5">
+                      <div className="flex min-w-0 flex-col gap-0.5">
                         <div className="flex items-center gap-1.5">
                           {p.status === 'abnormal'
                             ? <XCircle className="size-3.5 text-red-600 dark:text-red-400 shrink-0" />
@@ -2137,7 +2161,7 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
                         {p.kutipan && <QuoteCell kutipan={p.kutipan} page_number={p.page_number} onOpenPdf={onOpenPdf} />}
                       </div>
                       <span className={cn(
-                        'text-sm font-semibold px-2 py-0.5 rounded-full shrink-0',
+                        'max-w-full break-words rounded-lg px-2 py-0.5 text-sm font-semibold',
                         p.status === 'abnormal'
                           ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/60 dark:text-red-400 dark:border-red-900/50'
                           : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50'
@@ -2201,6 +2225,20 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
             </div>
           </div>
 
+          {/* Pemeriksaan penunjang tepat di bawah pemeriksaan fisik/khusus --
+              tampil untuk semua kasus, IGD maupun bukan. */}
+          <PemeriksaanPenunjangPanel recordId={recordData.id} onOpenPdf={onOpenPdf} tertanam />
+
+          {!fokusGawat && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-sm text-muted-foreground">Bukan kunjungan IGD. Tanda vital dan kriteria kegawatdaruratan (K1–K5) bukan fokus penilaian klaim ini.</p>
+              <Button variant="outline" size="sm" className="min-h-9 shrink-0" aria-expanded={tampilkanGawat} onClick={() => setTampilkanGawat(v => !v)}>
+                {tampilkanGawat ? 'Sembunyikan' : 'Tampilkan'}
+              </Button>
+            </div>
+          )}
+
+          {(fokusGawat || tampilkanGawat) && <>
           <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-base font-semibold text-foreground">Nilai Vital &amp; Rentang Usia</h3>
@@ -2233,6 +2271,7 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
           </section>
 
           {criteriaPanel}
+          </>}
 
         </div>
       ) : (
@@ -2877,6 +2916,10 @@ export default function ResultsPage() {
                     putusan={parseAiReview(selectedRecord)?.putusan_pending}
                     tindakan={parseAiReview(selectedRecord)?.temuan_tindakan}
                     currentValidationIssues={selectedRecord.errors?.length ?? 0}
+                  />
+                  <AnalisisKritisCard
+                    analisis={parseAiReview(selectedRecord)?.analisis_kritis}
+                    onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined}
                   />
 
                   {/* ─── Pola Pending Risk ───────────────────── */}
