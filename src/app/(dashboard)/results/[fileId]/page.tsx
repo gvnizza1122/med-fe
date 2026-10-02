@@ -24,6 +24,7 @@ import type { TemuanKonsistensi } from '@/components/KonsistensiDataCard';
 import type { PutusanPending } from '@/components/PutusanPendingCard';
 import { RingkasanTemuanCard } from '@/components/RingkasanTemuanCard';
 import { AnalisisKritisCard, type AnalisisKritis } from '@/components/AnalisisKritisCard';
+import { AgenCasemixPanel } from '@/components/AgenCasemixPanel';
 import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -2921,6 +2922,12 @@ export default function ResultsPage() {
                     analisis={parseAiReview(selectedRecord)?.analisis_kritis}
                     onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined}
                   />
+                  {selectedRecord.id && (
+                    <AgenCasemixPanel
+                      recordId={String(selectedRecord.id)}
+                      onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined}
+                    />
+                  )}
 
                   {/* ─── Pola Pending Risk ───────────────────── */}
                   {(() => {

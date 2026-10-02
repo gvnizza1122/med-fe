@@ -254,6 +254,15 @@ export const api = {
   getPemeriksaanPenunjang: (recordId: string) =>
     request(`/api/v1/claim-files/records/${recordId}/pemeriksaan-penunjang`),
 
+  getLaporanCasemix: (recordId: string) =>
+    request(`/api/v1/claim-files/records/${recordId}/laporan-casemix`),
+
+  tanyaAgenCasemix: (recordId: string, pertanyaan: string, riwayat: { peran: 'koder' | 'agen'; isi: string }[] = []) =>
+    request(`/api/v1/claim-files/records/${recordId}/agen-casemix/tanya`, { method: 'POST', body: JSON.stringify({ pertanyaan, riwayat }) }),
+
+  simpanKeputusanCasemix: (recordId: string, data: { diagnosis: string; prosedur: string; catatan: string }) =>
+    request(`/api/v1/claim-files/records/${recordId}/keputusan-casemix`, { method: 'POST', body: JSON.stringify(data) }),
+
   tinjauDiagnosis: (recordId: string, paksaSol = false) =>
     request(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }) }),
 

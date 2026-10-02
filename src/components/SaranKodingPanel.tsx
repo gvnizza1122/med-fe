@@ -21,6 +21,8 @@ interface KodeSaran {
   asal: string[];
   bukti: Bukti[];
   catatan: string | null;
+  // Diagnosis belum final: status klarifikasi per kode dari tinjauan.
+  status_tinjauan?: string;
 }
 interface Perubahan {
   aturan: string; nama: string; aksi: string; dari: string[]; menjadi: string | null;
@@ -98,6 +100,7 @@ function DaftarKode({ judul, kode, kosong, klaim }: { judul: string; kode: KodeS
               <div className="flex flex-wrap items-center gap-2">
                 <code className="rounded-md bg-blue-500/10 px-2.5 py-1 font-mono text-lg font-bold text-blue-800 dark:text-blue-200">{k.kode}</code>
                 {k.peran && <span className="text-sm font-medium text-foreground">{k.peran === 'utama' ? 'Diagnosis utama' : 'Diagnosis sekunder'}</span>}
+                {k.status_tinjauan && k.status_tinjauan !== 'didukung' && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-800 dark:text-amber-200">Perlu klarifikasi</span>}
                 <span className={cn('ml-auto rounded-md px-2 py-1 text-xs font-medium', klaim.includes(k.kode) ? 'bg-muted text-foreground/80' : 'bg-amber-500/15 text-amber-800 dark:text-amber-200')}>
                   {klaim.includes(k.kode) ? 'Sama dengan klaim' : 'Usulan perubahan'}
                 </span>
@@ -293,7 +296,7 @@ export function SaranKodingPanel({ recordId, mode = 'kode' }: { recordId: string
       )}
 
       <div className="grid items-start gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))]">
-        <DaftarKode judul={data.diagnosis_belum_final ? "Kandidat diagnosis · perlu klarifikasi" : "Diagnosis · ICD-10 WHO"} kode={data.diagnosis} klaim={klaim.diagnosis} kosong="Belum ada diagnosis yang terbaca dari berkas." />
+        <DaftarKode judul={data.diagnosis_belum_final ? "Diagnosis · rekomendasi sementara agen" : "Diagnosis · ICD-10 WHO"} kode={data.diagnosis} klaim={klaim.diagnosis} kosong="Belum ada diagnosis yang terbaca dari berkas." />
         <DaftarKode judul="Prosedur · ICD-9-CM" kode={data.prosedur} klaim={klaim.prosedur} kosong="Tidak ada tindakan yang terbaca dari resume atau triase." />
       </div>
 
@@ -330,7 +333,7 @@ export function SaranKodingPanel({ recordId, mode = 'kode' }: { recordId: string
             <p className="text-xl font-semibold tabular-nums text-foreground">
               {data.inacbg?.tarif != null ? rupiah(data.inacbg.tarif) : (data.inacbg?.catatan_tarif || 'Tarif belum terhitung')}
             </p>
-            {data.inacbg?.sementara && <p className="text-xs text-amber-700 dark:text-amber-300">Perkiraan sementara: diagnosis belum final.</p>}
+            {data.inacbg?.sementara && <p className="text-xs text-amber-700 dark:text-amber-300">Perkiraan sementara Agen Casemix: ada diagnosis yang perlu klarifikasi; tarif dapat berubah.</p>}
             {data.inacbg?.kelas_asumsi && <p className="text-xs text-amber-700 dark:text-amber-300">Kelas rawat tidak terbaca; memakai tarif kelas 3.</p>}
           </div>
           {data.casemix && <div className="min-w-0 space-y-2 rounded-lg border border-border bg-muted/30 p-4">
