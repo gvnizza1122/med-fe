@@ -13,6 +13,7 @@ import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
 import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { Header } from '@/components/dashboard/header';
 import { SaranKodingPanel } from '@/components/SaranKodingPanel';
+import { TarifGandaCard } from '@/components/TarifGandaCard';
 import { PemeriksaanPenunjangPanel } from '@/components/PemeriksaanPenunjangPanel';
 import { KodingReadinessNotice, type KesiapanKoding } from '@/components/KodingReadinessNotice';
 import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
@@ -1516,7 +1517,7 @@ function SimplifiedFieldAccordion({
                   <TabsList aria-label="Tampilan diagnosis, prosedur, dan tarif" className="h-auto w-full flex-wrap justify-start gap-1 sm:w-fit">
                     <TabsTrigger value="berkas" className="min-h-10 px-3">Data klaim</TabsTrigger>
                     <TabsTrigger value="saran" className="min-h-10 px-3">Saran AI</TabsTrigger>
-                    <TabsTrigger value="tarif" className="min-h-10 px-3">INA-CBG & Tarif</TabsTrigger>
+                    <TabsTrigger value="tarif" className="min-h-10 px-3">Tarif INA-CBG & iDRG</TabsTrigger>
                   </TabsList>
                 </div>
                 <TabsContent value="berkas" className="space-y-3 p-4 sm:p-5">
@@ -1538,7 +1539,10 @@ function SimplifiedFieldAccordion({
                 </TabsContent>
                 <TabsContent value="saran"><SaranKodingPanel recordId={recordData.id} /></TabsContent>
                 <TabsContent value="tarif" className="p-4 sm:p-5">
-                  <SaranKodingPanel recordId={recordData.id} mode="tarif" />
+                  <TarifGandaCard recordId={recordData.id} />
+                  <div className="mt-4 border-t border-border pt-4">
+                    <SaranKodingPanel recordId={recordData.id} mode="tarif" />
+                  </div>
                   <section aria-label="Detail grouping data klaim" className="mt-4 border-t border-border pt-4">
                     <h4 className="text-sm font-medium">Detail grouping dan kesesuaian klinis data klaim</h4>
                     <div className="mt-3"><InaCbgCoherenceDisplay recordData={recordData} /></div>

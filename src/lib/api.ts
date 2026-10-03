@@ -251,6 +251,10 @@ export const api = {
   getSaranKoding: (recordId: string) =>
     request(`/api/v1/claim-files/records/${recordId}/saran-koding`),
 
+  // Tarif INA-CBG dan iDRG berdampingan + koding versi iDRG. Hanya dibaca.
+  getTarifGanda: (recordId: string) =>
+    request(`/api/v1/claim-files/records/${recordId}/tarif-ganda`),
+
   getPemeriksaanPenunjang: (recordId: string) =>
     request(`/api/v1/claim-files/records/${recordId}/pemeriksaan-penunjang`),
 
