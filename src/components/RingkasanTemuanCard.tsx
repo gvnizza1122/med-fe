@@ -58,7 +58,7 @@ const TITIK: Record<string, string> = {
 
 export function RingkasanTemuanCard({
   putusan,
-  tindakan,
+  tindakan: tindakanMentah,
   validationStatus,
   prosedurKosong = false,
   currentValidationIssues = 0,
@@ -69,6 +69,10 @@ export function RingkasanTemuanCard({
   prosedurKosong?: boolean;
   currentValidationIssues?: number;
 }) {
+  // Satu baris per kode: tindakan yang sama tertulis berkali-kali (injeksi
+  // 99.29) cukup tampil sekali.
+  const tindakan = tindakanMentah?.filter((t, i, semua) =>
+    !t.kode_usulan || semua.findIndex(x => x.kode_usulan === t.kode_usulan) === i);
   const statusPending = ['pending', 'error'].includes(validationStatus?.toLowerCase() || '');
   const tampilkanProsedurKosong = statusPending && prosedurKosong;
   // Kartu hijau "Tidak ditemukan alasan pending" hanya mengulang status
@@ -170,7 +174,8 @@ export function RingkasanTemuanCard({
         <div className="border-t border-current/10 pt-1.5 text-xs text-muted-foreground">
           <span className="text-muted-foreground">Tindakan terbaca:</span>{' '}
           {tindakan!.map((t, i) => (
-            <span key={t.id}>
+            // id bisa kembar (AI menulis temuan yang sama dua kali, mis. ai_99.29).
+            <span key={`${t.id}-${i}`}>
               {i > 0 && ' · '}
               {t.nama}
               {t.kode_usulan && <span className="font-mono-data"> ({t.kode_usulan})</span>}

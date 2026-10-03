@@ -251,6 +251,18 @@ export const api = {
   getSaranKoding: (recordId: string) =>
     request(`/api/v1/claim-files/records/${recordId}/saran-koding`),
 
+  getPemeriksaanPenunjang: (recordId: string) =>
+    request(`/api/v1/claim-files/records/${recordId}/pemeriksaan-penunjang`),
+
+  getLaporanCasemix: (recordId: string) =>
+    request(`/api/v1/claim-files/records/${recordId}/laporan-casemix`),
+
+  tanyaAgenCasemix: (recordId: string, pertanyaan: string, riwayat: { peran: 'koder' | 'agen'; isi: string }[] = []) =>
+    request(`/api/v1/claim-files/records/${recordId}/agen-casemix/tanya`, { method: 'POST', body: JSON.stringify({ pertanyaan, riwayat }) }),
+
+  simpanKeputusanCasemix: (recordId: string, data: { diagnosis: string; prosedur: string; catatan: string }) =>
+    request(`/api/v1/claim-files/records/${recordId}/keputusan-casemix`, { method: 'POST', body: JSON.stringify(data) }),
+
   tinjauDiagnosis: (recordId: string, paksaSol = false) =>
     request(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }) }),
 
@@ -392,6 +404,23 @@ export const api = {
   },
 
   // PDF Upload
+  uploadTestingBatch: (files: File[], allowedCategories: string[]) => {
+    const fd = new FormData();
+    files.forEach(file => fd.append('files', file));
+    fd.append('allowed_jenis_klaim', JSON.stringify(allowedCategories));
+    return request('/api/v1/testing-pending/upload-batch', { method: 'POST', body: fd, timeout: 7200000 });
+  },
+  getTestingJob: (jobId: string) => request(`/api/v1/testing-pending/jobs/${encodeURIComponent(jobId)}`),
+  exportTesting: () => request('/api/v1/testing-pending/export', { timeout: 120000 }),
+
+  uploadTestingPdf: (file: File, jenisKlaim: string, label: { actual_result: string; reference_source: string; actual_reason: string; notes: string }) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('jenis_klaim', jenisKlaim);
+    Object.entries(label).forEach(([key, value]) => fd.append(key, value));
+    return request('/api/v1/testing-pending/upload', { method: 'POST', body: fd, timeout: 900000 });
+  },
+
   uploadPdf: (file: File, jenisKlaim: string) => {
     const fd = new FormData();
     fd.append('file', file);
@@ -417,6 +446,18 @@ export const api = {
   // toggle 1/2/3 kategori sebelum drag file) — BUKAN kategori pasti per file.
   // Backend mendeteksi kategori tiap file dari isi dokumennya sendiri,
   // dibatasi ke daftar ini (lihat /upload-pdf-batch, allowed_jenis_klaim).
+  // Unggah berantrean: server membalas 202 + id proses; pembacaan berjalan di
+  // latar belakang dan dipantau lewat getProsesUnggah (tahan refresh).
+  uploadPdfAntre: (files: File[], allowedJenisKlaim: string[]) => {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    fd.append('allowed_jenis_klaim', JSON.stringify(allowedJenisKlaim));
+    return request('/api/v1/claim-files/upload-pdf-antre', { method: 'POST', body: fd, timeout: 600000 });
+  },
+  getProsesUnggah: () => request('/api/v1/claim-files/proses-unggah'),
+  tutupProsesUnggah: (ids: string[]) =>
+    request('/api/v1/claim-files/proses-unggah/tutup', { method: 'POST', body: JSON.stringify({ ids }) }),
+
   uploadPdfBatch: (files: File[], allowedJenisKlaim: string[]) => {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));

@@ -13,14 +13,17 @@ export function UploadProgressWidget({ compact = false }: { compact?: boolean })
   if (!job) return null;
 
   const processed = job.doneCount + job.failedCount;
-  const pct = job.total > 0 ? Math.round((processed / job.total) * 100) : 0;
-  const label = job.type === 'batch' ? `Upload Batch (${job.total} file)` : 'Upload PDF';
+  const aktifSekarang = job.statuses.find(s => s.status === 'processing');
+  const sisa = job.sisaDetik ? (job.sisaDetik < 60 ? `${Math.max(5, Math.round(job.sisaDetik / 5) * 5)} dtk` : `${Math.round(job.sisaDetik / 60)} mnt`) : null;
+  // Unggahan berantrean: persen berjalan halus dari server; lainnya per berkas selesai.
+  const pct = job.server && job.persen != null ? job.persen : job.total > 0 ? Math.round((processed / job.total) * 100) : 0;
+  const label = job.testing ? `Testing Batch (${job.total} file)` : job.type === 'batch' ? `Upload Batch (${job.total} file)` : 'Upload PDF';
 
   if (compact) {
     const status = job.active ? `Memproses ${processed}/${job.total} file` : job.error ? 'Unggahan gagal' : job.failedCount > 0 ? `${job.failedCount} unggahan gagal` : `${job.doneCount} unggahan selesai`;
     return (
       <Link
-        href={job.type === 'single' && job.resultFileId ? `/results/${job.resultFileId}` : '/history'}
+        href={job.type === 'single' && job.resultFileId ? `/results/${job.resultFileId}` : job.testing ? (job.active ? '/testing-pending/upload' : '/testing-pending') : '/history'}
         aria-label={`${label}: ${status}`}
         title={`${label}: ${status}`}
         className="mb-3 flex h-10 items-center justify-center rounded-lg border border-border bg-secondary/40 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -63,8 +66,9 @@ export function UploadProgressWidget({ compact = false }: { compact?: boolean })
             />
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground">
-            Memproses {processed}/{job.total} file — bisa sambil buka halaman lain.
+            <span className="font-semibold text-foreground">{pct}%</span> · Memproses {processed}/{job.total} file{sisa ? ` · sisa ±${sisa}` : ''}{aktifSekarang?.tahapLabel ? ` · ${aktifSekarang.tahapLabel}` : ''}
           </p>
+          {job.server && <p className="text-[10px] text-muted-foreground">Aman di-refresh — proses tetap berjalan di server.</p>}
         </>
       ) : job.error ? (
         <p className="text-[10px] text-destructive">{job.error}</p>
@@ -78,8 +82,8 @@ export function UploadProgressWidget({ compact = false }: { compact?: boolean })
               Lihat Hasil →
             </Link>
           ) : job.type === 'batch' ? (
-            <Link href="/history" className="text-[10px] font-medium text-primary hover:underline">
-              Lihat di Riwayat Upload →
+            <Link href={job.testing ? "/testing-pending" : "/history"} className="text-[10px] font-medium text-primary hover:underline">
+              {job.testing ? "Lihat hasil testing →" : "Lihat di Riwayat Upload →"}
             </Link>
           ) : null}
         </div>

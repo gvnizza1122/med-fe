@@ -21,6 +21,8 @@ interface KodeSaran {
   asal: string[];
   bukti: Bukti[];
   catatan: string | null;
+  // Diagnosis belum final: status klarifikasi per kode dari tinjauan.
+  status_tinjauan?: string;
 }
 interface Perubahan {
   aturan: string; nama: string; aksi: string; dari: string[]; menjadi: string | null;
@@ -46,11 +48,27 @@ interface SaranKoding {
   prosedur: KodeSaran[];
   perubahan: Perubahan[];
   tidak_dipakai: { kode: string; jenis: string; alasan: string }[];
-  inacbg: { kode: string; deskripsi: string | null; tarif: number | null; catatan_tarif: string | null } | null;
+  inacbg: { kode: string; deskripsi: string | null; tarif: number | null; catatan_tarif: string | null; sementara?: boolean; kelas_asumsi?: boolean } | null;
   klaim_saat_ini: { diagnosis: string[]; prosedur: string[]; inacbg: string | null; tarif: number | null };
   sama_dengan_klaim: boolean;
   selisih_tarif: number | null;
   catatan: string[];
+  casemix?: PerbandinganCasemix | null;
+}
+interface Himpunan { sama: string[]; hanya_ai: string[]; hanya_casemix: string[] }
+// Lembar grouper E-Klaim (hasil casemix) -- pembanding, tidak pernah dibaca AI.
+interface PerbandinganCasemix {
+  sumber: string;
+  halaman: number | null;
+  versi_eklaim: string | null;
+  casemix: { inacbg: { kode: string; deskripsi: string | null; tarif: number | null }; total_tarif: number | null };
+  diagnosis_utama: { ai: string | null; casemix: string | null; cocok: boolean; sekategori: boolean };
+  diagnosis: Himpunan;
+  prosedur: Himpunan;
+  inacbg: { ai: string | null; casemix: string; cocok: boolean };
+  tarif: { ai: number | null; casemix: number | null; selisih: number | null };
+  inti_cocok: boolean;
+  semua_cocok: boolean;
 }
 
 const LABEL_ASAL: Record<string, string> = {
@@ -59,10 +77,12 @@ const LABEL_ASAL: Record<string, string> = {
   resume: 'Resume medis',
   tindakan: 'Tindakan terbaca',
   kombinasi: 'Aturan Berita Acara',
+  penunjang: 'Hasil penunjang',
 };
 const LABEL_SUMBER: Record<string, string> = {
   resume_medis: 'Resume',
   triase_igd: 'Triase',
+  penunjang: 'Penunjang',
 };
 
 const rupiah = (n: number) => n.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
@@ -80,6 +100,7 @@ function DaftarKode({ judul, kode, kosong, klaim }: { judul: string; kode: KodeS
               <div className="flex flex-wrap items-center gap-2">
                 <code className="rounded-md bg-blue-500/10 px-2.5 py-1 font-mono text-lg font-bold text-blue-800 dark:text-blue-200">{k.kode}</code>
                 {k.peran && <span className="text-sm font-medium text-foreground">{k.peran === 'utama' ? 'Diagnosis utama' : 'Diagnosis sekunder'}</span>}
+                {k.status_tinjauan && k.status_tinjauan !== 'didukung' && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-800 dark:text-amber-200">Perlu klarifikasi</span>}
                 <span className={cn('ml-auto rounded-md px-2 py-1 text-xs font-medium', klaim.includes(k.kode) ? 'bg-muted text-foreground/80' : 'bg-amber-500/15 text-amber-800 dark:text-amber-200')}>
                   {klaim.includes(k.kode) ? 'Sama dengan klaim' : 'Usulan perubahan'}
                 </span>
@@ -101,6 +122,60 @@ function DaftarKode({ judul, kode, kosong, klaim }: { judul: string; kode: KodeS
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+function BarisBanding({ label, cocok, isi }: { label: string; cocok: boolean; isi: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 border-b border-border py-2.5 last:border-0">
+      {cocok
+        ? <CheckCircle2 aria-label="Cocok" className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        : <AlertTriangle aria-label="Berbeda" className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />}
+      <div className="min-w-0 flex-1 text-sm">
+        <p className="font-medium text-foreground">{label}</p>
+        <div className="mt-0.5 break-words text-foreground/80">{isi}</div>
+      </div>
+    </div>
+  );
+}
+
+function DaftarBeda({ h }: { h: Himpunan }) {
+  const bagian = [
+    h.sama.length ? `Sama: ${h.sama.join(', ')}` : null,
+    h.hanya_ai.length ? `Hanya AI: ${h.hanya_ai.join(', ')}` : null,
+    h.hanya_casemix.length ? `Hanya casemix: ${h.hanya_casemix.join(', ')}` : null,
+  ].filter(Boolean);
+  return <span className="font-mono text-xs">{bagian.join(' · ') || '—'}</span>;
+}
+
+function BandingCasemix({ c }: { c: PerbandinganCasemix }) {
+  const himpunanSama = (h: Himpunan) => h.hanya_ai.length === 0 && h.hanya_casemix.length === 0;
+  return (
+    <section aria-label="Perbandingan dengan hasil casemix" className="rounded-lg border border-border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-semibold text-foreground">Dibandingkan dengan hasil casemix (E-Klaim)</h4>
+        <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold',
+          c.semua_cocok ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            : c.inti_cocok ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
+              : 'bg-amber-500/15 text-amber-800 dark:text-amber-200')}>
+          {c.semua_cocok ? 'Sama persis' : c.inti_cocok ? 'Diagnosis & tarif sama' : 'Berbeda'}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Lembar grouper casemix{c.halaman ? ` (hal. ${c.halaman})` : ''} hanya dipakai sebagai pembanding; saran AI disusun tanpa membacanya.
+      </p>
+      <div className="mt-2">
+        <BarisBanding label="Diagnosis utama" cocok={c.diagnosis_utama.cocok}
+          isi={<span className="font-mono text-xs">AI {c.diagnosis_utama.ai || '—'} · Casemix {c.diagnosis_utama.casemix || '—'}{!c.diagnosis_utama.cocok && c.diagnosis_utama.sekategori ? ' (sekategori)' : ''}</span>} />
+        <BarisBanding label="Diagnosis" cocok={himpunanSama(c.diagnosis)} isi={<DaftarBeda h={c.diagnosis} />} />
+        <BarisBanding label="Prosedur" cocok={himpunanSama(c.prosedur)} isi={<DaftarBeda h={c.prosedur} />} />
+        <BarisBanding label="INA-CBG" cocok={c.inacbg.cocok}
+          isi={<span className="font-mono text-xs">AI {c.inacbg.ai || '—'} · Casemix {c.inacbg.casemix}</span>} />
+        <BarisBanding label="Tarif" cocok={c.tarif.selisih === 0}
+          isi={<span>AI {c.tarif.ai != null ? rupiah(c.tarif.ai) : '—'} · Casemix {c.tarif.casemix != null ? rupiah(c.tarif.casemix) : '—'}
+            {c.tarif.selisih != null && c.tarif.selisih !== 0 ? ` · selisih ${c.tarif.selisih > 0 ? '+' : '−'}${rupiah(Math.abs(c.tarif.selisih))}` : ''}</span>} />
+      </div>
     </section>
   );
 }
@@ -221,9 +296,11 @@ export function SaranKodingPanel({ recordId, mode = 'kode' }: { recordId: string
       )}
 
       <div className="grid items-start gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))]">
-        <DaftarKode judul={data.diagnosis_belum_final ? "Kandidat diagnosis · perlu klarifikasi" : "Diagnosis · ICD-10 WHO"} kode={data.diagnosis} klaim={klaim.diagnosis} kosong="Belum ada diagnosis yang terbaca dari berkas." />
+        <DaftarKode judul={data.diagnosis_belum_final ? "Diagnosis · rekomendasi sementara agen" : "Diagnosis · ICD-10 WHO"} kode={data.diagnosis} klaim={klaim.diagnosis} kosong="Belum ada diagnosis yang terbaca dari berkas." />
         <DaftarKode judul="Prosedur · ICD-9-CM" kode={data.prosedur} klaim={klaim.prosedur} kosong="Tidak ada tindakan yang terbaca dari resume atau triase." />
       </div>
+
+      {data.casemix && <BandingCasemix c={data.casemix} />}
 
       {data.perubahan.length > 0 && data.kesiapan_koding?.status === 'berisiko_pending' && <details className="text-sm text-foreground/80"><summary className="cursor-pointer">Dasar usulan perubahan kode</summary>{data.perubahan.map(p => <p key={p.aturan} className="mt-2">{p.nama}: {p.pesan}{p.sumber ? ` Sumber: ${p.sumber} (${p.aturan}).` : ''}</p>)}</details>}
       {data.tidak_dipakai.length > 0 && (
@@ -241,7 +318,7 @@ export function SaranKodingPanel({ recordId, mode = 'kode' }: { recordId: string
       {mode === 'tarif' && <div>
         <h4 className="text-sm font-semibold text-foreground">Perbandingan INA-CBG & tarif</h4>
         <p className="mb-4 mt-1 text-xs leading-relaxed text-muted-foreground">Data klaim saat ini dibandingkan dengan perkiraan dari saran AI. Tarif saran belum diterapkan ke klaim.</p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className={cn('grid gap-3', data.casemix ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
           <div className="min-w-0 space-y-2 rounded-lg border border-border p-4">
             <p className="text-xs text-muted-foreground">Data klaim saat ini</p>
             <p className="mt-1 break-words font-mono text-xs text-muted-foreground">{klaim.diagnosis.join('; ') || '—'}{klaim.prosedur.length ? ` · ${klaim.prosedur.join('; ')}` : ''}</p>
@@ -256,7 +333,16 @@ export function SaranKodingPanel({ recordId, mode = 'kode' }: { recordId: string
             <p className="text-xl font-semibold tabular-nums text-foreground">
               {data.inacbg?.tarif != null ? rupiah(data.inacbg.tarif) : (data.inacbg?.catatan_tarif || 'Tarif belum terhitung')}
             </p>
+            {data.inacbg?.sementara && <p className="text-xs text-amber-700 dark:text-amber-300">Perkiraan sementara Agen Casemix: ada diagnosis yang perlu klarifikasi; tarif dapat berubah.</p>}
+            {data.inacbg?.kelas_asumsi && <p className="text-xs text-amber-700 dark:text-amber-300">Kelas rawat tidak terbaca; memakai tarif kelas 3.</p>}
           </div>
+          {data.casemix && <div className="min-w-0 space-y-2 rounded-lg border border-border bg-muted/30 p-4">
+            <p className="text-xs font-semibold text-foreground">Hasil casemix (E-Klaim)</p>
+            <p className="mt-1 font-mono text-sm font-semibold text-foreground">{data.casemix.casemix.inacbg.kode}</p>
+            {data.casemix.casemix.inacbg.deskripsi && <p className="text-xs text-muted-foreground">{data.casemix.casemix.inacbg.deskripsi}</p>}
+            <p className="text-xl font-semibold tabular-nums text-foreground">{data.casemix.casemix.total_tarif != null ? rupiah(data.casemix.casemix.total_tarif) : '—'}</p>
+            <p className="text-xs text-muted-foreground">Pembanding, bukan sumber data klaim.</p>
+          </div>}
         </div>
         <p className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-sm text-foreground">
           {data.selisih_tarif == null ? 'Selisih belum dapat dihitung karena tarif belum lengkap.' : data.selisih_tarif === 0 ? 'Tarif tetap · tidak ada selisih' : `Selisih perkiraan: ${data.selisih_tarif > 0 ? '+' : '−'}${rupiah(Math.abs(data.selisih_tarif))}`}
