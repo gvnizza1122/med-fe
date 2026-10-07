@@ -48,7 +48,7 @@ interface SaranKoding {
   prosedur: KodeSaran[];
   perubahan: Perubahan[];
   tidak_dipakai: { kode: string; jenis: string; alasan: string }[];
-  inacbg: { kode: string; deskripsi: string | null; tarif: number | null; catatan_tarif: string | null; sementara?: boolean; kelas_asumsi?: boolean } | null;
+  inacbg: { kode: string; deskripsi: string | null; tarif: number | null; catatan_tarif: string | null; sementara?: boolean; kelas_asumsi?: boolean; perlu_verifikasi_grouper?: boolean; kelas_perawatan?: { kelas_hak: string | null; kelas_ditempati: string | null; naik_kelas: boolean; catatan: string } } | null;
   klaim_saat_ini: { diagnosis: string[]; prosedur: string[]; inacbg: string | null; tarif: number | null };
   sama_dengan_klaim: boolean;
   selisih_tarif: number | null;
@@ -58,6 +58,7 @@ interface SaranKoding {
 interface Himpunan { sama: string[]; hanya_ai: string[]; hanya_casemix: string[] }
 // Lembar grouper E-Klaim (hasil casemix) -- pembanding, tidak pernah dibaca AI.
 interface PerbandinganCasemix {
+  alasan_perbedaan?: { jenis: string; kode?: string; pesan: string; bukti: { halaman?: number; kutipan: string }[] }[];
   sumber: string;
   halaman: number | null;
   versi_eklaim: string | null;
@@ -176,6 +177,13 @@ function BandingCasemix({ c }: { c: PerbandinganCasemix }) {
           isi={<span>AI {c.tarif.ai != null ? rupiah(c.tarif.ai) : '—'} · Casemix {c.tarif.casemix != null ? rupiah(c.tarif.casemix) : '—'}
             {c.tarif.selisih != null && c.tarif.selisih !== 0 ? ` · selisih ${c.tarif.selisih > 0 ? '+' : '−'}${rupiah(Math.abs(c.tarif.selisih))}` : ''}</span>} />
       </div>
+      {Boolean(c.alasan_perbedaan?.length) && <details className="mt-3 border-t border-border pt-3 text-xs">
+        <summary className="cursor-pointer font-medium text-foreground">Alasan perbedaan dan bukti</summary>
+        <ul className="mt-2 space-y-3 text-muted-foreground">{c.alasan_perbedaan?.map((a, i) => <li key={i} className="leading-relaxed">
+          {a.kode && <span className="mr-1 font-mono text-foreground">{a.kode}</span>}{a.pesan}
+          {a.bukti?.map((b, j) => <blockquote key={j} className="mt-1 border-l-2 border-border pl-2">&ldquo;{b.kutipan}&rdquo;{b.halaman ? ` · halaman ${b.halaman}` : ''}</blockquote>)}
+        </li>)}</ul>
+      </details>}
     </section>
   );
 }
@@ -323,7 +331,7 @@ export function SaranKodingPanel({ recordId, mode = 'kode' }: { recordId: string
             <p className="text-xs text-muted-foreground">Data klaim saat ini</p>
             <p className="mt-1 break-words font-mono text-xs text-muted-foreground">{klaim.diagnosis.join('; ') || '—'}{klaim.prosedur.length ? ` · ${klaim.prosedur.join('; ')}` : ''}</p>
             <p className="mt-1 font-mono text-sm font-semibold text-foreground">{klaim.inacbg || '—'}</p>
-            <p className="text-xl font-semibold tabular-nums text-foreground">{klaim.tarif != null ? rupiah(klaim.tarif) : 'Tarif belum terhitung'}</p>
+            <p className="text-xl font-semibold tabular-nums text-foreground">{klaim.tarif != null ? rupiah(klaim.tarif) : 'Tarif hasil E-Klaim belum tersedia'}</p>
           </div>
           <div className="min-w-0 space-y-2 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
             <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Perkiraan saran AI</p>
@@ -333,7 +341,9 @@ export function SaranKodingPanel({ recordId, mode = 'kode' }: { recordId: string
             <p className="text-xl font-semibold tabular-nums text-foreground">
               {data.inacbg?.tarif != null ? rupiah(data.inacbg.tarif) : (data.inacbg?.catatan_tarif || 'Tarif belum terhitung')}
             </p>
+            {data.inacbg?.perlu_verifikasi_grouper && <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{data.inacbg.catatan_tarif || 'Perkiraan aplikasi memakai acuan tingkat I. Tingkat final perlu hasil grouper E-Klaim.'}</p>}
             {data.inacbg?.sementara && <p className="text-xs text-amber-700 dark:text-amber-300">Perkiraan sementara Agen Casemix: ada diagnosis yang perlu klarifikasi; tarif dapat berubah.</p>}
+            {data.inacbg?.kelas_perawatan && <p className="text-xs leading-relaxed text-muted-foreground">Kelas hak {data.inacbg.kelas_perawatan.kelas_hak || 'belum terbaca'} · kamar {data.inacbg.kelas_perawatan.kelas_ditempati || 'belum terbaca'}. {data.inacbg.kelas_perawatan.catatan}</p>}
             {data.inacbg?.kelas_asumsi && <p className="text-xs text-amber-700 dark:text-amber-300">Kelas rawat tidak terbaca; memakai tarif kelas 3.</p>}
           </div>
           {data.casemix && <div className="min-w-0 space-y-2 rounded-lg border border-border bg-muted/30 p-4">

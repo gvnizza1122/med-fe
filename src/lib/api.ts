@@ -262,19 +262,20 @@ export const api = {
     request(`/api/v1/claim-files/records/${recordId}/laporan-casemix`),
 
   tanyaAgenCasemix: (recordId: string, pertanyaan: string, riwayat: { peran: 'koder' | 'agen'; isi: string }[] = []) =>
-    request(`/api/v1/claim-files/records/${recordId}/agen-casemix/tanya`, { method: 'POST', body: JSON.stringify({ pertanyaan, riwayat }) }),
+    request(`/api/v1/claim-files/records/${recordId}/agen-casemix/tanya`, { method: 'POST', body: JSON.stringify({ pertanyaan, riwayat }), timeout: 600000 }),
 
   simpanKeputusanCasemix: (recordId: string, data: { diagnosis: string; prosedur: string; catatan: string }) =>
     request(`/api/v1/claim-files/records/${recordId}/keputusan-casemix`, { method: 'POST', body: JSON.stringify(data) }),
 
   tinjauDiagnosis: (recordId: string, paksaSol = false) =>
-    request(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }) }),
+    request(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }), timeout: 600000 }),
 
   getTestingPending: (jenisKlaim: string, page = 1, search = '', includeArsip = false) =>
     request(`/api/v1/testing-pending?${new URLSearchParams({ jenis_klaim: jenisKlaim, page: String(page), search, include_arsip: includeArsip ? '1' : '0' })}`),
   saveTestingPending: (recordId: string, data: { actual_result: string; reference_source: string; actual_reason: string; reason_match: string; notes: string }) =>
     request(`/api/v1/testing-pending/${encodeURIComponent(recordId)}`, { method: 'PUT', body: JSON.stringify(data) }),
 
+  getAiFileCosts: (month: string, page = 1) => request(`/api/v1/ai-usage/files?month=${encodeURIComponent(month)}&page=${page}`),
   getAiUsage: (month: string) => request(`/api/v1/ai-usage?month=${encodeURIComponent(month)}`),
 
   // Dashboard
@@ -384,6 +385,9 @@ export const api = {
 
   // Hospital Settings (Profil RS — Kode RS & Kelas RS, dipakai auto-fill saat upload PDF)
   getHospitalSettings: () => request('/api/v1/hospital-settings'),
+  getClaimProfile: () => request('/api/v1/hospital-settings/claim-profile'),
+  updateClaimProfile: (data: Record<string, unknown>) =>
+    request('/api/v1/hospital-settings/claim-profile', { method: 'PUT', body: JSON.stringify(data) }),
   updateHospitalSettings: (data: { kelas_rs: string }) =>
     request('/api/v1/hospital-settings', { method: 'PUT', body: JSON.stringify(data) }),
 

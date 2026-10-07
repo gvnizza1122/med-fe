@@ -76,13 +76,16 @@ export default function PendingBpjsFilesPage() {
       const res = await api.importPendingXlsx(file);
       if (!res.file_id) {
         addToast(
-          `Semua ${res.total_rows} baris di file ini sudah pernah diimpor sebelumnya — tidak ada file baru dibuat.`,
+          res.updated_confirmation
+            ? `${res.updated_confirmation} jawaban RS yang sebelumnya kosong berhasil dilengkapi. Semua ${res.total_rows} baris sudah pernah diimpor; data tetap pada file sebelumnya.`
+            : `Semua ${res.total_rows} baris di file ini sudah pernah diimpor sebelumnya — tidak ada file baru dibuat.`,
           'info'
         );
+        await loadFiles();
         return;
       }
       addToast(
-        `Impor selesai: ${res.imported} baris baru ditambahkan${res.matched_claim ? `, ${res.matched_claim} cocok dengan klaim di sistem` : ''}${res.skipped_duplicate ? `, ${res.skipped_duplicate} baris duplikat dilewati` : ''} (dari ${res.total_rows} baris total).`,
+        `Impor selesai: ${res.imported} baris baru ditambahkan${res.matched_claim ? `, ${res.matched_claim} cocok dengan klaim di sistem` : ''}${res.skipped_duplicate ? `, ${res.skipped_duplicate} baris duplikat dilewati` : ''}${res.updated_confirmation ? `, ${res.updated_confirmation} jawaban RS lama yang kosong dilengkapi` : ''} (dari ${res.total_rows} baris total).`,
         'success'
       );
       router.push(`/pending-bpjs/${res.file_id}`);

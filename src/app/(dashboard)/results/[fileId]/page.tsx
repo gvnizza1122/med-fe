@@ -19,7 +19,9 @@ import { KodingReadinessNotice, type KesiapanKoding } from '@/components/KodingR
 import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
 import type { TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
 import type { TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
-import type { TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
+import { SyaratPenunjangCard, type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
+import { ReferensiKlaimCard, type HasilReferensiKlaim } from '@/components/ReferensiKlaimCard';
+import { DasarDiagnosisCard, type DasarDiagnosis, type TindakanBelumDikode } from '@/components/DasarDiagnosisCard';
 import type { TemuanTindakan, SilangTindakan } from '@/components/TemuanTindakanCard';
 import type { TemuanKonsistensi } from '@/components/KonsistensiDataCard';
 import type { PutusanPending } from '@/components/PutusanPendingCard';
@@ -209,6 +211,12 @@ interface SuggestedCode {
   page_number: number;
   quotation: string;
   reasoning: string;
+  boleh_isi_otomatis?: boolean;
+  kamus_valid?: boolean | null;
+  belum_who?: boolean;
+  disangkal?: boolean;
+  alasan_tahan?: string;
+  catatan_alternatif?: string;
 }
 interface FieldRow {
   column_name: string;
@@ -385,6 +393,10 @@ interface TariffResult {
 }
 
 interface AiReview {
+  anggaran_ai?: { profil: string; target_idr: number; batas_normal_idr?: number; batas_maksimum_idr?: number; tambahan_alasan?: string[]; gagal_idr?: number; batas_idr: number; terpakai_idr: number; dicadangkan_idr: number; belum_pasti_idr: number; sisa_idr: number; dasar: string };
+  kelengkapan_analisis?: { status: 'lengkap' | 'sebagian' | 'gagal'; alasan: { kode: string; pesan: string }[] };
+  dasar_diagnosis?: DasarDiagnosis;
+  tindakan_belum_dikode?: TindakanBelumDikode[];
   kesiapan_koding?: KesiapanKoding;
   penjaminan?: { jenis: string; dasar: string; catatan: string } | null;
   // Tipe 3 ketentuan klaim (aturan kombinasi kode) -- diisi backend di
@@ -392,6 +404,7 @@ interface AiReview {
   kombinasi_kode?: TemuanKombinasiKode[];
   identitas_halaman?: TemuanIdentitasHalaman[];
   syarat_penunjang?: TemuanSyaratPenunjang[];
+  referensi_klaim?: HasilReferensiKlaim;
   temuan_tindakan?: TemuanTindakan[];
   silang_tindakan?: SilangTindakan[];
   konsistensi_data?: TemuanKonsistensi[];
@@ -770,7 +783,7 @@ function FieldRowTr({
                       : 'Bukti dokumen belum ditemukan. Periksa manual.'}
                   </span>
                 ))}
-                {compact && !field.codeEvidence?.some(ev => ev.code.toUpperCase() === code) && field.suggestedCodes?.filter(item => item.code.trim().toUpperCase() === code && item.quotation).map((item, i) => (
+                {compact && !field.codeEvidence?.some(ev => ev.code.toUpperCase() === code) && field.suggestedCodes?.filter(item => item.code.trim().toUpperCase() === code && item.quotation && item.boleh_isi_otomatis !== false && item.disangkal !== true && item.kamus_valid !== false).map((item, i) => (
                   <span key={`usulan-${i}`} className="w-full text-sm leading-relaxed text-foreground/80">
                     Referensi usulan{item.page_number ? ` · Hal. ${item.page_number}` : ''}: “{item.quotation}”
                   </span>
@@ -907,6 +920,11 @@ function FieldRowTr({
               {visibleSuggestions.map((suggestion, index) => {
                 const code = suggestion.code.trim().toUpperCase();
                 const alreadyApplied = valueCodes.includes(code);
+                const needsClarification = suggestion.boleh_isi_otomatis === false || suggestion.kamus_valid === false || suggestion.belum_who || suggestion.disangkal;
+                const clarificationReason = suggestion.alasan_tahan || suggestion.catatan_alternatif
+                  || (suggestion.disangkal ? 'Temuan disangkal dalam dokumen.'
+                    : suggestion.belum_who || suggestion.kamus_valid === false ? 'Kode belum terverifikasi di kamus yang digunakan.'
+                    : 'Bukti belum cukup untuk pengisian otomatis; periksa bersama dokter atau koder.');
                 return (
                   <div key={`${code}-${index}`} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-md border border-border/70 bg-background/70 px-3 py-2">
                     <div className="min-w-0 flex-1 text-sm leading-relaxed">
@@ -916,9 +934,10 @@ function FieldRowTr({
                         {suggestion.page_number ? `Usulan dari dokumen hal. ${suggestion.page_number}` : 'Usulan AI'}
                         {suggestion.quotation ? ` · “${suggestion.quotation}”` : ''}
                       </div>
+                      {needsClarification && <p className="mt-1 text-xs leading-relaxed text-amber-800 dark:text-amber-300">{clarificationReason}</p>}
                     </div>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      {alreadyApplied ? 'Sudah tercantum' : 'Belum diterapkan'}
+                    <span className={cn('rounded-full px-2 py-0.5 text-xs', needsClarification ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300' : 'bg-muted text-muted-foreground')}>
+                      {needsClarification ? (alreadyApplied ? 'Tercantum · perlu dicek' : 'Perlu klarifikasi') : alreadyApplied ? 'Sudah tercantum' : 'Belum diterapkan'}
                     </span>
                   </div>
                 );
@@ -2544,17 +2563,9 @@ export default function ResultsPage() {
       if (search) p.search = search;
       const d = await api.getRecords(fileId, p);
 
-      // Filter: Hide data dengan umur > 17 tahun (fokus pediatric cases ≤17 tahun)
-      const filteredRecords = d.records.filter((rec: any) => {
-        const umurValue = rec.umur_tahun;
-        // Skip filter jika umur tidak ada/empty (keep ambiguous records)
-        if (umurValue === null || umurValue === undefined || umurValue === '') return true;
-        const umur = Number(umurValue);
-        // Keep only if umur ≤ 17 (atau jika parsing failed — NaN)
-        return !(umur > 17);
-      });
-      const hiddenCount = d.records.length - filteredRecords.length;
-      setFilteredOutCount(hiddenCount);
+      // Semua kelompok usia tetap ditampilkan; aturan memilih usia sesuai konteks.
+      const filteredRecords = d.records;
+      setFilteredOutCount(0);
 
       setRecords(filteredRecords);
       setTotal(d.total);
@@ -2654,8 +2665,10 @@ export default function ResultsPage() {
     // mengulang klik atau menutup halaman di tengah proses.
     addToast('Membaca ulang berkas — proses OCR dan AI bisa makan beberapa menit, mohon tunggu...', 'info', 6000);
     try {
-      await api.rereadRecord(selectedRecordId);
-      addToast('Berkas berhasil dibaca ulang', 'success');
+      const reread = await api.rereadRecord(selectedRecordId);
+      if (reread.analysis_status && reread.analysis_status !== 'lengkap') {
+        addToast(reread.analysis_warning || 'Berkas tersimpan, analisis belum lengkap. Periksa alasan pada hasil.', 'info', 8000);
+      } else addToast('Pembacaan ulang selesai. Periksa hasil analisis.', 'success');
       setEditedValues({});
       setIsEditing(false);
       await loadRecords();
@@ -2893,6 +2906,17 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
+                  {(() => {
+                    const kualitas = parseAiReview(selectedRecord)?.kelengkapan_analisis;
+                    if (!kualitas || kualitas.status === 'lengkap') return null;
+                    return <section role="alert" className="rounded-lg border border-amber-600/25 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
+                      <h4 className="font-semibold text-amber-900 dark:text-amber-300">Berkas tersimpan · Analisis belum lengkap</h4>
+                      <p className="mt-1 text-sm">Hasil yang tersedia masih sebagian. Persetujuan dan ekspor siap submit ditahan sampai analisis dilengkapi.</p>
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{kualitas.alasan.map(a => <li key={a.kode}>{a.pesan}</li>)}</ul>
+                      <p className="mt-2 text-sm">Lihat tahap yang belum selesai dan bukti pada halaman terkait. Hasil yang sudah tersimpan tetap tersedia.</p>
+                    </section>;
+                  })()}
+
                   {/* Masalah validasi saat ini ditampilkan lebih dulu agar status klaim
                       tidak tertutup oleh ringkasan risiko yang tersimpan sebelumnya. */}
                   {(selectedRecord.errors?.length ?? 0) > 0 && (() => {
@@ -2938,6 +2962,13 @@ export default function ResultsPage() {
                     prosedurKosong={prosedurKosong}
                     currentValidationIssues={selectedRecord.errors?.length ?? 0}
                   />
+                  <DasarDiagnosisCard
+                    dasar={parseAiReview(selectedRecord)?.dasar_diagnosis}
+                    tindakan={parseAiReview(selectedRecord)?.tindakan_belum_dikode}
+                    onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined}
+                  />
+                  <SyaratPenunjangCard temuan={parseAiReview(selectedRecord)?.syarat_penunjang} />
+                  <ReferensiKlaimCard hasil={parseAiReview(selectedRecord)?.referensi_klaim} />
                   <AnalisisKritisCard
                     analisis={parseAiReview(selectedRecord)?.analisis_kritis}
                     onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined}

@@ -24,6 +24,9 @@ interface InaCbgResult {
   description: string;
   confidence: number; // 0..1
   reasoning?: string;
+  severity_estimasi?: boolean;
+  base_perlu_verifikasi?: boolean;
+  kandidat_base?: { base: string; prosedur: string | null }[];
 }
 
 interface TariffResult {
@@ -37,6 +40,8 @@ interface TariffResult {
   region: string; // e.g. "Regional 1"
   class: string; // e.g. "D"
   source: string; // e.g. "PMK 3/2023"
+  perlu_verifikasi_grouper?: boolean;
+  skenario_severity?: { code: string; severity: string; amount: number | null }[];
 }
 
 interface InaCbgTarifDisplayProps {
@@ -159,7 +164,7 @@ function TariffSection({
   const hasTariff = !!tariff_result && Number(tariff_result.amount) > 0;
 
   return (
-    <div className="flex items-start justify-between gap-4 bg-white/[0.02] px-4 py-3">
+    <div className="flex flex-wrap items-start justify-between gap-4 bg-white/[0.02] px-4 py-3">
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-base font-bold text-purple-300">
@@ -200,6 +205,28 @@ function TariffSection({
           </div>
         )}
       </div>
+      {(inacbg_result.severity_estimasi || tariff_result?.perlu_verifikasi_grouper) && (
+        <div className="w-full rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200">
+          <p className="font-semibold">{inacbg_result.severity_estimasi ? 'Perkiraan aplikasi · acuan tingkat I' : 'Perkiraan kelompok rawat jalan'}</p>
+          <p className="mt-1">{inacbg_result.severity_estimasi
+            ? 'Tingkat keparahan final perlu hasil grouper E-Klaim. Adanya diagnosis komplikasi tidak otomatis menentukan tingkat II atau III.'
+            : 'Tarif mengikuti tabel resmi untuk kelompok yang diperkirakan aplikasi. Kesesuaian kelompok perlu diverifikasi dengan mesin E-Klaim.'}</p>
+          {inacbg_result.reasoning && <p className="mt-2 text-muted-foreground">{inacbg_result.reasoning}</p>}
+          {inacbg_result.base_perlu_verifikasi && !!inacbg_result.kandidat_base?.length && (
+            <div className="mt-2">
+              <p className="font-medium">Tabel menyediakan beberapa kandidat. Cocokkan dengan pelayanan yang terdokumentasi.</p>
+              <ul className="mt-1 space-y-1">
+                {inacbg_result.kandidat_base.map(k => <li key={k.base}>
+                  <code>{k.base}</code>{k.prosedur ? ` · prosedur ${k.prosedur}` : ' · bukti jenis layanan perlu diperiksa'}
+                </li>)}
+              </ul>
+            </div>
+          )}
+          {!!tariff_result?.skenario_severity?.length && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {tariff_result.skenario_severity.map(s => <span key={s.code}>Tingkat {s.severity}: {s.amount != null ? formatRupiah(s.amount) : 'tarif belum tersedia'}</span>)}
+          </div>}
+        </div>
+      )}
     </div>
   );
 }
