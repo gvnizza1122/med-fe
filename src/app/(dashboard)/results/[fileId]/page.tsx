@@ -350,6 +350,7 @@ interface KegawatdaruratanKriteria {
 }
 
 interface KegawatdaruratanAssessment {
+  dokumentasi?: { status: string; ringkasan: string; catatan: string; halaman_bukti: number[] };
   has_data?: boolean;
   ringkasan: string;
   parameter_findings: KegawatdaruratanParameterFinding[];
@@ -1965,7 +1966,7 @@ function EmergencyCriteriaList({ criteria, hasData, ageGroup, onOpenPdf }: {
       <h3 className="text-base font-semibold text-foreground">Penilaian Kegawatdaruratan (K1–K5)</h3>
       <span className="rounded-full border border-border bg-muted/30 px-3 py-1 text-sm text-foreground">{fulfilled} dari {criteria.length} kriteria terpenuhi</span>
     </div>
-    <p className="text-sm leading-relaxed text-muted-foreground">Buka setiap kriteria untuk melihat alasan dan bukti dari dokumen.</p>
+    <p className="text-sm leading-relaxed text-muted-foreground">Satu kriteria yang didukung bukti dapat mendukung kegawatdaruratan; tidak harus seluruh K1–K5 terpenuhi. Buka setiap kriteria untuk melihat alasan dan bukti.</p>
     <div className="space-y-3">
       {[...criteria].sort((a, b) => a.kriteria.localeCompare(b.kriteria)).map(k => {
         // Missing evidence is not itself proof of an incomplete assessment.
@@ -2124,6 +2125,11 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
       {/* Ringkasan Section */}
       <div className="px-6 py-4 bg-white/[0.02] border-b border-border">
         <p className="text-sm text-muted-foreground font-medium leading-relaxed">{ringkasan}</p>
+        {assessment.dokumentasi && <div className="mt-3 rounded-lg border border-border bg-card p-4 space-y-2">
+          <p className="text-sm font-semibold">{assessment.dokumentasi.status === 'mendukung' ? 'Bukti kegawatdaruratan mendukung' : 'Kelengkapan bukti kegawatdaruratan'}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{assessment.dokumentasi.ringkasan}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{assessment.dokumentasi.catatan}</p>
+        </div>}
       </div>
 
       {!showFullDetail ? (
