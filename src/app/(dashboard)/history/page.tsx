@@ -857,7 +857,7 @@ export default function HistoryPage() {
               className="gap-1.5"
               disabled={mengexportPending || !bulanPending}
               onClick={unduhPendingBulanan}
-              title="Klaim pending pada bulan terpilih, format kolom sama dengan ekspor MIX E-Klaim, plus lembar alasan pending & saran"
+              title="Daftar klaim pending bulan terpilih: alasan pending, saran tindakan, dan kolom Jawaban Rumah Sakit untuk diisi casemix"
             >
               <Download className="size-3.5" />
               {mengexportPending ? 'Menyiapkan...' : 'Export Pending Bulanan'}
