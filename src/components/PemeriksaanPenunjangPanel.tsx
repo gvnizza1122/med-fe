@@ -101,7 +101,7 @@ export function PemeriksaanPenunjangPanel({ recordId, onOpenPdf, tertanam = fals
               <li key={p.id} className={cn('rounded-full border px-2.5 py-0.5 text-xs', p.ada_hasil ? 'border-border text-foreground/90' : 'border-amber-500/40 text-amber-800 dark:text-amber-300')}>
                 {p.id === 'lab_darah' ? 'Lab darah' : p.id === 'histopatologi' ? 'Histopatologi' : p.nama}
                 {p.kode_icd9 && <span className="ml-1 font-mono-data text-muted-foreground">{p.kode_icd9}</span>}
-                {!p.ada_hasil && <span className="ml-1">· hasil belum ada</span>}
+                {!p.ada_hasil && <span className="ml-1">· hasil belum terkonfirmasi</span>}
               </li>
             ))}
             {jumlahParameter > 0 && (

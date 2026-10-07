@@ -18,7 +18,8 @@ import { cn } from '@/lib/utils';
 
 interface KodeIdrg {
   kode: string;
-  status: 'im' | 'perlu_dipilih' | 'sama' | 'tidak_dikenal';
+  status: 'im' | 'perlu_dipilih' | 'perlu_verifikasi' | 'sama' | 'tidak_dikenal';
+  catatan?: string;
   kode_idrg: string | null;
   deskripsi: string | null;
   padanan_inacbg: string | null;
@@ -28,7 +29,8 @@ interface TarifGanda {
   jenis_klaim: string | null;
   inacbg: {
     resmi: { sumber: 'lembar_grouper_eklaim' | 'data_klaim'; kode: string; deskripsi: string | null; tarif: number | null; versi_eklaim: string | null; halaman: number | null } | null;
-    hitungan_medaudit: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null } | null;
+    hitungan_medaudit: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null; alasan?: string | null } | null;
+    perkiraan_klaim?: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null; alasan?: string | null; status: 'tersedia' | 'tarif_belum_tersedia'; label: string; keterangan: string } | null;
     cocok: boolean | null;
   };
   idrg: {
@@ -37,10 +39,11 @@ interface TarifGanda {
     drg: string | null;
     deskripsi: string | null;
     cost_weight: number | null;
-    nbr: { nilai: number; jenis: string; status: string };
+    nbr: { nilai: number | null; jenis: string; status: string };
     tarif: number | null;
     rumus: string;
     alasan?: string;
+    verifikasi_rumus?: boolean | null;
   };
   koding_idrg: {
     diagnosis: KodeIdrg[];
@@ -60,9 +63,10 @@ const LABEL_SUMBER_INACBG: Record<string, string> = {
 };
 
 const STATUS_KODE: Record<KodeIdrg['status'], { label: string; kelas: string }> = {
-  im: { label: 'Kode iDRG (IM)', kelas: 'border-emerald-600/30 bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300' },
-  sama: { label: 'Sama di iDRG', kelas: 'border-border bg-secondary/40 text-foreground' },
-  perlu_dipilih: { label: 'Pilih versi iDRG', kelas: 'border-amber-600/30 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300' },
+  im: { label: 'Entri kamus IM', kelas: 'border-emerald-600/30 bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300' },
+  sama: { label: 'Kode dasar tersedia', kelas: 'border-border bg-secondary/40 text-foreground' },
+  perlu_verifikasi: { label: 'Verifikasi padanan di E-Klaim', kelas: 'border-amber-600/30 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300' },
+  perlu_dipilih: { label: 'Verifikasi versi iDRG', kelas: 'border-amber-600/30 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300' },
   tidak_dikenal: { label: 'Tidak dikenal', kelas: 'border-red-600/30 bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300' },
 };
 
@@ -80,9 +84,10 @@ function BarisKode({ k }: { k: KodeIdrg }) {
       {k.status === 'im' && k.padanan_inacbg && (
         <p className="mt-0.5 text-xs text-muted-foreground">Padanan INA-CBG: <span className="font-mono-data">{k.padanan_inacbg}</span></p>
       )}
+      {k.catatan && <p className="mt-1 text-xs text-muted-foreground">{k.catatan}</p>}
       {k.status === 'perlu_dipilih' && (
         <div className="mt-1 text-xs text-muted-foreground">
-          <p>iDRG memakai kode yang lebih rinci. Pilih sesuai isi resume:</p>
+          <p>Daftar lama perlu dicocokkan dengan definisi kode dan bukti klinis di E-Klaim:</p>
           <ul className="mt-1 space-y-0.5">
             {k.kandidat.map(c => (
               <li key={c.kode}><span className="font-mono-data text-foreground">{c.kode}</span> — {c.deskripsi}</li>
@@ -112,32 +117,36 @@ export function TarifGandaCard({ recordId }: { recordId: string }) {
 
   const { inacbg, idrg, koding_idrg: koding } = data;
   const semuaKode = [...koding.diagnosis, ...koding.prosedur];
+  const perkiraan = inacbg.perkiraan_klaim ?? inacbg.hitungan_medaudit;
 
   return (
     <section aria-label="Tarif INA-CBG dan iDRG" className="space-y-4">
       <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))]">
         {/* INA-CBG */}
         <article className="rounded-lg border border-border p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tarif INA-CBG</p>
-          {inacbg.resmi ? (
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Perkiraan klaim kasus ini</p>
+          <p className="mt-1 text-xs text-muted-foreground">INA-CBG · Berdasarkan diagnosis dan prosedur kasus ini</p>
+          {perkiraan ? (
             <>
-              <p className="mt-1 font-display text-2xl font-semibold">{rupiah(inacbg.resmi.tarif)}</p>
-              <p className="mt-1 text-sm"><span className="font-mono-data font-semibold">{inacbg.resmi.kode}</span>{inacbg.resmi.deskripsi && <span className="text-muted-foreground"> · {inacbg.resmi.deskripsi}</span>}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Sumber: {LABEL_SUMBER_INACBG[inacbg.resmi.sumber] ?? inacbg.resmi.sumber}
-                {inacbg.resmi.halaman ? `, halaman ${inacbg.resmi.halaman}` : ''}
-                {inacbg.resmi.versi_eklaim ? ` · E-Klaim ${inacbg.resmi.versi_eklaim}` : ''}
-              </p>
+              <p className="mt-2 font-display text-2xl font-semibold">{perkiraan.tarif == null ? 'Tarif belum dapat diperkirakan' : rupiah(perkiraan.tarif)}</p>
+              <p className="mt-1 text-sm"><span className="font-mono-data font-semibold">{perkiraan.kode}</span>{perkiraan.deskripsi && <span className="text-muted-foreground"> · {perkiraan.deskripsi}</span>}</p>
+              {perkiraan.alasan && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Dasar perkiraan: {perkiraan.alasan}</p>}
+              {perkiraan.catatan && <details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Rincian dasar tarif</summary><p className="mt-1 leading-relaxed">{perkiraan.catatan}</p></details>}
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{inacbg.perkiraan_klaim?.keterangan ?? 'Nilai ini merupakan perkiraan aplikasi dan perlu verifikasi dengan hasil E-Klaim.'}</p>
             </>
           ) : (
-            <p className="mt-1 text-sm text-muted-foreground">Belum ada hasil grouper INA-CBG di berkas atau data klaim.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Perkiraan klaim belum dapat dihitung dari data kasus ini.</p>
           )}
-          {inacbg.hitungan_medaudit && (
-            <div className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">
-              Hitungan medaudit: <span className="font-mono-data text-foreground">{inacbg.hitungan_medaudit.kode}</span> · {rupiah(inacbg.hitungan_medaudit.tarif)}
-              {inacbg.cocok === true && <span className="ml-1 text-emerald-700 dark:text-emerald-400">(sama dengan grouper)</span>}
-              {inacbg.cocok === false && <span className="ml-1 text-amber-700 dark:text-amber-400">(berbeda dari grouper — periksa koding)</span>}
+          {inacbg.resmi ? (
+            <div className="mt-3 border-t border-border pt-3 text-xs">
+              <p className="font-medium">Hasil E-Klaim sebagai pembanding</p>
+              <p className="mt-1"><span className="font-mono-data">{inacbg.resmi.kode}</span> · {rupiah(inacbg.resmi.tarif)}</p>
+              <p className="mt-1 text-muted-foreground">Sumber: {LABEL_SUMBER_INACBG[inacbg.resmi.sumber] ?? inacbg.resmi.sumber}{inacbg.resmi.halaman ? `, halaman ${inacbg.resmi.halaman}` : ''}{inacbg.resmi.versi_eklaim ? ` · E-Klaim ${inacbg.resmi.versi_eklaim}` : ''}</p>
+              {inacbg.cocok === true && <p className="mt-1 text-emerald-700 dark:text-emerald-400">Kode perkiraan sama dengan hasil E-Klaim.</p>}
+              {inacbg.cocok === false && <p className="mt-1 text-amber-700 dark:text-amber-400">Kode perkiraan berbeda; tinjau diagnosis, prosedur dan aturan grouper.</p>}
             </div>
+          ) : perkiraan && (
+            <p className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">Hasil E-Klaim untuk pembanding belum tersedia.</p>
           )}
         </article>
 
@@ -149,8 +158,9 @@ export function TarifGandaCard({ recordId }: { recordId: string }) {
               <p className="mt-1 font-display text-2xl font-semibold">{rupiah(idrg.tarif)}</p>
               <p className="mt-1 text-sm"><span className="font-mono-data font-semibold">{idrg.drg}</span>{idrg.deskripsi && <span className="text-muted-foreground"> · {idrg.deskripsi}</span>}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                CW {idrg.cost_weight} × NBR {rupiah(idrg.nbr.nilai)} · Sumber: lembar grouper iDRG E-Klaim
+                CW {idrg.cost_weight ?? '—'} × NBR {rupiah(idrg.nbr.nilai)} · Sumber: {idrg.sumber === 'data_klaim' ? 'ekspor data klaim E-Klaim' : 'lembar grouper iDRG E-Klaim'}
               </p>
+              {idrg.verifikasi_rumus === false && <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">Tarif pada ekspor berbeda dari hasil CW × NBR. Periksa hasil E-Klaim dan komponennya.</p>}
             </>
           ) : (
             <>
@@ -170,10 +180,10 @@ export function TarifGandaCard({ recordId }: { recordId: string }) {
         <article className="rounded-lg border border-border p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 className="text-sm font-semibold">Koding versi iDRG</h4>
-            <Badge variant="outline" className="text-[11px]">{koding.lengkap ? 'Siap untuk iDRG' : 'Perlu ditinjau'}</Badge>
+            <Badge variant="outline" className="text-[11px]">{koding.lengkap ? 'Entri kamus ditemukan' : 'Perlu ditinjau'}</Badge>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Kode klaim (kiri) dan padanannya di iDRG (kanan). Hasil konversi otomatis dari kamus — bukan hasil grouper, tetap cocokkan dengan resume.
+            Pencocokan kode dengan kamus yang tersedia. Kemiripan awalan kode belum membuktikan padanan; verifikasi di E-Klaim sesuai diagnosis dan tindakan dalam resume.
           </p>
           {koding.diagnosis.length > 0 && (
             <>

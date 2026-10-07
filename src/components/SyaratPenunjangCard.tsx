@@ -1,9 +1,5 @@
 'use client';
-// Syarat Penunjang Diagnosis — Tipe 2 (tindakan ada) & Tipe 1 (hasil mendukung).
-//
-// Backend yang menilai (syaratPenunjangService.js); kartu ini hanya
-// menampilkan. Tidak ada tombol yang mengubah data — penetapan kode tetap
-// wewenang koder.
+import { AlertCircle, CheckCircle2, ChevronDown, CircleHelp, FlaskConical } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -17,12 +13,11 @@ export interface SyaratItem {
   page_number: number | null;
   status: string;
   ambang?: string;
-  memenuhi_ambang?: boolean;
+  memenuhi_ambang?: boolean | null;
   catatan_batasan?: string;
   dapat_diperiksa_sistem?: boolean;
   kata_kunci_cocok?: string;
 }
-
 export interface TemuanSyaratPenunjang {
   id: string;
   kode_diagnosis: string;
@@ -30,133 +25,86 @@ export interface TemuanSyaratPenunjang {
   nama_diagnosis: string;
   diverifikasi: boolean;
   sumber_aturan: string;
+  sumber_ketentuan?: string;
+  jenis_ketentuan?: string;
+  rujukan_id?: string;
+  hospital_code?: string;
+  cakupan?: string;
+  perlu_konfirmasi_tanggal?: boolean;
   syarat: SyaratItem[];
-  ringkasan: {
-    terpenuhi: number;
-    hasil_belum_terbaca: number;
-    tidak_ada: number;
-    perlu_cek_manual: number;
-  };
+  ringkasan: { terpenuhi: number; hasil_belum_terbaca: number; tidak_ada: number; perlu_cek_manual: number };
 }
-
-// Empat keadaan, bukan dua. "Tindakan ada tapi hasil belum terbaca" sengaja
-// TIDAK ditampilkan sebagai centang hijau: yang diperiksa verifikator BPJS
-// adalah hasilnya, dan menyamakan keduanya membuat sistem menyatakan "aman"
-// untuk klaim yang justru rawan ditanya.
-const GAYA: Record<string, { ikon: string; kelas: string; label: string }> = {
-  terpenuhi: {
-    ikon: '✓', kelas: 'text-emerald-600', label: 'Terpenuhi',
-  },
-  tindakan_ada_hasil_belum_terbaca: {
-    ikon: '⚠', kelas: 'text-amber-600', label: 'Tindakan ada, hasil belum terbaca',
-  },
-  tidak_ada: {
-    ikon: '✕', kelas: 'text-red-600', label: 'Tidak ada',
-  },
-  perlu_cek_manual: {
-    ikon: '?', kelas: 'text-gray-500', label: 'Perlu dicek manual',
-  },
+const GAYA = {
+  terpenuhi: { Icon: CheckCircle2, kelas: 'text-emerald-700 dark:text-emerald-400', label: 'Bukti memenuhi syarat' },
+  tindakan_ada_hasil_belum_terbaca: { Icon: AlertCircle, kelas: 'text-amber-700 dark:text-amber-400', label: 'Hasil belum terkonfirmasi' },
+  tidak_ada: { Icon: AlertCircle, kelas: 'text-rose-700 dark:text-rose-400', label: 'Bukti belum memenuhi syarat' },
+  perlu_cek_manual: { Icon: CircleHelp, kelas: 'text-amber-700 dark:text-amber-400', label: 'Perlu penilaian bukti' },
 };
 
 export function SyaratPenunjangCard({ temuan }: { temuan?: TemuanSyaratPenunjang[] }) {
-  // Panel tidak dirender sama sekali kalau tidak ada diagnosis pemicu.
-  // Sebagian besar klaim tidak memuat diagnosis bersyarat; menampilkan panel
-  // kosong bertuliskan "tidak ada syarat" di setiap klaim hanya menambah
-  // panjang halaman.
-  if (!temuan || temuan.length === 0) return null;
-
-  // Hanya aturan yang SUDAH disahkan koder yang boleh memunculkan peringatan.
-  // Aturan yang belum disahkan tetap ditampilkan lengkap dengan tandanya,
-  // tetapi tidak ikut dihitung di lencana — satu kalimat verifikator yang
-  // mungkin khusus kasus tertentu tidak boleh terlihat seperti temuan yang
-  // sudah pasti.
-  const terverifikasi = temuan.filter((t) => t.diverifikasi);
-  const perluDicek = terverifikasi.reduce(
-    (n, t) => n + t.ringkasan.tidak_ada + t.ringkasan.hasil_belum_terbaca, 0,
-  );
-  const totalSyarat = terverifikasi.reduce((n, t) => n + t.syarat.length, 0);
-
+  if (!temuan?.length) return null;
+  const syaratAktif = temuan.filter(t => t.diverifikasi).flatMap(t => t.syarat);
+  // Hitung dari item aktual agar ringkasan lama tidak memberikan status hijau keliru.
+  const perluDicek = syaratAktif.filter(s => s.status !== 'terpenuhi').length;
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <div className="mb-1 flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold text-gray-900">Syarat Penunjang Diagnosis</h3>
-        {perluDicek > 0 && (
-          <Badge className="bg-amber-100 text-amber-800">
-            {perluDicek} dari {totalSyarat} perlu dicek
-          </Badge>
-        )}
+    <section aria-label="Persyaratan penunjang klaim BPJS" className="rounded-xl border border-border bg-card p-4 text-card-foreground sm:p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <FlaskConical className="h-4 w-4 text-primary" aria-hidden="true" />
+        <h3 className="text-sm font-semibold">Persyaratan Penunjang Klaim BPJS</h3>
+        <Badge variant="outline" className={cn('text-xs', perluDicek ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'border-emerald-500/30 text-emerald-700 dark:text-emerald-400')}>
+          {perluDicek ? `${perluDicek} dari ${syaratAktif.length} perlu ditinjau` : `${syaratAktif.length} bukti memenuhi syarat`}
+        </Badge>
       </div>
-      <p className="mb-3 text-xs leading-snug text-gray-500">
-        Sebagian diagnosis hanya dapat dikoding bila pemeriksaan penunjangnya ada dan
-        hasilnya mendukung. Yang diperiksa verifikator BPJS adalah hasilnya, bukan
-        ada-tidaknya tindakan.
+      <p className="mt-2 max-w-4xl text-xs leading-relaxed text-muted-foreground">
+        Kelengkapan penunjang untuk klaim BPJS dinilai dari bukti dalam berkas. Sumber persyaratan ditampilkan pada setiap diagnosis.
       </p>
-
-      <div className="space-y-3">
-        {temuan.map((t) => (
-          <div key={`${t.id}-${t.kode_diagnosis}`} className="rounded-md border border-gray-200 p-3">
-            <div className="mb-2 flex flex-wrap items-baseline gap-2">
-              <span className="font-mono text-xs font-bold text-teal-700">{t.kode_diagnosis}</span>
-              <span className="text-xs text-gray-500">{t.nama_diagnosis}</span>
-              {!t.diverifikasi && (
-                <Badge variant="outline" className="text-[10px]">Belum diverifikasi koder</Badge>
-              )}
+      <div className="mt-4 space-y-3">
+        {temuan.map(t => (
+          <article key={`${t.id}-${t.kode_diagnosis}`} className="overflow-hidden rounded-lg border border-border">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-4 py-3">
+              <span className="font-mono text-xs font-semibold text-primary">{t.kode_diagnosis}</span>
+              <h4 className="text-sm font-medium">{t.nama_diagnosis}</h4>
+              {t.cakupan === 'rs' && <Badge variant="outline" className="text-xs">Verifikasi setempat · RS {t.hospital_code}</Badge>}
+              {t.perlu_konfirmasi_tanggal && <Badge variant="outline" className="text-xs">Tanggal perlu dikonfirmasi</Badge>}
+              {!t.diverifikasi && <Badge variant="outline" className="text-xs">Sumber belum diverifikasi</Badge>}
             </div>
-
-            <div className="space-y-1.5">
+            <div className="divide-y divide-border px-4">
               {t.syarat.map((s, i) => {
-                const gaya = GAYA[s.status] || GAYA.perlu_cek_manual;
+                const gaya = GAYA[s.status as keyof typeof GAYA] || GAYA.perlu_cek_manual;
+                const Icon = gaya.Icon;
                 return (
-                  <div key={`${s.nama}-${i}`} className="flex gap-2 text-xs">
-                    <span className={cn('font-bold leading-relaxed', gaya.kelas)}>{gaya.ikon}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-gray-800">
-                        <span className="font-medium">{s.nama}</span>
-                        <span className="text-gray-400"> — </span>
-                        <span className={gaya.kelas}>{gaya.label}</span>
+                  <div key={`${s.nama}-${i}`} className="flex gap-3 py-3">
+                    <Icon aria-hidden="true" className={cn('mt-0.5 h-4 w-4 shrink-0', gaya.kelas)} />
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <span className="text-sm font-medium">{s.nama}</span>
+                        <span className={cn('text-xs font-medium', gaya.kelas)}>{gaya.label}</span>
                       </div>
-
-                      {s.nilai !== null && s.nilai !== undefined && (
-                        <div className="mt-0.5 text-[11px] text-gray-600">
-                          Nilai terbaca: <span className="font-mono">{s.nilai}</span>
-                          {s.ambang && <span className="text-gray-400"> · syarat {s.ambang}</span>}
-                        </div>
-                      )}
-
-                      {s.kutipan && (
-                        <div className="mt-0.5 text-[11px] italic text-gray-500">
-                          &ldquo;{s.kutipan}&rdquo;
-                          {s.page_number && <span className="not-italic"> (hal. {s.page_number})</span>}
-                        </div>
-                      )}
-
-                      {s.kode_prosedur_ditemukan?.length > 0 && (
-                        <div className="mt-0.5 font-mono text-[10px] text-gray-400">
-                          {s.kode_prosedur_ditemukan.join(', ')} · PROCLIST
-                        </div>
-                      )}
-
-                      {/* Batasan dinyatakan terbuka, bukan disamarkan jadi kesimpulan. */}
-                      {s.catatan_batasan && (
-                        <div className="mt-1 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] leading-snug text-gray-600">
-                          {s.catatan_batasan}
-                        </div>
+                      {s.nilai != null && <p className="text-xs text-muted-foreground">Nilai ditemukan: <span className="font-mono text-foreground">{s.nilai}</span>{s.ambang && ` · syarat ${s.ambang}`}</p>}
+                      {s.catatan_batasan && <p className="text-xs leading-relaxed text-muted-foreground">{s.catatan_batasan}</p>}
+                      {(s.kutipan || s.kode_prosedur_ditemukan?.length > 0) && (
+                        <details className="group text-xs">
+                          <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded py-1 text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            Lihat bukti{s.page_number ? ` · halaman ${s.page_number}` : ''}<ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                          </summary>
+                          <div className="mt-1 space-y-2 rounded-md border border-border bg-muted/30 p-3">
+                            {s.kutipan && <blockquote className="break-words leading-relaxed text-muted-foreground">&ldquo;{s.kutipan}&rdquo;</blockquote>}
+                            {s.kode_prosedur_ditemukan?.length > 0 && <p className="text-muted-foreground">Kode prosedur klaim: <span className="font-mono">{s.kode_prosedur_ditemukan.join(', ')}</span></p>}
+                          </div>
+                        </details>
                       )}
                     </div>
                   </div>
                 );
               })}
             </div>
-
-            {/* Kalimat asli verifikator membuat aturan bisa dipertanggungjawabkan:
-                jawabannya bukan "karena aturannya begitu" melainkan kutipan nyata
-                dari klaim yang dulu ditolak. */}
-            <div className="mt-2 border-t border-gray-100 pt-2 text-[10px] leading-snug text-gray-400">
-              Dasar aturan: {t.sumber_aturan}
-            </div>
-          </div>
+            <details className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+              <summary className="cursor-pointer rounded py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring">Sumber persyaratan BPJS</summary>
+              <p className="pb-2 pt-1 leading-relaxed">{t.sumber_ketentuan || t.sumber_aturan}</p>
+            </details>
+          </article>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

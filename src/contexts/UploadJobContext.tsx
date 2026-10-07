@@ -13,97 +13,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 
-export interface JenisKlaimDetection {
-  value: string;
-  source: 'auto' | 'single-allowed' | 'detected-not-in-allowed-list' | 'undetected';
-  confident: boolean;
-}
-
-export interface BatchFileStatus {
-  fileName: string;
-  status: 'waiting' | 'processing' | 'done' | 'failed';
-  error?: string | null;
-  jenisKlaim?: string | null;
-  detection?: JenisKlaimDetection | null;
-  // Unggahan berantrean (status dari server).
-  prosesId?: string;
-  batchId?: string | null;
-  tahapLabel?: string;
-  sisaDetik?: number;
-  persen?: number;
-  jumlahHalaman?: number | null;
-  fileId?: string | null;
-}
-
-interface ProsesUnggah {
-  id: string; batch_id: string | null; file_name: string;
-  status: 'antre' | 'berjalan' | 'selesai' | 'gagal' | 'terputus';
-  tahap: string; tahap_label: string; jumlah_halaman: number | null;
-  sisa_detik: number; persen: number; file_id: string | null; pesan: string | null;
-}
-
-export interface UploadJob {
-  type: 'single' | 'batch';
-  testing?: boolean;
-  jobId?: string;
-  total: number;
-  doneCount: number;
-  failedCount: number;
-  statuses: BatchFileStatus[];
-  active: boolean; // masih berjalan (true) vs sudah selesai & masih ditampilkan (false)
-  error: string | null;
-  // Single: id record hasil, untuk link "Lihat Hasil". Batch: tidak ada link tunggal.
-  resultFileId?: string | null;
-  // Unggahan berantrean: batch yang dimulai di sesi ini & perkiraan sisa waktu total.
-  batchId?: string | null;
-  sisaDetik?: number;
-  server?: boolean;
-  // Persen keseluruhan (rata-rata berkas; selesai/gagal = 100).
-  persen?: number;
-}
-
-/** Persen keseluruhan dari status berkas: berjalan memakai persen server, selesai/gagal 100. */
-export function persenKeseluruhan(statuses: BatchFileStatus[]): number {
-  if (!statuses.length) return 0;
-  const total = statuses.reduce((n, s) => n + (s.status === 'done' || s.status === 'failed' ? 100 : s.persen || 0), 0);
-  return Math.round(total / statuses.length);
-}
-
-const STATUS_DARI_SERVER: Record<ProsesUnggah['status'], BatchFileStatus['status']> = {
-  antre: 'waiting', berjalan: 'processing', selesai: 'done', gagal: 'failed', terputus: 'failed',
-};
-
-/** Susun job dari daftar proses server. */
-// Persen tertinggi yang pernah ditampilkan per proses: perkiraan dihitung
-// ulang saat jumlah halaman diketahui, tetapi bar tidak boleh mundur.
-const persenTertinggi = new Map<string, number>();
-
-function jobDariServer(proses: ProsesUnggah[], batchId: string | null = null): UploadJob | null {
-  if (!proses.length) return null;
-  for (const p of proses) {
-    const naik = Math.max(persenTertinggi.get(p.id) || 0, p.persen || 0);
-    persenTertinggi.set(p.id, naik);
-    p.persen = p.status === 'selesai' ? 100 : naik;
-  }
-  const statuses: BatchFileStatus[] = proses.map(p => ({
-    fileName: p.file_name, status: STATUS_DARI_SERVER[p.status], error: p.pesan,
-    prosesId: p.id, batchId: p.batch_id, tahapLabel: p.tahap_label, sisaDetik: p.sisa_detik,
-    persen: p.persen, jumlahHalaman: p.jumlah_halaman, fileId: p.file_id,
-  }));
-  const active = statuses.some(x => x.status === 'waiting' || x.status === 'processing');
-  const batchAktif = new Set(statuses.filter(x => x.status === 'waiting' || x.status === 'processing').map(x => x.batchId ?? null));
-  const done = statuses.filter(x => x.status === 'done');
-  return {
-    type: statuses.length === 1 ? 'single' : 'batch', server: true, batchId,
-    total: statuses.length, doneCount: done.length, failedCount: statuses.filter(x => x.status === 'failed').length,
-    statuses, active, error: null,
-    resultFileId: statuses.length === 1 ? done[0]?.fileId || null : null,
-    // Persen keseluruhan hanya dari batch yang masih berjalan (unggahan lama
-    // yang sudah selesai tetapi belum ditutup tidak ikut menaikkan angka).
-    persen: persenKeseluruhan(active ? statuses.filter(x => batchAktif.has(x.batchId ?? null)) : statuses),
-    sisaDetik: active ? Math.max(0, ...statuses.filter(x => x.status === 'waiting' || x.status === 'processing').map(x => x.sisaDetik || 0)) : 0,
-  };
-}
+import { jobDariServer, type ProsesUnggah, type UploadJob, type BatchFileStatus } from '@/lib/upload-progress';
+export { persenKeseluruhan } from '@/lib/upload-progress';
+export type { BatchFileStatus, UploadJob, JenisKlaimDetection } from '@/lib/upload-progress';
 
 interface UploadJobContextValue {
   job: UploadJob | null;
@@ -120,46 +32,55 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
   const monitoring = useRef(new Set<string>());
 
   const batchSesi = useRef<string | null>(null);
-  const memantauServer = useRef(false);
+  const polling = useRef(false);
+  const revision = useRef(0);
+  const dismissed = useRef(new Set<string>());
+  const trackedBatches = useRef(new Set<string>());
+  const highest = useRef(new Map<string, number>());
+  const mounted = useRef(false);
 
-  // Pantau proses di server sampai semuanya selesai. Dipanggil saat halaman
-  // dibuka (melanjutkan proses yang masih berjalan setelah refresh) dan
-  // setelah unggahan baru diterima.
+  // One request at a time; old responses cannot overwrite a new upload.
   const pantauServer = useCallback(async () => {
-    if (memantauServer.current) return;
-    memantauServer.current = true;
-    let gagalBeruntun = 0;
+    if (polling.current || !mounted.current) return;
+    polling.current = true;
+    const currentRevision = revision.current;
     try {
-      for (;;) {
-        try {
-          const data = await api.getProsesUnggah();
-          gagalBeruntun = 0;
-          const j = jobDariServer((data.proses || []) as ProsesUnggah[], batchSesi.current);
-          setJob(prev => (prev && !prev.server && prev.active ? prev : j));
-          if (!j || !j.active) break;
-        } catch {
-          // Server sementara tidak terjangkau: proses tetap berjalan di server; coba lagi.
-          if (++gagalBeruntun >= 20) break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 3000));
+      const data = await api.getProsesUnggah();
+      if (!mounted.current || currentRevision !== revision.current) return;
+      const j = jobDariServer(((data.proses || []) as ProsesUnggah[]).filter(p => !dismissed.current.has(p.id)), batchSesi.current, highest.current, trackedBatches.current);
+      setJob(prev => prev && !prev.server ? prev : j);
+    } catch {
+      if (mounted.current && currentRevision === revision.current) {
+        setJob(prev => prev?.server && prev.active ? { ...prev,
+          error: 'Status sementara belum dapat diperbarui. Proses tetap berjalan di server.', sisaDetik: null } : prev);
       }
     } finally {
-      memantauServer.current = false;
+      polling.current = false;
     }
   }, []);
 
-  useEffect(() => { void pantauServer(); }, [pantauServer]);
+  useEffect(() => {
+    mounted.current = true;
+    batchSesi.current = localStorage.getItem('eclaim-upload-batch');
+    void pantauServer();
+    const timer = setInterval(() => { void pantauServer(); }, 3000);
+    return () => { mounted.current = false; revision.current++; clearInterval(timer); };
+  }, [pantauServer]);
 
   const dismissJob = useCallback(() => {
-    setJob(prev => {
-      if (prev?.server) {
-        const ids = prev.statuses.filter(x => x.prosesId && (x.status === 'done' || x.status === 'failed')).map(x => x.prosesId as string);
-        if (ids.length) void api.tutupProsesUnggah(ids).catch(() => {});
-      }
-      return null;
-    });
+    if (job?.active) return;
+    revision.current++;
+    highest.current.clear();
+    trackedBatches.current.clear();
+    localStorage.removeItem('eclaim-upload-batch');
+    if (job?.server) {
+      const ids = job.statuses.filter(x => x.prosesId).map(x => x.prosesId as string);
+      ids.forEach(id => dismissed.current.add(id));
+      if (ids.length) void api.tutupProsesUnggah(ids).catch(() => {});
+    }
+    setJob(null);
     batchSesi.current = null;
-  }, []);
+  }, [job]);
 
   const monitorTestingJob = useCallback(async (jobId: string) => {
     if (monitoring.current.has(jobId)) return;
@@ -195,14 +116,17 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
   // Kirim berkas ke antrean server; pembacaan lanjut walau halaman di-refresh.
   const kirimKeAntrean = useCallback(async (files: File[], allowedCategories: string[]) => {
     const res = await api.uploadPdfAntre(files, allowedCategories);
+    revision.current++;
     batchSesi.current = res.batch_id;
-    const j = jobDariServer((res.proses || []) as ProsesUnggah[], res.batch_id);
-    if (j) setJob({ ...j, active: true });
+    localStorage.setItem('eclaim-upload-batch', res.batch_id);
+    const j = jobDariServer((res.proses || []) as ProsesUnggah[], res.batch_id, highest.current);
+    if (j) setJob(j);
     void pantauServer();
     return res;
   }, [pantauServer]);
 
   const startSingleUpload = useCallback(async (file: File, jenisKlaim: string) => {
+    revision.current++;
     setJob({
       type: 'single', total: 1, doneCount: 0, failedCount: 0, statuses: [{ fileName: file.name, status: 'waiting', tahapLabel: 'Mengunggah berkas' }],
       active: true, error: null, resultFileId: null,
@@ -220,6 +144,8 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
   }, [kirimKeAntrean]);
 
   const startBatchUpload = useCallback(async (files: File[], allowedCategories: string[], testing = false) => {
+    if (!files.length) return;
+    revision.current++;
     const initialStatuses: BatchFileStatus[] = files.map(f => ({ fileName: f.name, status: 'waiting' }));
     setJob({
       type: 'batch', testing, total: files.length, doneCount: 0, failedCount: 0,

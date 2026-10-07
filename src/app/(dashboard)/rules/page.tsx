@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { Settings2, Building2, Pencil, Check, X, Save } from 'lucide-react';
 import { api } from '@/lib/api';
+import { ProfilKlaimRsCard } from '@/components/ProfilKlaimRsCard';
 import { useRequireRole } from '@/lib/useRequireRole';
 import { Header } from '@/components/dashboard/header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -170,6 +171,7 @@ export default function RulesPage() {
         }
       />
 
+      <ProfilKlaimRsCard />
       <Card className="animate-slide-in-up">
         <CardContent className="space-y-4">
           <div className="flex items-start gap-3">

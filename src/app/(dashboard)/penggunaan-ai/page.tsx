@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState, type ReactNode } from "react"
 import { RefreshCw, Download, Info, Coins, Hash, Activity, DollarSign } from "lucide-react"
 import { Header } from "@/components/dashboard/header"
@@ -43,6 +44,51 @@ function Section({ title, description, children }: { title: string; description?
 }
 const th = "px-5 py-3 text-left text-xs font-medium text-muted-foreground whitespace-nowrap"
 const td = "px-5 py-3 text-sm whitespace-nowrap"
+
+type FileReport = {
+  month: string; page: number; page_size: number; total_files: number;
+  policy: { target_idr: number; batas_normal_idr: number; batas_maksimum_idr: number };
+  files: { file_id: string; file_name: string; calls: number; priced_calls: number; total_tokens: number | null; estimated_idr: number | null;
+    budget: { terpakai_idr: number; dicadangkan_idr: number; belum_pasti_idr: number; gagal_idr: number; tambahan_alasan: string[] } | null }[];
+}
+function BiayaBerkas({ month, refresh }: { month: string; refresh: number }) {
+  const [page, setPage] = useState(1)
+  const [state, setState] = useState<{ key: string; data?: FileReport; error?: string } | null>(null)
+  const key = `${month}:${page}:${refresh}`
+  useEffect(() => { setPage(1) }, [month])
+  useEffect(() => {
+    let active = true
+    api.getAiFileCosts(month, page).then((data: FileReport) => { if (active) setState({ key, data }) })
+      .catch((error: Error) => { if (active) setState({ key, error: error.message }) })
+    return () => { active = false }
+  }, [month, page, refresh, key])
+  const data = state?.key === key ? state.data : undefined
+  const error = state?.key === key ? state.error : undefined
+  return <Section title="Biaya AI per berkas" description="Catatan yang terkait berkas tersimpan ditampilkan di sini. Catatan tanpa berkas tetap masuk ringkasan bulanan.">
+    {error ? <p role="alert" className="p-5 text-sm text-destructive">{error}</p> : !data ? <p role="status" className="p-5 text-sm text-muted-foreground">Memuat biaya berkas…</p> : <>
+      <div className="px-5 py-4 text-sm text-muted-foreground space-y-1 border-b border-border">
+        <p className="font-medium text-foreground">Analisis tinggi · biaya adaptif</p>
+        <p>Target {rupiah(data.policy.target_idr)}–{rupiah(data.policy.batas_normal_idr)} per PDF. Batas pengaman kasus kompleks {rupiah(data.policy.batas_maksimum_idr)}.</p>
+        <p>Tambahan hanya digunakan bila pemeriksaan klinis memerlukannya. Hasil tersimpan dipakai kembali; gangguan tidak membuka tambahan anggaran otomatis.</p>
+      </div>
+      {!data.files.length ? <p className="p-5 text-sm text-muted-foreground">Belum ada berkas pada bulan ini.</p> : <div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted/30"><tr>{["Berkas", "Panggilan", "Token", "Biaya bulan ini", "Catatan tersimpan"].map(h => <th key={h} scope="col" className={th}>{h}</th>)}</tr></thead><tbody className="divide-y divide-border">
+        {data.files.map(f => <tr key={f.file_id}>
+          <td className={`${td} max-w-xs`}><Link href={`/results/${f.file_id}`} className="text-primary hover:underline block truncate" title={f.file_name}>{f.file_name}</Link></td>
+          <td className={td}>{angka(f.calls)}</td><td className={td}>{f.total_tokens == null ? "Belum tercatat" : angka(f.total_tokens)}</td>
+          <td className={td}>{rupiah(f.estimated_idr)}{f.priced_calls < f.calls && <p className="mt-1 text-xs text-amber-600">{f.calls - f.priced_calls} panggilan belum memiliki estimasi</p>}</td>
+          <td className="px-5 py-3 text-sm min-w-64">{f.budget ? <details><summary className="cursor-pointer text-primary">Rincian anggaran berkas</summary><div className="mt-2 text-xs text-muted-foreground space-y-1">
+            <p>Total tersimpan lintas bulan: {rupiah(f.budget.terpakai_idr)}</p>
+            <p>Dicadangkan: {rupiah(f.budget.dicadangkan_idr)} · Belum terkonfirmasi: {rupiah(f.budget.belum_pasti_idr)}</p>
+            {f.budget.gagal_idr > 0 && <p>Biaya tahap gagal {rupiah(f.budget.gagal_idr)} sudah termasuk total; permintaan yang sama ditahan agar tidak berulang.</p>}
+            {f.budget.tambahan_alasan.map((a, i) => <p key={i}>{a}</p>)}
+            <p>Anggaran mengikuti isi PDF yang sama; unggahan salinan dapat berbagi anggaran ini. Jangan menjumlahkan total anggaran sebagai biaya bulanan.</p>
+          </div></details> : <span className="text-xs text-muted-foreground">Anggaran per PDF belum tercatat; riwayat biaya tetap disimpan.</span>}</td>
+        </tr>)}
+      </tbody></table></div>}
+      <div className="flex items-center justify-between gap-3 p-4 border-t border-border text-sm"><span>{angka(data.total_files)} berkas · Halaman {page}</span><div className="flex gap-2"><Button variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Sebelumnya</Button><Button variant="outline" disabled={page * data.page_size >= data.total_files} onClick={() => setPage(p => p + 1)}>Berikutnya</Button></div></div>
+    </>}
+  </Section>
+}
 
 export default function PenggunaanAiPage() {
   const [month, setMonth] = useState(bulanKini)
@@ -90,6 +136,7 @@ export default function PenggunaanAiPage() {
       </div>
       {busy && <p role="status" className="py-8 text-center text-muted-foreground">Memuat penggunaan AI…</p>}
       {error && <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm">{error}</p>}
+      {allowed && <BiayaBerkas month={month} refresh={refresh} />}
       {report && s && <>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {[
@@ -101,7 +148,7 @@ export default function PenggunaanAiPage() {
         </div>
         {(s.unmeasured_calls > 0 || s.unpriced_calls > 0) && <div role="status" className="flex gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4"><Info aria-hidden="true" className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" /><div className="text-sm"><p className="font-medium">Catatan penggunaan belum lengkap</p><p className="mt-1 text-muted-foreground">{angka(s.unmeasured_calls)} panggilan belum memiliki jumlah token dan {angka(s.unpriced_calls)} belum memiliki estimasi biaya. Ini dapat berasal dari catatan lama atau permintaan yang gagal sebelum ada jawaban. Total di atas hanya mencakup angka yang sudah tercatat.</p></div></div>}
         {!s.calls ? <div className="rounded-xl border border-border bg-card p-10 text-center"><p className="font-medium">Belum ada penggunaan AI pada bulan ini</p><p className="mt-2 text-sm text-muted-foreground">Jumlah token akan tercatat saat aplikasi memanggil AI.</p></div> : <>
-          <Section title="Penggunaan per model" description="Lihat porsi penggunaan Luna dan pemeriksaan lanjutan oleh Sol.">
+          <Section title="Penggunaan per model" description="Lihat model yang digunakan pada setiap pemeriksaan dan estimasi biayanya.">
             <div className="overflow-x-auto"><table className="w-full"><thead className="bg-muted/30"><tr>{["Model / effort", "Panggilan", "Input", "Output", "Total token", "Estimasi biaya"].map(h => <th key={h} scope="col" className={th}>{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{report.models.map((m, i) => <tr key={i}><td className={td}><p className="font-medium">{namaModel(m.model)}</p><p className="mt-1 text-xs text-muted-foreground">{m.effort || "Effort tidak tercatat"} · {m.provider}</p></td><td className={td}>{angka(m.calls)}</td><td className={td}>{m.measured_calls ? angka(m.input_tokens) : "—"}</td><td className={td}>{m.measured_calls ? angka(m.output_tokens) : "—"}</td><td className={`${td} font-medium`}>{m.measured_calls ? angka(m.total_tokens) : "—"}</td><td className={td}><p>{rupiah(m.estimated_idr)}</p><p className="text-xs text-muted-foreground mt-1">{dolar(m.estimated_usd)} · {m.priced_calls}/{m.calls} tercatat</p></td></tr>)}</tbody></table></div>
           </Section>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
