@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUploadJob } from '@/contexts/UploadJobContext';
@@ -11,8 +11,6 @@ import {
   X,
   ArrowRight,
   AlertTriangle,
-  Footprints,
-  BedDouble,
   Siren,
   ScanSearch,
   ShieldCheck,
@@ -30,11 +28,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 
-const JENIS_KLAIM_OPTIONS: { value: string; label: string; icon: ReactNode; desc: string }[] = [
-  { value: 'RAWAT_JALAN', label: 'Rawat Jalan', icon: <Footprints className="size-5" />, desc: 'Pasien tidak menginap' },
-  { value: 'RAWAT_INAP', label: 'Rawat Inap', icon: <BedDouble className="size-5" />, desc: 'Pasien menginap di ruangan' },
-  // Opsi IGD dihapus 21 Sep 2026: kunjungan IGD termasuk Rawat Jalan.
-];
 
 const MAX_BATCH_FILES = 300; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
 
@@ -74,16 +67,7 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
     ? { successful: ownJob.doneCount, failed: ownJob.failedCount }
     : null;
 
-  // Halaman ini hanya mendukung mode Batch — upload satu-file dicabut dari UI
-  // (endpoint single-file backend dibiarkan ada, tidak lagi dipanggil dari sini).
-  // Verifikator TIDAK pilih kategori per file manual. Sebelum
-  // drag file, toggle kategori mana saja yang MUNGKIN ada di batch ini (bisa
-  // salah satu atau keduanya kalau berkasnya campur RJ/RI). Backend yang
-  // mendeteksi kategori tiap file dari isi dokumennya (dibatasi ke daftar
-  // yang ditoggle di sini), hasilnya baru muncul sebagai status per file
-  // SETELAH proses/audit selesai.
   const [files, setFiles] = useState<File[]>([]);
-  const [allowedCategories, setAllowedCategories] = useState<string[]>([]);
 
   // Kalau verifikator TETAP di halaman ini sampai upload 1-file selesai,
   // pertahankan kebiasaan lama: langsung ke halaman hasil. Kalau sudah
@@ -103,11 +87,6 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
   useEffect(() => {
     if (testing && ownJob && !ownJob.active && !ownJob.error) setFiles([]);
   }, [testing, ownJob?.active]);
-
-  const toggleAllowedCategory = (value: string) => {
-    setAllowedCategories(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
-    setError('');
-  };
 
   const validateFile = (f: File): string | null => {
     const ext = f.name.toLowerCase().split('.').pop();
@@ -143,19 +122,9 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
 
   const handleUploadBatch = useCallback(async () => {
     if (files.length === 0) return;
-    if (allowedCategories.length === 0) {
-      setError('Toggle minimal satu kategori pelayanan yang mungkin ada di batch ini sebelum upload.');
-      return;
-    }
     setError('');
-    // Kategori TIDAK dipilih per file lagi — kirim daftar kategori yang
-    // ditoggle di awal ("mungkin ada di batch ini"), backend yang deteksi
-    // otomatis per file dari isi dokumennya (lihat allowed_jenis_klaim di
-    // endpoint /upload-pdf-batch). Proses & status batch dikelola context
-    // global supaya tetap jalan & terlihat (widget sidebar) walau
-    // verifikator pindah ke Dashboard/Riwayat Upload sambil menunggu.
-    await startBatchUpload(files, allowedCategories, testing);
-  }, [files, allowedCategories, startBatchUpload, testing]);
+    await startBatchUpload(files, ['RAWAT_JALAN', 'RAWAT_INAP'], testing);
+  }, [files, startBatchUpload, testing]);
 
   const batchProgressDone = batchStatuses.filter(s => ['done','needs_review','failed'].includes(s.status)).length;
   const serverStatuses = ownJob?.server ? ownJob.statuses : [];
@@ -209,60 +178,10 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full">
         <Card className="animate-slide-in-up">
           <CardContent className="space-y-6">
-            {/* ── Kategori pelayanan ──
-                BUKAN pilih kategori per file — toggle kategori mana saja yang
-                MUNGKIN ada di batch ini (salah satu atau keduanya) SEBELUM
-                drag file. Backend yang deteksi otomatis kategori tiap file
-                dari isi dokumennya sendiri, dibatasi ke daftar yang
-                ditoggle di sini — hasilnya tampil sebagai status per file
-                setelah proses/audit selesai. */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Kategori yang Mungkin Ada di Batch Ini
-              </label>
-              <div role="group" aria-label="Kategori Pelayanan" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {JENIS_KLAIM_OPTIONS.map(opt => {
-                  const isSelected = allowedCategories.includes(opt.value);
-                  return (
-                    <motion.button
-                      key={opt.value}
-                      type="button"
-                      role="checkbox"
-                      aria-checked={isSelected}
-                      onClick={() => toggleAllowedCategory(opt.value)}
-                      disabled={uploading}
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.97 }}
-                      className={cn(
-                        'relative flex flex-col items-start gap-1 rounded-lg border p-4 text-left transition-colors disabled:opacity-50 disabled:pointer-events-none',
-                        isSelected
-                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                          : 'border-border hover:border-primary/40 hover:bg-muted/50',
-                      )}
-                    >
-                      <span className={cn('mb-1', isSelected ? 'text-primary' : 'text-muted-foreground')}>{opt.icon}</span>
-                      <span className="font-display text-sm font-semibold text-foreground">{opt.label}</span>
-                      <span className="text-xs text-muted-foreground">{opt.desc}</span>
-                      <AnimatePresence>
-                        {isSelected && (
-                          <motion.span
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0, opacity: 0 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                            className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground"
-                          >
-                            <CheckCircle2 className="size-3.5" />
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                    </motion.button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Pilih salah satu atau keduanya sesuai kategori yang mungkin ada di berkas yang mau diupload — boleh campur Rawat Jalan & Rawat Inap dalam 1 batch. Sistem akan mendeteksi kategori tiap file otomatis dari isi dokumennya, tidak perlu dipilih satu-satu.
-              </p>
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <div className="flex items-center gap-2 font-medium"><ScanSearch className="size-5 text-primary" />Kategori pelayanan otomatis</div>
+              <p className="text-sm text-muted-foreground">Aplikasi membaca SEP, surat perintah rawat inap, dan resume medis untuk menempatkan setiap berkas ke Rawat Inap atau Rawat Jalan. Pasien dari IGD yang dilanjutkan rawat inap tetap masuk Rawat Inap.</p>
+              <p className="text-xs text-muted-foreground">Boleh unggah berkas campuran. Jika dokumen berbeda atau belum terbaca, aplikasi memberi pemberitahuan untuk ditinjau.</p>
             </div>
 
             {/* ── Dropzone (batch) ── */}
@@ -326,7 +245,7 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
                                   )}
                                   title={status.detection?.confident === false ? 'Kategori tidak yakin terdeteksi — mohon cek manual di Riwayat Upload.' : undefined}
                                 >
-                                  {JENIS_KLAIM_OPTIONS.find(o => o.value === status.jenisKlaim)?.label || status.jenisKlaim}
+                                  {status.jenisKlaim === 'RAWAT_INAP' ? 'Rawat Inap' : status.jenisKlaim === 'RAWAT_JALAN' ? 'Rawat Jalan' : status.jenisKlaim}
                                   {status.detection?.confident === false && ' ⚠️'}
                                 </Badge>
                               )}
