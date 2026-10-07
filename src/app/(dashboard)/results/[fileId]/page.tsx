@@ -2547,9 +2547,18 @@ export default function ResultsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [onlyIssues, setOnlyIssues] = useState(false);
+  // Halaman hasil menampilkan alasan pending & saran lebih dulu; data klaim
+  // dan detail analisis disembunyikan sampai diminta. Terbuka otomatis bila
+  // datang dari tautan Pending BPJS yang menyorot kolom (?highlight=).
+  const [tampilkanDetail, setTampilkanDetail] = useState(() => !!(highlightFields && highlightFields.size > 0));
   const [listCollapsed, setListCollapsed] = useState(false);
   const [rv20ConfirmedRecordIds, setRv20ConfirmedRecordIds] = useState<Set<string>>(new Set());
   const [suratKlarifikasiOpen, setSuratKlarifikasiOpen] = useState(false);
+
+  // Edit data dan pratinjau PDF ada di dalam bagian detail -- buka otomatis.
+  useEffect(() => {
+    if (isEditing || showPdf || (highlightFields && highlightFields.size > 0)) setTampilkanDetail(true);
+  }, [isEditing, showPdf, highlightFields]);
 
   const selectRecord = (id: string) => {
     setSelectedRecordId(id);
@@ -2962,6 +2971,7 @@ export default function ResultsPage() {
                     prosedurKosong={prosedurKosong}
                     currentValidationIssues={selectedRecord.errors?.length ?? 0}
                   />
+                  {tampilkanDetail && (<>
                   <DasarDiagnosisCard
                     dasar={parseAiReview(selectedRecord)?.dasar_diagnosis}
                     tindakan={parseAiReview(selectedRecord)?.tindakan_belum_dikode}
@@ -2979,6 +2989,7 @@ export default function ResultsPage() {
                       onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined}
                     />
                   )}
+                  </>)}
 
                   {/* ─── Pola Pending Risk ───────────────────── */}
                   {(() => {
@@ -3028,10 +3039,21 @@ export default function ResultsPage() {
 
                   {/* ─── Controls ──────────────────────────── */}
                   <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-foreground hover:bg-muted/50">
+                    <Button
+                      variant={tampilkanDetail ? 'secondary' : 'default'}
+                      size="sm"
+                      className="min-h-10 px-3 text-sm"
+                      aria-expanded={tampilkanDetail}
+                      aria-controls="detail-klaim"
+                      onClick={() => setTampilkanDetail(v => !v)}
+                    >
+                      <ChevronDown aria-hidden="true" className={cn('size-4 transition-transform', tampilkanDetail && 'rotate-180')} />
+                      {tampilkanDetail ? 'Sembunyikan data klaim & detail' : 'Tampilkan semua data klaim & detail'}
+                    </Button>
+                    {tampilkanDetail && <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-foreground hover:bg-muted/50">
                       <input type="checkbox" className="size-4 accent-primary" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
                       Hanya tampilkan masalah
-                    </label>
+                    </label>}
                     {SHOW_RV20 && selectedRecord.errors?.some(e => e.rule_id === 'RV-20') && (
                       <Button variant="outline" size="sm" className="min-h-10 px-3 text-sm" onClick={() => setSuratKlarifikasiOpen(true)}>
                         Buat Surat Klarifikasi
@@ -3077,8 +3099,8 @@ export default function ResultsPage() {
                 </div>
               </Card>
 
-              {/* ─── Card Data Klaim ────────────────────────── */}
-              <Card className="gap-5 p-5 sm:p-6">
+              {/* ─── Card Data Klaim (tersembunyi sampai diminta) ─── */}
+              {tampilkanDetail && <Card id="detail-klaim" className="gap-5 p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
                   <div className="min-w-0">
                     <h2 className="text-lg font-semibold text-foreground sm:text-xl">Data klaim</h2>
@@ -3218,7 +3240,7 @@ export default function ResultsPage() {
                     />
                   </div>
                 )}
-              </Card>
+              </Card>}
             </div>
           ) : (
             <Card className="p-10 text-center text-muted-foreground">

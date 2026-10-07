@@ -371,6 +371,12 @@ export const api = {
       headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
     });
   },
+  // Klaim pending satu bulan, struktur sama dengan ekspor MIX E-Klaim (93
+  // kolom) + lembar alasan pending & saran.
+  exportPendingBulanan: (periode: string) =>
+    fetch(`${API_BASE}/api/v1/claim-files/export/pending-bulanan?periode=${encodeURIComponent(periode)}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+    }),
   runAiAudit: (id: string) =>
     request(`/api/v1/claim-files/${id}/ai-audit`, { method: 'POST' }),
   auditRecordFields: (recordId: string, fields: string[] = [], style = 'ponytail') =>
