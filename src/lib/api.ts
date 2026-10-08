@@ -377,6 +377,12 @@ export const api = {
       headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
     });
   },
+  // Klaim pending satu bulan: tabel alasan pending & saran dengan kolom
+  // Jawaban Rumah Sakit (diisi casemix).
+  exportPendingBulanan: (periode: string) =>
+    fetch(`${API_BASE}/api/v1/claim-files/export/pending-bulanan?periode=${encodeURIComponent(periode)}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+    }),
   runAiAudit: (id: string) =>
     request(`/api/v1/claim-files/${id}/ai-audit`, { method: 'POST' }),
   auditRecordFields: (recordId: string, fields: string[] = [], style = 'ponytail') =>

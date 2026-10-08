@@ -251,6 +251,37 @@ export default function HistoryPage() {
 
   const [mengexport, setMengexport] = useState(false);
   const [mengexportSiap, setMengexportSiap] = useState(false);
+  const [mengexportPending, setMengexportPending] = useState(false);
+  // Bulan klaim untuk ekspor pending bulanan; default bulan lalu (bulan yang
+  // biasanya sedang dikerjakan casemix).
+  const [bulanPending, setBulanPending] = useState(() => {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const unduhPendingBulanan = async () => {
+    if (!bulanPending) { addToast('Pilih bulan klaim dulu.', 'error'); return; }
+    setMengexportPending(true);
+    try {
+      const res = await api.exportPendingBulanan(bulanPending);
+      if (!res.ok) throw new Error(`Server menolak (${res.status})`);
+      const disposisi = res.headers.get('Content-Disposition') || '';
+      const cocok = disposisi.match(/filename=([^;]+)/);
+      const namaBerkas = cocok ? cocok[1].trim().replace(/"/g, '') : `pending-${bulanPending}.xlsx`;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = namaBerkas;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      addToast(`Pending bulanan diunduh: ${namaBerkas}`, 'success');
+    } catch (err) {
+      console.error('[History] Gagal export pending bulanan:', err);
+      addToast('Gagal menyiapkan ekspor pending bulanan. Silakan coba lagi.', 'error');
+    } finally {
+      setMengexportPending(false);
+    }
+  };
 
   const unduhDaftarKerja = async () => {
     setMengexport(true);
@@ -809,6 +840,30 @@ export default function HistoryPage() {
           <Download className="size-3.5" />
           {mengexportSiap ? 'Menyiapkan...' : 'Export Siap Submit'}
         </Button>}
+        {rolePengguna !== 'supervisor' && (
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="bulan-pending" className="text-xs text-muted-foreground">Bulan klaim</label>
+            <input
+              id="bulan-pending"
+              type="month"
+              value={bulanPending}
+              onChange={event => setBulanPending(event.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={mengexportPending || !bulanPending}
+              onClick={unduhPendingBulanan}
+              title="Daftar klaim pending bulan terpilih: alasan pending, saran tindakan, dan kolom Jawaban Rumah Sakit untuk diisi casemix"
+            >
+              <Download className="size-3.5" />
+              {mengexportPending ? 'Menyiapkan...' : 'Export Pending Bulanan'}
+            </Button>
+          </div>
+        )}
       </div>
 
       {modeKelompok ? (
