@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,6 @@ import { Lightbulb, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Copy } fr
 import type {
   SuggestionFinalResult,
   CodeWithCitation,
-  AlternativeGroup,
 } from '@/lib/suggestCodingService';
 import { cn } from '@/lib/utils';
 
@@ -64,7 +63,7 @@ export function SuggestionCodesCard({
               Kutipan Dokumen (Halaman {code.page_number}):
             </p>
             <p className="text-xs text-gray-700 dark:text-gray-300 italic">
-              "{code.quotation}"
+              &ldquo;{code.quotation}&rdquo;
             </p>
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
