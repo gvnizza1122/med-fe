@@ -52,6 +52,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
       { href: "/extract", icon: FileText, label: "Extract PDF", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
+      { href: "/katalog-pedoman", icon: ScrollText, label: "Katalog Pedoman", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
       { href: "/history", icon: History, label: "Riwayat Upload", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
       { href: "/pending-bpjs", icon: ClipboardList, label: "Pending BPJS", roles: ["superadmin", "admin", "supervisor", "verifikator"] },
       { href: "/pending-jawaban", icon: ListChecks, label: "Alur Jawab Pending", roles: ["superadmin", "admin", "supervisor", "verifikator"] },

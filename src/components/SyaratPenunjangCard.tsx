@@ -31,6 +31,8 @@ export interface TemuanSyaratPenunjang {
   hospital_code?: string;
   cakupan?: string;
   perlu_konfirmasi_tanggal?: boolean;
+  perlu_konfirmasi_cakupan?: boolean;
+  syarat_dilewati_usia?: {nama:string; alasan:string}[];
   syarat: SyaratItem[];
   ringkasan: { terpenuhi: number; hasil_belum_terbaca: number; tidak_ada: number; perlu_cek_manual: number };
 }
@@ -66,8 +68,10 @@ export function SyaratPenunjangCard({ temuan }: { temuan?: TemuanSyaratPenunjang
               <h4 className="text-sm font-medium">{t.nama_diagnosis}</h4>
               {t.cakupan === 'rs' && <Badge variant="outline" className="text-xs">Verifikasi setempat · RS {t.hospital_code}</Badge>}
               {t.perlu_konfirmasi_tanggal && <Badge variant="outline" className="text-xs">Tanggal perlu dikonfirmasi</Badge>}
+              {t.perlu_konfirmasi_cakupan && <Badge variant="outline" className="text-xs">Cakupan usia perlu ditelaah</Badge>}
               {!t.diverifikasi && <Badge variant="outline" className="text-xs">Sumber belum diverifikasi</Badge>}
             </div>
+            {!!t.syarat_dilewati_usia?.length && <p className="px-4 pt-3 text-xs leading-relaxed text-muted-foreground">{t.syarat_dilewati_usia.map(s=>`${s.nama}: ${s.alasan}`).join(' ')}</p>}
             <div className="divide-y divide-border px-4">
               {t.syarat.map((s, i) => {
                 const gaya = GAYA[s.status as keyof typeof GAYA] || GAYA.perlu_cek_manual;

@@ -239,6 +239,9 @@ export interface PendingJawabanItemDetail {
 }
 
 export const api = {
+  getKatalogPedoman: (params: Record<string, string> = {}) => request('/api/v1/katalog-pedoman?' + new URLSearchParams(params)),
+  getPedoman: (id: string, q = '') => request(`/api/v1/katalog-pedoman/${encodeURIComponent(id)}?q=${encodeURIComponent(q)}`),
+  getPdfPedoman: (id: string, varian = 0): Promise<Response> => request(`/api/v1/katalog-pedoman/${encodeURIComponent(id)}/pdf?varian=${varian}`, { timeout: 120000 }),
   getVitalReferences: () => request('/api/v1/claim-files/reference/vital-ranges'),
   // Auth
   login: (username: string, password: string) =>
@@ -257,6 +260,9 @@ export const api = {
 
   getPemeriksaanPenunjang: (recordId: string) =>
     request(`/api/v1/claim-files/records/${recordId}/pemeriksaan-penunjang`),
+
+  getLaporanOperasi: (recordId: string) =>
+    request(`/api/v1/claim-files/records/${recordId}/laporan-operasi`,{cache:'no-store'}),
 
   getLaporanCasemix: (recordId: string) =>
     request(`/api/v1/claim-files/records/${recordId}/laporan-casemix`),
