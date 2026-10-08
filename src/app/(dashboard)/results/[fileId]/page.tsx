@@ -21,6 +21,7 @@ import type { TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
 import type { TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
 import { SyaratPenunjangCard, type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
 import { ReferensiKlaimCard, type HasilReferensiKlaim } from '@/components/ReferensiKlaimCard';
+import { LaporanOperasiPanel, type DataLaporanOperasi } from '@/components/LaporanOperasiPanel';
 import { DasarDiagnosisCard, type DasarDiagnosis, type TindakanBelumDikode } from '@/components/DasarDiagnosisCard';
 import type { TemuanTindakan, SilangTindakan } from '@/components/TemuanTindakanCard';
 import type { TemuanKonsistensi } from '@/components/KonsistensiDataCard';
@@ -394,6 +395,7 @@ interface TariffResult {
 }
 
 interface AiReview {
+  laporan_operasi?: DataLaporanOperasi;
   anggaran_ai?: { profil: string; target_idr: number; batas_normal_idr?: number; batas_maksimum_idr?: number; tambahan_alasan?: string[]; gagal_idr?: number; batas_idr: number; terpakai_idr: number; dicadangkan_idr: number; belum_pasti_idr: number; sisa_idr: number; dasar: string };
   kelengkapan_analisis?: { status: 'lengkap' | 'sebagian' | 'gagal'; alasan: { kode: string; pesan: string }[] };
   dasar_diagnosis?: DasarDiagnosis;
@@ -1280,7 +1282,7 @@ function extractAge(recordData: Record<string, any>): number | null {
 }
 
 function RecordFieldsTable({
-  recordData, validationErrors, editing, editedValues, onEdit, onlyIssues, jenisKlaim, highlightFields,
+  recordData, validationErrors, editing, editedValues, onEdit, onlyIssues, jenisKlaim, highlightFields, onOpenPdf,
 }: {
   recordData: Record<string, any>;
   validationErrors: ValidationError[];
@@ -1290,6 +1292,7 @@ function RecordFieldsTable({
   onlyIssues: boolean;
   jenisKlaim?: string | null;
   highlightFields?: Set<string>;
+  onOpenPdf?: (page:number)=>void;
 }) {
   const fieldMap = useMemo(() => buildFieldMap(recordData, validationErrors, editing ? editedValues : undefined), [recordData, validationErrors, editing, editedValues]);
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
@@ -1400,6 +1403,7 @@ function RecordFieldsTable({
           recordData={recordData}
           highlightFields={highlightFields}
           highlightRowRef={highlightRowRef}
+          onOpenPdf={onOpenPdf}
         />
       ) : (
         <div className="max-h-[560px] overflow-auto rounded-xl border border-border">
@@ -1472,7 +1476,7 @@ function RecordFieldsTable({
 // FieldRowTr APA ADANYA (sama persis dengan tabel lengkap), jadi edit/AI-note/
 // code-evidence tetap berfungsi identik di kedua mode.
 function SimplifiedFieldAccordion({
-  categories, editing, editedValues, onEdit, recordData, highlightFields, highlightRowRef,
+  categories, editing, editedValues, onEdit, recordData, highlightFields, highlightRowRef, onOpenPdf,
 }: {
   categories: { category: string; rows: FieldRow[] }[];
   editing: boolean;
@@ -1481,6 +1485,7 @@ function SimplifiedFieldAccordion({
   recordData: Record<string, any>;
   highlightFields?: Set<string>;
   highlightRowRef: { current: HTMLTableRowElement | null };
+  onOpenPdf?: (page:number)=>void;
 }) {
   const categoryHasIssue = useMemo(
     () => Object.fromEntries(categories.map(c => [c.category, c.rows.some(f => isIssueStatus(f.status))])),
@@ -1488,7 +1493,7 @@ function SimplifiedFieldAccordion({
   );
   const [expandOverride, setExpandOverride] = useState<Record<string, boolean>>({});
   // Tab di bagian Diagnosis & Prosedur: data berkas (tabel) atau Saran AI.
-  const [tabDiagnosis, setTabDiagnosis] = useState<'berkas' | 'saran' | 'tarif'>('berkas');
+  const [tabDiagnosis, setTabDiagnosis] = useState<'berkas' | 'saran' | 'tarif' | 'operasi'>('berkas');
   // Reset override expand/collapse saat pindah record (tidak pakai key-based
   // remount, lihat catatan di RecordFieldsTable) supaya kategori yang di-expand
   // manual utk record A tidak "bocor" ke record B.
@@ -1534,10 +1539,11 @@ function SimplifiedFieldAccordion({
             {expanded && category === 'Diagnosis & Prosedur' && (
               <Tabs value={tabDiagnosis} onValueChange={value => setTabDiagnosis(value as typeof tabDiagnosis)} className="gap-0 border-t border-border">
                 <div className="border-b border-border bg-muted/10 px-4 py-3">
-                  <TabsList aria-label="Tampilan diagnosis, prosedur, dan tarif" className="h-auto w-full flex-wrap justify-start gap-1 sm:w-fit">
+                  <TabsList aria-label="Tampilan diagnosis, prosedur, tarif, dan laporan operasi" className="h-auto w-full flex-wrap justify-start gap-1 sm:w-fit">
                     <TabsTrigger value="berkas" className="min-h-10 px-3">Data klaim</TabsTrigger>
                     <TabsTrigger value="saran" className="min-h-10 px-3">Saran AI</TabsTrigger>
                     <TabsTrigger value="tarif" className="min-h-10 px-3">Tarif INA-CBG & iDRG</TabsTrigger>
+                    <TabsTrigger value="operasi" className="min-h-10 px-3">Laporan operasi</TabsTrigger>
                   </TabsList>
                 </div>
                 <TabsContent value="berkas" className="space-y-3 p-4 sm:p-5">
@@ -1558,6 +1564,7 @@ function SimplifiedFieldAccordion({
                   </div>
                 </TabsContent>
                 <TabsContent value="saran"><SaranKodingPanel recordId={recordData.id} /></TabsContent>
+                <TabsContent value="operasi"><LaporanOperasiPanel recordId={recordData.id} hashBukti={parseAiReview(recordData)?.laporan_operasi?.hash_bukti} onOpenPdf={onOpenPdf}/></TabsContent>
                 <TabsContent value="tarif" className="p-4 sm:p-5">
                   <TarifGandaCard recordId={recordData.id} />
                   <div className="mt-4 border-t border-border pt-4">
@@ -3171,6 +3178,7 @@ export default function ResultsPage() {
                             onlyIssues={onlyIssues}
                             jenisKlaim={fileInfo.jenis_klaim}
                             highlightFields={highlightFields}
+                            onOpenPdf={setEvidencePdfPage}
                           />
                         </div>
                         <div className={cn('min-w-0', maximizeData ? 'order-2' : 'order-1 xl:order-2')}>
@@ -3217,6 +3225,7 @@ export default function ResultsPage() {
                       onlyIssues={onlyIssues}
                       jenisKlaim={fileInfo.jenis_klaim}
                       highlightFields={highlightFields}
+                      onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined}
                     />
                   );
 
