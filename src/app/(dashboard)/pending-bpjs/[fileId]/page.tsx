@@ -92,7 +92,7 @@ export default function PendingBpjsFileDetailPage() {
   const loadItems = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.getPendingList({
+      const res = await api.getPendingList<{items: PendingItem[];total: number}>({
         pending_file_id: fileId,
         page, limit: LIMIT,
         status: statusFilter || undefined,
@@ -143,7 +143,7 @@ export default function PendingBpjsFileDetailPage() {
     if (!targetId) return;
     setGenerating(true);
     try {
-      const updated = await api.generatePendingDraft(targetId);
+      const updated = await api.generatePendingDraft<Partial<PendingItem>>(targetId);
       patchActive(targetId, updated);
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Gagal membuat jawaban AI.', 'error');
@@ -155,7 +155,7 @@ export default function PendingBpjsFileDetailPage() {
   const saveDraft = async () => {
     if (!active) return;
     try {
-      const updated = await api.updateBpjsPendingStatus(active.id, { draft_klarifikasi: active.draft_klarifikasi || '' });
+      const updated = await api.updateBpjsPendingStatus<Partial<PendingItem>>(active.id, { draft_klarifikasi: active.draft_klarifikasi || '' });
       patchActive(active.id, updated);
       addToast('Jawaban disimpan.', 'success');
     } catch (err: unknown) {
@@ -166,7 +166,7 @@ export default function PendingBpjsFileDetailPage() {
   const handleMarkSent = async () => {
     if (!active) return;
     try {
-      const updated = await api.updateBpjsPendingStatus(active.id, { status: 'dikirim', draft_klarifikasi: active.draft_klarifikasi || '' });
+      const updated = await api.updateBpjsPendingStatus<Partial<PendingItem>>(active.id, { status: 'dikirim', draft_klarifikasi: active.draft_klarifikasi || '' });
       patchActive(active.id, updated);
       addToast('Ditandai sudah dikirim.', 'success');
     } catch (err: unknown) {
@@ -177,7 +177,7 @@ export default function PendingBpjsFileDetailPage() {
   const handleOutcome = async (outcome: 'approved' | 'rejected') => {
     if (!active) return;
     try {
-      const updated = await api.updateBpjsPendingStatus(active.id, {
+      const updated = await api.updateBpjsPendingStatus<Partial<PendingItem>>(active.id, {
         status: outcome === 'approved' ? 'diterima' : 'ditolak',
         outcome,
         draft_klarifikasi: active.draft_klarifikasi || '',

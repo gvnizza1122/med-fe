@@ -14,12 +14,19 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { jsonObject } from '@/lib/claimData';
+
+interface GoldenData {
+  metadata: Record<string, unknown>;
+  extracted_data: Record<string, Record<string, unknown>>;
+  regression_test_baseline: { version: string; expected_error_count: number };
+}
 
 interface RegressionDiff {
   field: string;
   fieldType: 'salin' | 'turunan' | 'koding' | 'konfigurasi' | 'fakta_nol' | 'wajar_kosong';
-  expected: any;
-  actual: any;
+  expected: unknown;
+  actual: unknown;
   match: boolean;
   confidence?: number;
   severity: 'critical' | 'warning' | 'info';
@@ -41,7 +48,7 @@ interface RegressionReport {
 /**
  * Load golden test data (baseline)
  */
-export function loadGoldenData() {
+export function loadGoldenData(): GoldenData {
   const filepath = path.join(__dirname, 'fixtures', 'firdan_case.json');
   return JSON.parse(fs.readFileSync(filepath, 'utf-8'));
 }
@@ -50,25 +57,32 @@ export function loadGoldenData() {
  * Compare extracted data against golden answers
  */
 export function compareData(
-  extracted: Record<string, any>,
-  golden: Record<string, any>,
+  extracted: Record<string, unknown>,
+  golden: Record<string, unknown>,
   fieldType: string
 ): RegressionDiff[] {
   const diffs: RegressionDiff[] = [];
 
-  Object.entries(golden).forEach(([field, goldenValue]: any) => {
+  Object.entries(golden).forEach(([field, goldenValue]) => {
     const extractedValue = extracted[field];
 
     // Determine if values match
     // Bandingkan kode/urutan yang dihasilkan, bukan seluruh metadata dengan
     // array expected. Jangan memakai expected milik hasil sebagai jawaban.
-    const codingValues = (value: any) => value?.diagnoses
-      ? value.diagnoses.map((d: any) => ({ icd10: d.icd10, sequence: d.sequence }))
-      : value?.procedures
-      ? value.procedures.map((p: any) => ({ icd9: p.icd9, sequence: p.sequence }))
-      : value?.value ?? value;
+    const codingValues = (value: unknown) => {
+      const object = jsonObject(value);
+      if (Array.isArray(object.diagnoses)) return object.diagnoses.map(d => {
+        const diagnosis = jsonObject(d);
+        return { icd10: diagnosis.icd10, sequence: diagnosis.sequence };
+      });
+      if (Array.isArray(object.procedures)) return object.procedures.map(p => {
+        const procedure = jsonObject(p);
+        return { icd9: procedure.icd9, sequence: procedure.sequence };
+      });
+      return object.value ?? value;
+    };
     const actual = codingValues(extractedValue);
-    const expected = goldenValue.expected ?? codingValues(goldenValue);
+    const expected = jsonObject(goldenValue).expected ?? codingValues(goldenValue);
     const match = deepEqual(actual, expected);
 
     if (!match) {
@@ -85,11 +99,11 @@ export function compareData(
 
       diffs.push({
         field,
-        fieldType: fieldType as any,
+        fieldType: fieldType as RegressionDiff['fieldType'],
         expected,
         actual,
         match: false,
-        confidence: extractedValue?.confidence,
+        confidence: typeof jsonObject(extractedValue).confidence === 'number' ? jsonObject(extractedValue).confidence as number : undefined,
         severity,
       });
     }
@@ -101,18 +115,18 @@ export function compareData(
 /**
  * Simple deep equality check
  */
-function deepEqual(a: any, b: any): boolean {
+function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a == null || b == null) return a === b;
   if (typeof a !== typeof b) return false;
 
-  if (typeof a === 'object') {
+  if (typeof a === 'object' && typeof b === 'object') {
     if (Array.isArray(a) && Array.isArray(b)) {
       return a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
     }
     const keysA = Object.keys(a);
     const keysB = Object.keys(b);
-    return keysA.length === keysB.length && keysA.every(k => deepEqual(a[k], b[k]));
+    return keysA.length === keysB.length && keysA.every(k => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
   }
 
   return false;
@@ -122,16 +136,16 @@ function deepEqual(a: any, b: any): boolean {
  * Generate regression report
  */
 export function generateRegressionReport(
-  extractedData: Record<string, any>,
-  goldenData: Record<string, any>,
+  extractedData: Record<string, unknown>,
+  goldenData: GoldenData,
   sep: string
 ): RegressionReport {
   const allDiffs: RegressionDiff[] = [];
   let totalFields = 0;
 
   // Compare each field type
-  Object.entries(goldenData.extracted_data).forEach(([fieldType, fields]: any) => {
-    const extracted = extractedData[fieldType] || {};
+  Object.entries(goldenData.extracted_data).forEach(([fieldType, fields]) => {
+    const extracted = jsonObject(extractedData[fieldType]);
     const diffs = compareData(extracted, fields, fieldType);
     allDiffs.push(...diffs);
     totalFields += Object.keys(fields).length;
@@ -261,7 +275,7 @@ export function saveReport(
  *   runRegressionTest({ extractedData: {...}, sep: '0170R0110926V001417' })
  */
 export async function runRegressionTest(options: {
-  extractedData: Record<string, any>;
+  extractedData: Record<string, unknown>;
   sep: string;
   outputDir?: string;
   verbose?: boolean;

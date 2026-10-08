@@ -6,11 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint --max-warnings 0",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:regression": "jest tests/regression_runner.test.ts --runInBand"
+    "test:regression": "jest tests/regression_runner.test.ts --runInBand",
+    "typecheck": "tsc --noEmit --incremental false && tsc --noEmit --incremental false -p tsconfig.tests.json"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

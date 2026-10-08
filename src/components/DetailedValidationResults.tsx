@@ -1,11 +1,11 @@
 'use client';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useMemo } from 'react';
-import { CheckCircle2, XCircle, AlertCircle, CircleDot, Circle, Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { fieldValue,type ClaimValidationIssue } from '@/lib/claimData';
+import { cn } from '@/lib/utils';
+import { AnimatePresence,motion } from 'framer-motion';
+import { AlertCircle,CheckCircle2,Circle,CircleDot,Search,XCircle } from 'lucide-react';
+import { useMemo,useState } from 'react';
 
 interface FieldValidation {
   column_name: string;
@@ -19,12 +19,12 @@ interface FieldValidation {
 
 interface DetailedValidationResultsProps {
   recordId: string;
-  recordData: Record<string, any>;
-  validationErrors: Array<any>;
+  recordData: Record<string, unknown>;
+  validationErrors: ClaimValidationIssue[];
   vclaimColumns?: string[];
   editMode?: boolean;
-  onEdit?: (colName: string, newValue: any) => void;
-  editedValues?: Record<string, any>;
+  onEdit?: (colName: string, newValue: unknown) => void;
+  editedValues?: Record<string, unknown>;
 }
 
 const VCLAIM_COLUMNS = [
@@ -64,7 +64,6 @@ const VCLAIM_FILLED_COLUMNS = new Set([
 ]);
 
 export default function DetailedValidationResults({
-  recordId,
   recordData,
   validationErrors,
   vclaimColumns = VCLAIM_COLUMNS,
@@ -83,22 +82,22 @@ export default function DetailedValidationResults({
     // Initialize all columns
     vclaimColumns.forEach(colName => {
       const dbField = FIELD_MAPPING[colName];
-      const value = dbField ? recordData[dbField] : null;
+      const value = fieldValue(dbField ? recordData[dbField] : null);
 
       map[colName] = {
         column_name: colName,
-        value: value ?? null,
+        value,
         status: VCLAIM_FILLED_COLUMNS.has(colName) ? 'not_validated' :
                 (value === null || value === undefined || value === '') ? 'empty' : 'valid',
       };
     });
 
     // Mark errors
-    validationErrors?.forEach((err: any) => {
+    validationErrors?.forEach((err: ClaimValidationIssue) => {
       const fieldName = err.field_name || '';
       // Find matching vClaim column
       const colName = Object.entries(FIELD_MAPPING).find(
-        ([_, dbField]) => dbField === fieldName
+        ([, dbField]) => dbField === fieldName
       )?.[0];
 
       if (colName && map[colName]) {

@@ -3,8 +3,8 @@
  * Menggunakan fitur saran koding dengan loading state + error handling
  */
 
-import { useState, useCallback } from 'react';
-import { suggestCoding, type SuggestionFinalResult } from '@/lib/suggestCodingService';
+import { suggestCoding,type SuggestionFinalResult } from '@/lib/suggestCodingService';
+import { useCallback,useState } from 'react';
 
 export interface UseSuggestCodingState {
   result: SuggestionFinalResult | null;
@@ -36,14 +36,7 @@ const STEP_PROGRESS: Record<string, number> = {
   done: 100,
 };
 
-const STEP_LABELS: Record<string, string> = {
-  extract: 'Mengekstraksi fakta klinis...',
-  suggest: 'Menyarankan kode medis...',
-  group: 'Mengelompokkan ke INA-CBG...',
-  tariff: 'Mencari tarif...',
-  alternatives: 'Membuat alternatif...',
-  done: 'Selesai!',
-};
+
 
 export function useSuggestCoding(): [UseSuggestCodingState, UseSuggestCodingActions] {
   const [state, setState] = useState<UseSuggestCodingState>({
@@ -58,7 +51,7 @@ export function useSuggestCoding(): [UseSuggestCodingState, UseSuggestCodingActi
     setState((prev) => ({
       ...prev,
       progress: STEP_PROGRESS[step],
-      currentStep: step as any,
+      currentStep: step as UseSuggestCodingState['currentStep'],
     }));
   }, []);
 

@@ -1,7 +1,10 @@
 'use client';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
+import { AnimatePresence,motion } from 'framer-motion';
+import { usePathname,useRouter } from 'next/navigation';
+import { useState,type ReactNode } from 'react';
 
 /* ────────────────────────────────────────────
    Types
@@ -160,7 +163,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapsed }: Side
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState('dark');
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     const u = localStorage.getItem('user');
     if (u) setUser(JSON.parse(u));
     const saved = localStorage.getItem('theme') || 'dark';
@@ -175,7 +178,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapsed }: Side
     document.documentElement.setAttribute('data-theme', next);
   };
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setIsOpen(false);
   }, [pathname]);
 
@@ -242,7 +245,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapsed }: Side
 
         {/* ── Brand ── */}
         <div className="sidebar-brand">
-          <img src="/logo.png" alt="RS Lestari Raharja" />
+          <Image width={56} height={56} src="/logo.png" alt="RS Lestari Raharja" />
           <div className="sidebar-brand-text">
             <div className="sidebar-brand-name">RS Lestari Raharja</div>
             <div className="sidebar-brand-sub">Sistem Validasi BPJS</div>

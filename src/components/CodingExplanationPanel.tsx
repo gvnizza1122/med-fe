@@ -1,14 +1,12 @@
 'use client';
-
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import {
-  generateCodingExplanation,
-  type CodingExplanation,
-  type CodingExplanationResult,
-  type CodeEvidenceEntry,
+generateCodingExplanation,
+type CodeEvidenceEntry,
+type CodingExplanation
 } from '@/lib/generateCodingExplanation';
+import { cn } from '@/lib/utils';
+import { AlertCircle,CheckCircle2,ChevronDown,ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 
 interface CodingExplanationPanelProps {
   codeString: string; // e.g., "J45.9;I10"
@@ -17,7 +15,7 @@ interface CodingExplanationPanelProps {
   // yang punya code_evidence dengan review_status perlu_review/evidence_
   // tidak_terverifikasi (lihat buildFieldMap di halaman hasil).
   status: 'valid' | 'approved' | 'review' | 'empty' | 'error';
-  clinicalFindings?: Record<string, any>;
+  clinicalFindings?: Record<string, unknown>;
   pageReference?: string; // e.g., "Resume Medis hal. 2"
   codeEvidence?: CodeEvidenceEntry[]; // Data dari ai_review.code_evidence
   className?: string;

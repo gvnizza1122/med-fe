@@ -1,27 +1,28 @@
-"use client"
-
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useTheme } from "next-themes"
+'use client';
+import Image from 'next/image';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+import { UploadProgressWidget } from "@/components/dashboard/upload-progress-widget";
+import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  FileText,
-  History,
-  Users,
-  ShieldCheck,
-  ClipboardList,
-  ListChecks,
-  ScrollText,
-  ChartNoAxesCombined,
-  Sun,
-  Moon,
-  LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { UploadProgressWidget } from "@/components/dashboard/upload-progress-widget"
+ChartNoAxesCombined,
+ClipboardList,
+FileText,
+History,
+LayoutDashboard,
+ListChecks,
+LogOut,
+Moon,
+PanelLeftClose,
+PanelLeftOpen,
+ScrollText,
+ShieldCheck,
+Sun,
+Users,
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import Link from "next/link";
+import { usePathname,useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface User {
   id: string
@@ -76,7 +77,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const pathname = usePathname()
   const router = useRouter()
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setMounted(true)
     const u = localStorage.getItem("user")
     if (u) {
@@ -103,7 +104,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
     <aside className={cn("fixed top-0 left-0 z-30 h-screen overflow-y-auto border-r border-border bg-card flex flex-col", collapsed ? "w-16 p-2" : "w-64 p-4")}>
       <div className={cn("mb-6 flex items-center gap-2", collapsed ? "flex-col" : "justify-between")}>
         <Link href="/dashboard" aria-label="Ke Dashboard" title={collapsed ? "Dashboard" : undefined} className="flex min-w-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <img src="/logo.png" alt="" className="h-8 w-8 shrink-0 rounded-full object-contain" />
+          <Image width={56} height={56} src="/logo.png" alt="" className="h-8 w-8 shrink-0 rounded-full object-contain" />
           {!collapsed && (
             <div className="min-w-0 leading-tight">
               <span className="block truncate text-sm font-semibold text-foreground">RS Lestari Raharja</span>

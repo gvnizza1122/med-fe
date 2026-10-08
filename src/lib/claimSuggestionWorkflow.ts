@@ -15,10 +15,9 @@
  */
 
 import {
-  groupClaimToCmg,
-  validateCbgCode,
-  type ClaimGroupingInput,
-  type GroupingResult,
+groupClaimToCmg,
+type ClaimGroupingInput,
+type GroupingResult
 } from './inaCbgGroupingService';
 
 // ============================================================================
@@ -228,7 +227,7 @@ export function checkSpecialRules(input: SpecialRulesCheckInput): {
   klasDRestriction?: { restricted: boolean; message?: string };
   permanentSuspect?: string[];
 } {
-  const result: any = {};
+  const result: ReturnType<typeof checkSpecialRules> = {};
 
   // Check Kelas D restrictions
   if (input.kelas === 'D' && input.groupingResult.klasD?.hasTopUp === false) {

@@ -1,6 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 /**
  * Guard client-side untuk halaman yang cuma boleh diakses role tertentu
@@ -19,7 +21,7 @@ export function useRequireRole(allowedRoles: string[]) {
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     try {
       const raw = localStorage.getItem('user');
       const user = raw ? JSON.parse(raw) : null;

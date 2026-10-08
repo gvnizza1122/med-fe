@@ -1,5 +1,4 @@
 'use client';
-
 /**
  * Pemeriksaan kritis: aplikasi mempertanyakan hasilnya sendiri sebelum klaim
  * diunggah -- potensi rugi RS, risiko upcoding/ditolak, kode tanpa bukti --

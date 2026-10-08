@@ -1,4 +1,6 @@
 'use client';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
@@ -161,19 +163,19 @@ export default function HistoryPage() {
     if (modeKelompok) { setLoading(false); return; }
     try {
       setLoading(true);
-      const d = await api.getFiles(page, 15, jenisKlaimFilter || undefined, fromDate || undefined, toDate || undefined, search || undefined, lihatArsip, undefined, tampilanEfektif);
+      const d = await api.getFiles<{files: ClaimFile[];total: number;has_more?: boolean}>(page, 15, jenisKlaimFilter || undefined, fromDate || undefined, toDate || undefined, search || undefined, lihatArsip, undefined, tampilanEfektif);
       setFiles(d.files); setTotal(d.total);
     } catch (err) { console.error('[History] Gagal memuat file:', err); } finally { setLoading(false); }
   }, [page, jenisKlaimFilter, fromDate, toDate, search, lihatArsip, modeKelompok, tampilanEfektif]);
 
   const loadKelompok = useCallback(async () => {
     try {
-      const d = await api.getKelompok(lihatArsip, jenisKlaimFilter || undefined);
+      const d = await api.getKelompok<{kelompok:Kelompok[]}>(lihatArsip, jenisKlaimFilter || undefined);
       setKelompok(d.kelompok || []);
     } catch (err) { console.error('[History] Gagal memuat kelompok:', err); }
   }, [lihatArsip, jenisKlaimFilter]);
 
-  useEffect(() => { loadKelompok(); }, [loadKelompok]);
+  useDeferredEffect(() => { loadKelompok(); }, [loadKelompok]);
 
   // Kelompok yang tampil mengikuti tampilan yang dipilih.
   const kelompokTampil = useMemo(() => kelompok.filter((k) => {
@@ -194,7 +196,7 @@ export default function HistoryPage() {
     setMemuatKelompok((m) => ({ ...m, [key]: true }));
     try {
       const filterBaris = tampilanEfektif === 'siap' ? 'siap' : undefined;
-      const d = await api.getFiles(1, 100, k.jenis_klaim || undefined, undefined, undefined, undefined, lihatArsip, k.periode || 'tanpa', filterBaris);
+      const d = await api.getFiles<{files: ClaimFile[];total: number;has_more?: boolean}>(1, 100, k.jenis_klaim || undefined, undefined, undefined, undefined, lihatArsip, k.periode || 'tanpa', filterBaris);
       // Berkas tanpa kategori tidak bisa disaring di server, jadi disaring di sini.
       // Tampilan prioritas tetap memperlihatkan klaim siap di bawah yang pending.
       const baris = (d.files as ClaimFile[])
@@ -213,16 +215,16 @@ export default function HistoryPage() {
   }, [lihatArsip, tampilanEfektif]);
 
   // Ganti tampilan/arsip/kategori -> baris yang sudah dimuat tidak berlaku lagi.
-  useEffect(() => { setBarisKelompok({}); }, [lihatArsip, tampilanEfektif, jenisKlaimFilter]);
+  useDeferredEffect(() => { setBarisKelompok({}); }, [lihatArsip, tampilanEfektif, jenisKlaimFilter]);
 
   // Bulan terakhir terbuka, sisanya terlipat.
-  useEffect(() => {
+  useDeferredEffect(() => {
     if (!modeKelompok || kelompokTampil.length === 0) return;
     const key = kunciKelompok(kelompokTampil[0]);
     setTerbuka((t) => (t[key] === undefined ? { ...t, [key]: true } : t));
   }, [modeKelompok, kelompokTampil]);
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     if (!modeKelompok) return;
     for (const k of kelompokTampil) {
       const key = kunciKelompok(k);
@@ -232,7 +234,7 @@ export default function HistoryPage() {
 
   const muatUlang = () => { setBarisKelompok({}); loadKelompok(); loadFiles(); };
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || 'null');
       setRolePengguna(typeof user?.role === 'string' ? user.role : '');
@@ -241,7 +243,7 @@ export default function HistoryPage() {
     }
   }, []);
 
-  useEffect(() => { loadFiles(); }, [loadFiles]);
+  useDeferredEffect(() => { loadFiles(); }, [loadFiles]);
 
   // Debounce input pencarian nama pasien/SEP supaya tidak request per-ketikan.
   useEffect(() => {
@@ -263,7 +265,7 @@ export default function HistoryPage() {
     if (!bulanPending) { addToast('Pilih bulan klaim dulu.', 'error'); return; }
     setMengexportPending(true);
     try {
-      const res = await api.exportPendingBulanan(bulanPending);
+      const res = await api.exportPendingBulanan(bulanPending, lihatArsip);
       if (!res.ok) throw new Error(`Server menolak (${res.status})`);
       const disposisi = res.headers.get('Content-Disposition') || '';
       const cocok = disposisi.match(/filename=([^;]+)/);

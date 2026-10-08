@@ -1,47 +1,49 @@
 'use client';
-import { useEffect, useState, useCallback, useMemo, useRef, Fragment, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import { motion, AnimatePresence } from 'framer-motion';
-import { api } from '@/lib/api';
-import { ToastContainer, useToast } from '@/components/Toast';
-import ErrorBoundary from '@/components/ErrorBoundary';
-import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
-import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
-import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
-import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
-import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
-import { Header } from '@/components/dashboard/header';
-import { SaranKodingPanel } from '@/components/SaranKodingPanel';
-import { TarifGandaCard } from '@/components/TarifGandaCard';
-import { PemeriksaanPenunjangPanel } from '@/components/PemeriksaanPenunjangPanel';
-import { KodingReadinessNotice, type KesiapanKoding } from '@/components/KodingReadinessNotice';
-import { InaCbgTarifDisplay, InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
-import type { TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
-import type { TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
-import { SyaratPenunjangCard, type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
-import { ReferensiKlaimCard, type HasilReferensiKlaim } from '@/components/ReferensiKlaimCard';
-import { LaporanOperasiPanel, type DataLaporanOperasi } from '@/components/LaporanOperasiPanel';
-import { DasarDiagnosisCard, type DasarDiagnosis, type TindakanBelumDikode } from '@/components/DasarDiagnosisCard';
-import type { TemuanTindakan, SilangTindakan } from '@/components/TemuanTindakanCard';
-import type { TemuanKonsistensi } from '@/components/KonsistensiDataCard';
-import type { PutusanPending } from '@/components/PutusanPendingCard';
-import { RingkasanTemuanCard } from '@/components/RingkasanTemuanCard';
-import { AnalisisKritisCard, type AnalisisKritis } from '@/components/AnalisisKritisCard';
+import { claimPercentage,fieldValue,jsonObject } from '@/lib/claimData';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { AgenCasemixPanel } from '@/components/AgenCasemixPanel';
-import { validateClinicalCoherence, type VitalSigns, type ClinicalCoherenceInput } from '@/services/clinicalCoherenceValidator';
+import { AnalisisKritisCard,type AnalisisKritis } from '@/components/AnalisisKritisCard';
+import { CodingExplanationPanel } from '@/components/CodingExplanationPanel';
+import { DasarDiagnosisCard,type DasarDiagnosis,type TindakanBelumDikode } from '@/components/DasarDiagnosisCard';
+import { Header } from '@/components/dashboard/header';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import type { TemuanIdentitasHalaman } from '@/components/IdentitasHalamanCard';
+import { InaCbgTarifDisplay,InaCbgTarifPending } from '@/components/InaCbgTarifDisplay';
+import type { TemuanKombinasiKode } from '@/components/KetentuanKlaimCard';
+import { KodingReadinessNotice,type KesiapanKoding } from '@/components/KodingReadinessNotice';
+import type { TemuanKonsistensi } from '@/components/KonsistensiDataCard';
+import { LaporanOperasiPanel,type DataLaporanOperasi } from '@/components/LaporanOperasiPanel';
+import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
+import { PemeriksaanPenunjangPanel } from '@/components/PemeriksaanPenunjangPanel';
+import type { PutusanPending } from '@/components/PutusanPendingCard';
+import { ReferensiKlaimCard,type HasilReferensiKlaim } from '@/components/ReferensiKlaimCard';
+import { RingkasanTemuanCard } from '@/components/RingkasanTemuanCard';
+import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
+import { SaranKodingPanel } from '@/components/SaranKodingPanel';
+import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
+import { SyaratPenunjangCard,type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
+import { TarifGandaCard } from '@/components/TarifGandaCard';
+import type { SilangTindakan,TemuanTindakan } from '@/components/TemuanTindakanCard';
+import { ToastContainer,useToast } from '@/components/Toast';
+import { api } from '@/lib/api';
+import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
+import { validateClinicalCoherence,type ClinicalCoherenceInput,type VitalSigns } from '@/services/clinicalCoherenceValidator';
+import { AnimatePresence,motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
+import { useParams,useSearchParams } from 'next/navigation';
+import { Fragment,useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode,type Ref } from 'react';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
-import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
+import { Dialog,DialogContent,DialogHeader,DialogTitle,DialogTrigger } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
 import { FIELD_TYPE_REGISTRY } from '@/lib/fieldTypeRegistry';
-import { ChevronDown, Search, CheckCircle2, XCircle, ChevronLeft, ChevronRight, FileText, Sparkles, Lightbulb, AlertTriangle, PanelLeftOpen, Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { AlertTriangle,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,FileText,Lightbulb,PanelLeftOpen,Sparkles,XCircle } from 'lucide-react';
 
 // react-pdf (pdfjs-dist) mengakses DOMMatrix di level modul — API browser
 // yang tidak ada saat Next.js SSR. Import statis biasa bikin server crash
@@ -88,7 +90,7 @@ interface ClaimRecord {
   id: string; row_number: number; sep: string; nokartu: string; nama_pasien: string;
   mrn: string; inacbg_code: string; deskripsi_inacbg: string;
   validation_status: string; error_count: number; errors: ValidationError[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // ─── vClaim 60-column mapping ──────────────────────────────────────────────
@@ -260,7 +262,7 @@ const EPISODE_TRACKING_MARKERS = [
   'JENIS_KONSULTASI', 'JUMLAH_EPISODE_KLAIM', 'IS_SAME_DAY',
   'HISTORI_OBAT_KRONIS_BULAN_BERTURUT', 'URUTAN_ITERASI',
 ];
-function hasEpisodeTrackingData(record: Record<string, any>): boolean {
+function hasEpisodeTrackingData(record: Record<string, unknown>): boolean {
   const rawData = parseRawData(record);
   if (EPISODE_TRACKING_MARKERS.some(k => rawData[k] !== undefined && rawData[k] !== null && rawData[k] !== '')) {
     return true;
@@ -271,9 +273,9 @@ function hasEpisodeTrackingData(record: Record<string, any>): boolean {
   return Boolean(record.jenis_konsultasi) && Number(record.jumlah_episode_klaim) > 1;
 }
 
-function parseRawData(recordData: Record<string, any>): Record<string, any> {
+function parseRawData(recordData: Record<string, unknown>): Record<string, unknown> {
   if (!recordData.raw_data) return {};
-  try { return typeof recordData.raw_data === 'string' ? JSON.parse(recordData.raw_data) : recordData.raw_data; }
+  try { return jsonObject(recordData.raw_data); }
   catch { return {}; }
 }
 
@@ -467,13 +469,13 @@ function truncatePoint(text: string, max = 110): string {
   return `${text.slice(0, max).replace(/\s+\S*$/, '')}…`;
 }
 
-function parseAiReview(recordData: Record<string, any>): AiReview | null {
+function parseAiReview(recordData: Record<string, unknown>): AiReview | null {
   if (!recordData.ai_review) return null;
-  try { return typeof recordData.ai_review === 'string' ? JSON.parse(recordData.ai_review) : recordData.ai_review; }
+  try { return jsonObject(recordData.ai_review) as unknown as AiReview; }
   catch { return null; }
 }
 
-function buildFieldMap(recordData: Record<string, any>, validationErrors: ValidationError[], editedValues?: Record<string, any>): Record<string, FieldRow> {
+function buildFieldMap(recordData: Record<string, unknown>, validationErrors: ValidationError[]): Record<string, FieldRow> {
   const map: Record<string, FieldRow> = {};
   // raw_data (JSON hasil ekstraksi AI/import asli) selalu berisi ke-60 kolom
   // vClaim dan selalu diperbarui bersamaan dengan kolom DB saat verifikator
@@ -496,9 +498,9 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
     // Hanya pakai raw_data kalau JSON-nya benar-benar ada isinya. Kalau kosong,
     // kolom DB adalah satu-satunya sumber kebenaran yang tersisa.
     const rawValue = hasRawData ? rawData[colName] : undefined;
-    const value = (rawValue === null || rawValue === undefined || rawValue === '')
+    const value = fieldValue((rawValue === null || rawValue === undefined || rawValue === '')
       ? (dbValue ?? null)
-      : rawValue;
+      : rawValue);
     const isEmptyValue = value === null || value === undefined || value === '';
     // 'wajar_kosong' HANYA dipakai saat field itu benar2 kosong -- field
     // jenis wajar_kosong yang KEBETULAN terisi (mis. ADL1 ada isinya untuk
@@ -507,7 +509,7 @@ function buildFieldMap(recordData: Record<string, any>, validationErrors: Valida
     const jenis = FIELD_TYPE_REGISTRY[colName]?.jenis;
     map[colName] = {
       column_name: colName,
-      value: value ?? null,
+      value,
       status: VCLAIM_FILLED_COLUMNS.has(colName) ? 'system' :
         isEmptyValue ? (jenis === 'wajar_kosong' ? 'wajar_kosong' : 'empty') : 'valid',
     };
@@ -650,13 +652,7 @@ function SummaryBanner({ tone, action, children }: { tone: 'success' | 'info' | 
   );
 }
 
-function SeverityDot({ level }: { level: 'normal' | 'borderline' | 'gawat' | 'missing' }) {
-  const color = level === 'gawat' ? 'var(--destructive)'
-    : level === 'borderline' ? '#059669'
-      : level === 'missing' ? 'var(--muted-foreground)'
-        : '#059669'; // normal
-  return <span className="inline-block size-2 rounded-full shrink-0" style={{ background: color }} />;
-}
+
 
 // ─── Unified 60-column table (replaces old "Validasi 60 Kolom" + "Verifikasi & Edit" tabs) ───
 
@@ -709,13 +705,13 @@ function FieldRowTr({
   compact?: boolean;
   field: FieldRow;
   editing: boolean;
-  editedValues: Record<string, any>;
+  editedValues: Record<string, unknown>;
   onEdit: (col: string, val: string) => void;
   autofilledFrom: unknown;
   isHighlighted: boolean;
   isZebra: boolean;
   rowRef?: Ref<HTMLTableRowElement>;
-  recordData?: Record<string, any>;
+  recordData?: Record<string, unknown>;
 }) {
   const isSystem = field.status === 'system';
   const currentValue = editedValues[field.column_name] !== undefined
@@ -903,7 +899,7 @@ function FieldRowTr({
               showStatusBadge={!compact}
               codeString={String(currentValue ?? '')}
               fieldType={field.column_name === 'DIAGLIST' ? 'diagnosis' : 'procedure'}
-              status={field.status as any}
+              status={field.status === 'error' ? 'error' : field.status === 'review' ? 'review' : field.status === 'valid' ? 'valid' : 'empty'}
               clinicalFindings={recordData}
               // pageReference hardcode "Resume Medis" DIHAPUS 19 Sep 2026 (fix
               // item 7) -- provenance sekarang WAJIB dari codeEvidence[].
@@ -962,7 +958,7 @@ function FieldRowTr({
 // (fieldMap via categories) + ai_review record ini -- TIDAK memanggil API
 // baru. Kalau tidak ada satupun tindakan (record bersih), return null (tidak
 // menampilkan box kosong), sesuai prinsip "jangan tampilkan yang tidak perlu".
-function ActionChecklist({ categories, recordData }: { categories: { category: string; rows: FieldRow[] }[]; recordData: Record<string, any> }) {
+function ActionChecklist({ categories, recordData }: { categories: { category: string; rows: FieldRow[] }[]; recordData: Record<string, unknown> }) {
   const allFields = useMemo(() => categories.flatMap(c => c.rows), [categories]);
   const actions: string[] = [];
 
@@ -1074,7 +1070,7 @@ function InaCbgFieldRow({
 }: {
   field: FieldRow;
   editing: boolean;
-  editedValues: Record<string, any>;
+  editedValues: Record<string, unknown>;
   onEdit: (col: string, val: string) => void;
   badgeOverride?: ReactNode;
   noteOverride?: ReactNode;
@@ -1121,9 +1117,9 @@ function InaCbgSection({
 }: {
   rows: FieldRow[];
   editing: boolean;
-  editedValues: Record<string, any>;
+  editedValues: Record<string, unknown>;
   onEdit: (col: string, val: string) => void;
-  recordData: Record<string, any>;
+  recordData: Record<string, unknown>;
 }) {
   const byCol = useMemo(() => Object.fromEntries(rows.map(f => [f.column_name, f])), [rows]);
   // Default tertutup -- kasus paling umum (klaim tanpa top-up) tidak perlu
@@ -1240,7 +1236,7 @@ function InaCbgSection({
 }
 
 // Helper: Check if ICU & Ventilasi category has any meaningful data
-function hasIcuVentilasiData(fieldMap: Record<string, FieldRow>, editedValues: Record<string, any>): boolean {
+function hasIcuVentilasiData(fieldMap: Record<string, FieldRow>, editedValues: Record<string, unknown>): boolean {
   const ICU_VENTILASI_FIELDS = ['ICU_INDIKATOR', 'ICU_LOS', 'VENT_HOUR'];
   return ICU_VENTILASI_FIELDS.some(field => {
     const currentValue = editedValues[field] !== undefined ? editedValues[field] : fieldMap[field]?.value;
@@ -1252,7 +1248,7 @@ function hasIcuVentilasiData(fieldMap: Record<string, FieldRow>, editedValues: R
 }
 
 // Helper: Extract age from record data (either from raw data or DB fields)
-function extractAge(recordData: Record<string, any>): number | null {
+function extractAge(recordData: Record<string, unknown>): number | null {
   const rawData = parseRawData(recordData);
 
   // Try to get age from raw data first
@@ -1284,17 +1280,17 @@ function extractAge(recordData: Record<string, any>): number | null {
 function RecordFieldsTable({
   recordData, validationErrors, editing, editedValues, onEdit, onlyIssues, jenisKlaim, highlightFields, onOpenPdf,
 }: {
-  recordData: Record<string, any>;
+  recordData: Record<string, unknown>;
   validationErrors: ValidationError[];
   editing: boolean;
-  editedValues: Record<string, any>;
+  editedValues: Record<string, unknown>;
   onEdit: (col: string, val: string) => void;
   onlyIssues: boolean;
   jenisKlaim?: string | null;
   highlightFields?: Set<string>;
   onOpenPdf?: (page:number)=>void;
 }) {
-  const fieldMap = useMemo(() => buildFieldMap(recordData, validationErrors, editing ? editedValues : undefined), [recordData, validationErrors, editing, editedValues]);
+  const fieldMap = useMemo(() => buildFieldMap(recordData, validationErrors), [recordData, validationErrors]);
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
   // Deep-link dari Pending BPJS (?highlight=...) harus langsung tampil dalam
   // konteks penuh (lihat highlightFields di komponen induk) -- default ke
@@ -1306,7 +1302,7 @@ function RecordFieldsTable({
   // catatan di call site) supaya tidak remount penuh, cukup reset state lokal
   // yang relevan lewat effect ini, pola yang sama dipakai komponen induk utk
   // reset isEditing/editedValues per-record.
-  useEffect(() => {
+  useDeferredEffect(() => {
     setShowFullTable(!!(highlightFields && highlightFields.size > 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordData.id]);
@@ -1315,7 +1311,7 @@ function RecordFieldsTable({
     if (highlightFields && highlightFields.size > 0) {
       highlightRowRef.current?.scrollIntoView({ block: 'center' });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [recordData, highlightFields]);
 
   // Check if ICU & Ventilasi category should be hidden due to no data
@@ -1480,9 +1476,9 @@ function SimplifiedFieldAccordion({
 }: {
   categories: { category: string; rows: FieldRow[] }[];
   editing: boolean;
-  editedValues: Record<string, any>;
+  editedValues: Record<string, unknown>;
   onEdit: (col: string, val: string) => void;
-  recordData: Record<string, any>;
+  recordData: Record<string, unknown>;
   highlightFields?: Set<string>;
   highlightRowRef: { current: HTMLTableRowElement | null };
   onOpenPdf?: (page:number)=>void;
@@ -1497,10 +1493,10 @@ function SimplifiedFieldAccordion({
   // Reset override expand/collapse saat pindah record (tidak pakai key-based
   // remount, lihat catatan di RecordFieldsTable) supaya kategori yang di-expand
   // manual utk record A tidak "bocor" ke record B.
-  useEffect(() => {
+  useDeferredEffect(() => {
     setExpandOverride({});
     setTabDiagnosis('berkas');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [recordData.id]);
   // Diagnosis & Prosedur selalu terbuka: keterangan kamus ICD-10/ICD-9-CM
   // per kode harus langsung terlihat, bukan hanya saat ada masalah.
@@ -1563,12 +1559,12 @@ function SimplifiedFieldAccordion({
                   ))}
                   </div>
                 </TabsContent>
-                <TabsContent value="saran"><SaranKodingPanel recordId={recordData.id} /></TabsContent>
-                <TabsContent value="operasi"><LaporanOperasiPanel recordId={recordData.id} hashBukti={parseAiReview(recordData)?.laporan_operasi?.hash_bukti} onOpenPdf={onOpenPdf}/></TabsContent>
+                <TabsContent value="saran"><SaranKodingPanel recordId={String(recordData.id)} /></TabsContent>
+                <TabsContent value="operasi"><LaporanOperasiPanel recordId={String(recordData.id)} hashBukti={parseAiReview(recordData)?.laporan_operasi?.hash_bukti} onOpenPdf={onOpenPdf}/></TabsContent>
                 <TabsContent value="tarif" className="p-4 sm:p-5">
-                  <TarifGandaCard recordId={recordData.id} />
+                  <TarifGandaCard recordId={String(recordData.id)} />
                   <div className="mt-4 border-t border-border pt-4">
-                    <SaranKodingPanel recordId={recordData.id} mode="tarif" />
+                    <SaranKodingPanel recordId={String(recordData.id)} mode="tarif" />
                   </div>
                   <section aria-label="Detail grouping data klaim" className="mt-4 border-t border-border pt-4">
                     <h4 className="text-sm font-medium">Detail grouping dan kesesuaian klinis data klaim</h4>
@@ -1623,7 +1619,7 @@ function SimplifiedFieldAccordion({
 /**
  * Extract vital signs from kegawatdaruratan assessment
  */
-function extractVitalSigns(recordData: Record<string, any>): VitalSigns {
+function extractVitalSigns(recordData: Record<string, unknown>): VitalSigns {
   const assessment = parseAiReview(recordData)?.kegawatdaruratan_assessment;
   if (!assessment?.vital_findings) return {};
 
@@ -1642,7 +1638,7 @@ function extractVitalSigns(recordData: Record<string, any>): VitalSigns {
 /**
  * Extract diagnosis codes and evidence from record
  */
-function extractDiagnosis(recordData: Record<string, any>) {
+function extractDiagnosis(recordData: Record<string, unknown>) {
   const rawData = parseRawData(recordData);
   const diagList = rawData.DIAGLIST || recordData.diagnosa_list || '';
   const diagCodes = String(diagList).split(';').map(c => c.trim()).filter(Boolean);
@@ -1667,7 +1663,7 @@ function extractDiagnosis(recordData: Record<string, any>) {
 /**
  * Extract procedure codes and evidence from record
  */
-function extractProcedure(recordData: Record<string, any>) {
+function extractProcedure(recordData: Record<string, unknown>) {
   const rawData = parseRawData(recordData);
   const procList = rawData.PROCLIST || recordData.prosedur_list || '';
   const procCodes = String(procList).split(';').map(c => c.trim()).filter(Boolean);
@@ -1692,7 +1688,7 @@ function extractProcedure(recordData: Record<string, any>) {
 /**
  * Component: INA-CBG & Tarif Display with Clinical Coherence Check
  */
-function InaCbgCoherenceDisplay({ recordData }: { recordData: Record<string, any> }) {
+function InaCbgCoherenceDisplay({ recordData }: { recordData: Record<string, unknown> }) {
   const diagnosis = extractDiagnosis(recordData);
   const procedure = extractProcedure(recordData);
   const vitals = extractVitalSigns(recordData);
@@ -1702,9 +1698,9 @@ function InaCbgCoherenceDisplay({ recordData }: { recordData: Record<string, any
   const coherenceInput: ClinicalCoherenceInput = {
     diagnosis_utama: diagnosis.allCodes.join(' '),
     prosedur: procedure.allCodes.join(' '),
-    alasan_masuk: parseRawData(recordData).ALASAN_MASUK || '',
+    alasan_masuk: String(parseRawData(recordData).ALASAN_MASUK || ''),
     vital_signs: vitals,
-    clinical_findings: parseRawData(recordData).CLINICAL_FINDINGS || '',
+    clinical_findings: String(parseRawData(recordData).CLINICAL_FINDINGS || ''),
   };
 
   const coherenceResult = validateClinicalCoherence(coherenceInput);
@@ -1812,22 +1808,7 @@ const BAND_COLOR: Record<string, CSSProperties> = {
 // Label tekanan darah dewasa/lansia mengikuti kategori yang sudah dipakai aplikasi.
 // Kelompok anak tetap menampilkan status hasil aturan usia dari backend.
 // Penjelasan angka nol dipakai untuk membedakan nilai tidak diukur dari hasil pemeriksaan.
-function penjelasanTercatatNol(key: string): string {
-  if (key === "GCS") {
-    return "Nilai GCS di dokumen di bawah 3. GCS terendah yang mungkin adalah 3 (tiap komponen minimal bernilai 1), jadi angka itu tidak bisa berasal dari penilaian yang benar-benar dilakukan. Nilai ini karena itu tidak dihitung sebagai kondisi gawat.";
-  }
-  if (key === "TD_sistolik" || key === "TD_diastolik") {
-    return "Di dokumen tertulis 0. Tekanan darah 0 pada pasien hidup mustahil secara klinis, jadi 0 dipakai petugas untuk menandai tidak diukur. Pada bayi, tekanan darah memang tidak selalu diukur rutin. Nilai ini karena itu tidak dihitung sebagai kondisi gawat.";
-  }
-  const namaUmum: Record<string, string> = {
-    SpO2: "Saturasi 0%",
-    HR: "Nadi 0",
-    RR: "Laju napas 0",
-    Suhu: "Suhu 0 derajat",
-  };
-  const nama = namaUmum[key] || "Nilai 0";
-  return nama + " pada pasien hidup mustahil secara klinis, jadi 0 dipakai petugas untuk menandai kolom yang tidak diukur. Nilai ini karena itu tidak dihitung sebagai kondisi gawat.";
-}
+
 
 const TD_GRADE_ESH: Record<string, [number, number][]> = {
   TD_sistolik: [[140, 159], [160, 179]],
@@ -2012,7 +1993,7 @@ function EmergencyCriteriaList({ criteria, hasData, ageGroup, onOpenPdf }: {
   </section>;
 }
 
-function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<string, any>; onOpenPdf?: (page: number) => void }) {
+function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<string, unknown>; onOpenPdf?: (page: number) => void }) {
   // WAJIB dipanggil SEBELUM early-return di bawah (Rules of Hooks) -- record
   // yang sama (key={record.id} tidak berubah) bisa transisi dari "belum ada
   // assessment" ke "assessment valid" lewat "Baca Ulang" TANPA remount, jadi
@@ -2026,7 +2007,7 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
   const [referenceAttempt, setReferenceAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    api.getVitalReferences().then(data => {
+    api.getVitalReferences<{thresholds:VitalReferences}>().then(data => {
       if (!cancelled) { setReferences(data.thresholds); setReferenceError(false); }
     }).catch(() => { if (!cancelled) setReferenceError(true); });
     return () => { cancelled = true; };
@@ -2273,7 +2254,7 @@ function KegawatdaruratanTable({ recordData, onOpenPdf }: { recordData: Record<s
 
           {/* Pemeriksaan penunjang tepat di bawah pemeriksaan fisik/khusus --
               tampil untuk semua kasus, IGD maupun bukan. */}
-          <PemeriksaanPenunjangPanel recordId={recordData.id} onOpenPdf={onOpenPdf} tertanam />
+          <PemeriksaanPenunjangPanel recordId={String(recordData.id)} onOpenPdf={onOpenPdf} tertanam />
 
           {!fokusGawat && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
@@ -2549,7 +2530,7 @@ export default function ResultsPage() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState('all');
   const [filteredOutCount, setFilteredOutCount] = useState(0);
-  const [search, setSearch] = useState(initialSearch);
+  const [search] = useState(initialSearch);
   const [loading, setLoading] = useState(true);
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [isSavingRecord, setIsSavingRecord] = useState(false);
@@ -2558,7 +2539,7 @@ export default function ResultsPage() {
   const [evidencePdfPage, setEvidencePdfPage] = useState<number | null>(null);
   const [maximizeData, setMaximizeData] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedValues, setEditedValues] = useState<Record<string, any>>({});
+  const [editedValues, setEditedValues] = useState<Record<string, unknown>>({});
   const [onlyIssues, setOnlyIssues] = useState(false);
   // Halaman hasil menampilkan alasan pending & saran lebih dulu; data klaim
   // dan detail analisis disembunyikan sampai diminta. Terbuka otomatis bila
@@ -2569,7 +2550,7 @@ export default function ResultsPage() {
   const [suratKlarifikasiOpen, setSuratKlarifikasiOpen] = useState(false);
 
   // Edit data dan pratinjau PDF ada di dalam bagian detail -- buka otomatis.
-  useEffect(() => {
+  useDeferredEffect(() => {
     if (isEditing || showPdf || (highlightFields && highlightFields.size > 0)) setTampilkanDetail(true);
   }, [isEditing, showPdf, highlightFields]);
 
@@ -2583,7 +2564,7 @@ export default function ResultsPage() {
       const p: Record<string, string> = { page: String(page), limit: '30' };
       if (filter !== 'all') p.status = filter;
       if (search) p.search = search;
-      const d = await api.getRecords(fileId, p);
+      const d = await api.getRecords<{records:ClaimRecord[];total:number}>(fileId, p);
 
       // Semua kelompok usia tetap ditampilkan; aturan memilih usia sesuai konteks.
       const filteredRecords = d.records;
@@ -2592,9 +2573,9 @@ export default function ResultsPage() {
       setRecords(filteredRecords);
       setTotal(d.total);
       if (filteredRecords && filteredRecords.length > 0) {
-        const firstErrorRecord = filteredRecords.find((r: any) => r.error_count > 0);
+        const firstErrorRecord = filteredRecords.find((r: ClaimRecord) => r.error_count > 0);
         setSelectedRecordId(prev => {
-          if (prev && filteredRecords.some((r: any) => r.id === prev)) return prev;
+          if (prev && filteredRecords.some((r: ClaimRecord) => r.id === prev)) return prev;
           return firstErrorRecord ? firstErrorRecord.id : filteredRecords[0].id;
         });
       }
@@ -2603,7 +2584,7 @@ export default function ResultsPage() {
 
   const loadFileInfo = useCallback(async () => {
     try {
-      const f = await api.getFile(fileId);
+      const f = await api.getFile<FileInfo>(fileId);
       setFileInfo(f);
     } catch (err) { console.error('[Results] Gagal memuat info file:', err); }
   }, [fileId]);
@@ -2616,10 +2597,10 @@ export default function ResultsPage() {
     })();
   }, [fileId, loadFileInfo]);
 
-  useEffect(() => { loadRecords(); }, [loadRecords]);
+  useDeferredEffect(() => { loadRecords(); }, [loadRecords]);
 
   // Reset per-record edit/evidence state saat ganti record
-  useEffect(() => {
+  useDeferredEffect(() => {
     setIsEditing(false);
     setEditedValues({});
     setShowPdf(false);
@@ -2636,7 +2617,7 @@ export default function ResultsPage() {
     const hasRv20 = rec?.errors?.some(e => e.rule_id === 'RV-20');
     if (!rec || !hasRv20 || rv20ConfirmedRecordIds.has(rec.id)) return;
     let cancelled = false;
-    api.getRv20Confirmation(rec.id).then(res => {
+    api.getRv20Confirmation<{confirmed:boolean;confirmation?:{checklist_items?:string}}>(rec.id).then(res => {
       if (cancelled || !res.confirmed) return;
       setRv20ConfirmedRecordIds(prev => new Set(prev).add(rec.id));
     }).catch(() => { });
@@ -2687,7 +2668,7 @@ export default function ResultsPage() {
     // mengulang klik atau menutup halaman di tengah proses.
     addToast('Membaca ulang berkas — proses OCR dan AI bisa makan beberapa menit, mohon tunggu...', 'info', 6000);
     try {
-      const reread = await api.rereadRecord(selectedRecordId);
+      const reread = await api.rereadRecord<{message?:string;record_id?:string;file_id?:string;already_completed?:boolean;analysis_status?:string;analysis_warning?:string}>(selectedRecordId);
       if (reread.analysis_status && reread.analysis_status !== 'lengkap') {
         addToast(reread.analysis_warning || 'Berkas tersimpan, analisis belum lengkap. Periksa alasan pada hasil.', 'info', 8000);
       } else addToast('Pembacaan ulang selesai. Periksa hasil analisis.', 'success');
@@ -2773,12 +2754,12 @@ export default function ResultsPage() {
         </div>
         <div>
           <div className="text-caption">Valid</div>
-          <div className="font-mono-data text-xl font-bold text-emerald-600 dark:text-emerald-400">{((fileInfo.valid_count / fileInfo.total_records) * 100).toFixed(0)}%</div>
+          <div className="font-mono-data text-xl font-bold text-emerald-600 dark:text-emerald-400">{claimPercentage(fileInfo.valid_count, fileInfo.total_records).toFixed(0)}%</div>
           <div className="font-mono-data text-xs text-muted-foreground">{fileInfo.valid_count} records</div>
         </div>
         <div>
           <div className="text-caption">Pending</div>
-          <div className="font-mono-data text-xl font-bold text-amber-600 dark:text-amber-400">{(((fileInfo.error_count + fileInfo.pending_count) / fileInfo.total_records) * 100).toFixed(0)}%</div>
+          <div className="font-mono-data text-xl font-bold text-amber-600 dark:text-amber-400">{claimPercentage(fileInfo.error_count + fileInfo.pending_count, fileInfo.total_records).toFixed(0)}%</div>
           <div className="font-mono-data text-xs text-muted-foreground">{fileInfo.error_count + fileInfo.pending_count} records</div>
         </div>
       </Card>
@@ -2922,8 +2903,8 @@ export default function ResultsPage() {
                     <div className="text-sm text-muted-foreground">
                       MRN: <span className="font-mono-data">{selectedRecord.mrn || '-'}</span> · Status:
                       <span className="ml-1"><RecordStatusBadge status={selectedRecord.validation_status} /></span>
-                      {parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP && (
-                        <span className="ml-1.5">· Jenis Kunjungan: {parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP}</span>
+                      {Boolean(parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP) && (
+                        <span className="ml-1.5">· Jenis Kunjungan: {String(parseRawData(selectedRecord).JENIS_KUNJUNGAN_SEP || '')}</span>
                       )}
                     </div>
                   </div>

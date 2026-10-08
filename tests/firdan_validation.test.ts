@@ -15,13 +15,7 @@
  * 5. Regression testing (bandingkan dengan golden answers)
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-
-// Load golden test data
-const FIRDAN_CASE = JSON.parse(
-  fs.readFileSync(path.join(__dirname, 'fixtures', 'firdan_case.json'), 'utf-8')
-);
+import FIRDAN_CASE from './fixtures/firdan_case.json';
 
 describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
   describe('1. Field Extraction — Salin (copied as-is from document)', () => {
@@ -74,7 +68,7 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
     });
 
     it('all Salin fields should have confidence >= 0.90', () => {
-      Object.entries(FIRDAN_CASE.extracted_data.salin).forEach(([field, data]: any) => {
+      Object.entries(FIRDAN_CASE.extracted_data.salin).forEach(([, data]) => {
         expect(data.confidence).toBeGreaterThanOrEqual(0.90);
       });
     });
@@ -179,15 +173,15 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
 
     it('all diagnoses should have confidence >= 0.85', () => {
       const diaglist = FIRDAN_CASE.extracted_data.koding.DIAGLIST;
-      diaglist.diagnoses.forEach((diag: any) => {
+      diaglist.diagnoses.forEach((diag) => {
         expect(diag.confidence).toBeGreaterThanOrEqual(0.85);
       });
     });
 
     it('should match expected diagnosis ICD10 codes exactly', () => {
       const diaglist = FIRDAN_CASE.extracted_data.koding.DIAGLIST;
-      const extractedCodes = diaglist.diagnoses.map((d: any) => d.icd10);
-      const expectedCodes = diaglist.expected.map((e: any) => e.icd10);
+      const extractedCodes = diaglist.diagnoses.map((d) => d.icd10);
+      const expectedCodes = diaglist.expected.map((e) => e.icd10);
       expect(extractedCodes).toEqual(expectedCodes);
     });
   });
@@ -215,15 +209,15 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
 
     it('all procedures should have confidence >= 0.87', () => {
       const proclist = FIRDAN_CASE.extracted_data.koding.PROCLIST;
-      proclist.procedures.forEach((proc: any) => {
+      proclist.procedures.forEach((proc) => {
         expect(proc.confidence).toBeGreaterThanOrEqual(0.87);
       });
     });
 
     it('should match expected procedure ICD9 codes exactly', () => {
       const proclist = FIRDAN_CASE.extracted_data.koding.PROCLIST;
-      const extractedCodes = proclist.procedures.map((p: any) => p.icd9);
-      const expectedCodes = proclist.expected.map((e: any) => e.icd9);
+      const extractedCodes = proclist.procedures.map((p) => p.icd9);
+      const expectedCodes = proclist.expected.map((e) => e.icd9);
       expect(extractedCodes).toEqual(expectedCodes);
     });
   });
@@ -272,7 +266,7 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
     });
 
     it('all vital signs should have confidence >= 0.94', () => {
-      Object.entries(FIRDAN_CASE.extracted_data.vital_signs).forEach(([field, data]: any) => {
+      Object.entries(FIRDAN_CASE.extracted_data.vital_signs).forEach(([, data]) => {
         expect(data.confidence).toBeGreaterThanOrEqual(0.94);
       });
     });
@@ -407,7 +401,7 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
 
     it('golden case should be complete (no critical missing fields)', () => {
       const salin = FIRDAN_CASE.extracted_data.salin;
-      const critical = ['NAMA_PASIEN', 'MRN', 'SEP', 'ADMISSION_DATE', 'BIRTH_DATE'];
+      const critical = ['NAMA_PASIEN', 'MRN', 'SEP', 'ADMISSION_DATE', 'BIRTH_DATE'] as const;
       critical.forEach((field) => {
         expect(salin[field]).toBeDefined();
         expect(salin[field].value).toBeTruthy();
@@ -418,7 +412,7 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
   describe('13. Data Integrity — No OCR Hallucination', () => {
     it('diagnosis should be sourced from medical documents, not OCR imagination', () => {
       const diaglist = FIRDAN_CASE.extracted_data.koding.DIAGLIST;
-      diaglist.diagnoses.forEach((diag: any) => {
+      diaglist.diagnoses.forEach((diag) => {
         expect(diag.source).toContain('Resume_Medis_IGD');
         expect(diag.notes).toBeTruthy(); // Each diagnosis should have clinical notes
       });
@@ -426,7 +420,7 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
 
     it('procedures should be sourced from medical documents, not OCR imagination', () => {
       const proclist = FIRDAN_CASE.extracted_data.koding.PROCLIST;
-      proclist.procedures.forEach((proc: any) => {
+      proclist.procedures.forEach((proc) => {
         expect(proc.source).toContain('Resume_Medis_IGD');
       });
     });
@@ -437,7 +431,7 @@ describe('Firdan Case (SEP 0170R0110926V001417) — Golden Test Suite', () => {
         FIRDAN_CASE.extracted_data.salin.NAMA_PASIEN,
         FIRDAN_CASE.extracted_data.koding.DIAGLIST.diagnoses[0],
       ];
-      criticalFields.forEach((field: any) => {
+      criticalFields.forEach((field) => {
         expect(field.confidence).toBeGreaterThanOrEqual(0.85);
       });
     });

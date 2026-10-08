@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 interface SimrsIngestionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (result: any) => void;
+  onSuccess?: (result: unknown) => void;
 }
 
 export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: SimrsIngestionModalProps) {
@@ -45,7 +45,7 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
 
     setLoading(true);
     try {
-      const result = await api.ingestSimrsJson(parsed);
+      const result = await api.ingestSimrsJson<{file_id:string;records_count:number}>(parsed);
       setSuccess(`Berhasil import ${result.records_count || 1} rekam SIMRS`);
       setJsonInput('');
       onSuccess?.(result);
@@ -70,7 +70,7 @@ export default function SimrsIngestionModal({ isOpen, onClose, onSuccess }: Simr
     try {
       const results = [];
       for (const file of pdfFiles) {
-        const result = await api.ingestSimrsPdf(file);
+        const result = await api.ingestSimrsPdf<{file_id:string;records_count:number}>(file);
         results.push(result);
       }
       setSuccess(`Berhasil upload ${pdfFiles.length} file PDF`);

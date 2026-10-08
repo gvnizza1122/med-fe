@@ -85,7 +85,7 @@ export default function PendingJawabanDaftarPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.getPendingFiles({ page: 1, limit: 100 });
+        const res = await api.getPendingFiles<{files:{id:string;file_name:string}[]}>({ page: 1, limit: 100 });
         setFiles((res.files || []).map((f: { id: string; file_name: string }) => ({ id: f.id, file_name: f.file_name })));
       } catch (err) {
         console.error('[PendingJawabanDaftar] gagal memuat daftar file:', err);

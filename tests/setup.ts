@@ -5,19 +5,20 @@
 
 // Polyfill untuk environment node
 if (typeof window === 'undefined') {
-  global.window = undefined as any;
-  global.localStorage = {
+  const storage: Storage = {
     getItem: () => null,
     setItem: () => {},
     removeItem: () => {},
     clear: () => {},
-  } as any;
+    key: () => null, length: 0,
+  };
+  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true, writable: true });
 }
 
 // Suppress console warnings during tests (optional)
 const originalError = console.error;
 beforeAll(() => {
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     if (
       typeof args[0] === 'string' &&
       args[0].includes('Warning: ReactDOM.render')

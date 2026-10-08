@@ -32,7 +32,7 @@ async function tryRefreshToken(): Promise<boolean> {
   return refreshInFlight;
 }
 
-async function request(endpoint: string, options: RequestInit & { timeout?: number } = {}, _isRetry = false): Promise<any> {
+async function request<T = unknown>(endpoint: string, options: RequestInit & { timeout?: number } = {}, _isRetry = false): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   const headers: Record<string, string> = { ...options.headers as Record<string, string> };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -68,7 +68,7 @@ async function request(endpoint: string, options: RequestInit & { timeout?: numb
     // sedang berjalan (form belum disimpan, dst) tidak hilang mendadak.
     if (!_isRetry && endpoint !== '/api/v1/auth/refresh') {
       const refreshed = await tryRefreshToken();
-      if (refreshed) return request(endpoint, options, true);
+      if (refreshed) return request<T>(endpoint, options, true);
     }
 
     if (typeof window !== 'undefined') {
@@ -105,7 +105,7 @@ async function request(endpoint: string, options: RequestInit & { timeout?: numb
 
   const contentType = res.headers.get('content-type');
   if (contentType?.includes('application/json')) return res.json();
-  return res;
+  return res as T;
 }
 
 // ── Alur Menjawab Pending BPJS (backend: /api/v1/pending-jawaban, repo
@@ -239,65 +239,65 @@ export interface PendingJawabanItemDetail {
 }
 
 export const api = {
-  getKatalogPedoman: (params: Record<string, string> = {}) => request('/api/v1/katalog-pedoman?' + new URLSearchParams(params)),
-  getPedoman: (id: string, q = '') => request(`/api/v1/katalog-pedoman/${encodeURIComponent(id)}?q=${encodeURIComponent(q)}`),
-  getPdfPedoman: (id: string, varian = 0): Promise<Response> => request(`/api/v1/katalog-pedoman/${encodeURIComponent(id)}/pdf?varian=${varian}`, { timeout: 120000 }),
-  getVitalReferences: () => request('/api/v1/claim-files/reference/vital-ranges'),
+  getKatalogPedoman: <T = unknown>(params: Record<string, string> = {}) => request<T>('/api/v1/katalog-pedoman?' + new URLSearchParams(params)),
+  getPedoman: <T = unknown>(id: string, q = '') => request<T>(`/api/v1/katalog-pedoman/${encodeURIComponent(id)}?q=${encodeURIComponent(q)}`),
+  getPdfPedoman: (id: string, varian = 0): Promise<Response> => request<Response>(`/api/v1/katalog-pedoman/${encodeURIComponent(id)}/pdf?varian=${varian}`, { timeout: 120000 }),
+  getVitalReferences: <T = unknown>() => request<T>('/api/v1/claim-files/reference/vital-ranges'),
   // Auth
-  login: (username: string, password: string) =>
-    request('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
-  getMe: () => request('/api/v1/auth/me'),
+  login: <T = unknown>(username: string, password: string) =>
+    request<T>('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  getMe: <T = unknown>() => request<T>('/api/v1/auth/me'),
   lookupCodeDescriptions: (diagnosis: string[], procedure: string[]): Promise<{ diagnosis: Record<string, string>; procedure: Record<string, string> }> =>
-    request('/api/v1/code-descriptions/lookup', { method: 'POST', body: JSON.stringify({ diagnosis, procedure }) }),
+    request<{ diagnosis: Record<string, string>; procedure: Record<string, string> }>('/api/v1/code-descriptions/lookup', { method: 'POST', body: JSON.stringify({ diagnosis, procedure }) }),
   // Tab "Saran AI": diagnosis, prosedur, INA-CBG & tarif yang disusun dari isi
   // berkas. Hanya dibaca, tidak mengubah data klaim.
-  getSaranKoding: (recordId: string) =>
-    request(`/api/v1/claim-files/records/${recordId}/saran-koding`),
+  getSaranKoding: <T = unknown>(recordId: string) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/saran-koding`),
 
   // Tarif INA-CBG dan iDRG berdampingan + koding versi iDRG. Hanya dibaca.
-  getTarifGanda: (recordId: string) =>
-    request(`/api/v1/claim-files/records/${recordId}/tarif-ganda`),
+  getTarifGanda: <T = unknown>(recordId: string) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/tarif-ganda`),
 
-  getPemeriksaanPenunjang: (recordId: string) =>
-    request(`/api/v1/claim-files/records/${recordId}/pemeriksaan-penunjang`),
+  getPemeriksaanPenunjang: <T = unknown>(recordId: string) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/pemeriksaan-penunjang`),
 
-  getLaporanOperasi: (recordId: string) =>
-    request(`/api/v1/claim-files/records/${recordId}/laporan-operasi`,{cache:'no-store'}),
+  getLaporanOperasi: <T = unknown>(recordId: string) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/laporan-operasi`,{cache:'no-store'}),
 
-  getLaporanCasemix: (recordId: string) =>
-    request(`/api/v1/claim-files/records/${recordId}/laporan-casemix`),
+  getLaporanCasemix: <T = unknown>(recordId: string) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/laporan-casemix`),
 
-  tanyaAgenCasemix: (recordId: string, pertanyaan: string, riwayat: { peran: 'koder' | 'agen'; isi: string }[] = []) =>
-    request(`/api/v1/claim-files/records/${recordId}/agen-casemix/tanya`, { method: 'POST', body: JSON.stringify({ pertanyaan, riwayat }), timeout: 600000 }),
+  tanyaAgenCasemix: <T = unknown>(recordId: string, pertanyaan: string, riwayat: { peran: 'koder' | 'agen'; isi: string }[] = []) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/agen-casemix/tanya`, { method: 'POST', body: JSON.stringify({ pertanyaan, riwayat }), timeout: 600000 }),
 
-  simpanKeputusanCasemix: (recordId: string, data: { diagnosis: string; prosedur: string; catatan: string }) =>
-    request(`/api/v1/claim-files/records/${recordId}/keputusan-casemix`, { method: 'POST', body: JSON.stringify(data) }),
+  simpanKeputusanCasemix: <T = unknown>(recordId: string, data: { diagnosis: string; prosedur: string; catatan: string }) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/keputusan-casemix`, { method: 'POST', body: JSON.stringify(data) }),
 
-  tinjauDiagnosis: (recordId: string, paksaSol = false) =>
-    request(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }), timeout: 600000 }),
+  tinjauDiagnosis: <T = unknown>(recordId: string, paksaSol = false) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }), timeout: 600000 }),
 
-  getTestingPending: (jenisKlaim: string, page = 1, search = '', includeArsip = false) =>
-    request(`/api/v1/testing-pending?${new URLSearchParams({ jenis_klaim: jenisKlaim, page: String(page), search, include_arsip: includeArsip ? '1' : '0' })}`),
-  saveTestingPending: (recordId: string, data: { actual_result: string; reference_source: string; actual_reason: string; reason_match: string; notes: string }) =>
-    request(`/api/v1/testing-pending/${encodeURIComponent(recordId)}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getTestingPending: <T = unknown>(jenisKlaim: string, page = 1, search = '', includeArsip = false) =>
+    request<T>(`/api/v1/testing-pending?${new URLSearchParams({ jenis_klaim: jenisKlaim, page: String(page), search, include_arsip: includeArsip ? '1' : '0' })}`),
+  saveTestingPending: <T = unknown>(recordId: string, data: { actual_result: string; reference_source: string; actual_reason: string; reason_match: string; notes: string }) =>
+    request<T>(`/api/v1/testing-pending/${encodeURIComponent(recordId)}`, { method: 'PUT', body: JSON.stringify(data) }),
 
-  getAiFileCosts: (month: string, page = 1) => request(`/api/v1/ai-usage/files?month=${encodeURIComponent(month)}&page=${page}`),
-  getAiUsage: (month: string) => request(`/api/v1/ai-usage?month=${encodeURIComponent(month)}`),
+  getAiFileCosts: <T = unknown>(month: string, page = 1) => request<T>(`/api/v1/ai-usage/files?month=${encodeURIComponent(month)}&page=${page}`),
+  getAiUsage: <T = unknown>(month: string) => request<T>(`/api/v1/ai-usage?month=${encodeURIComponent(month)}`),
 
   // Dashboard
-  getDashboard: (period?: string) =>
-    request(`/api/v1/dashboard/summary${period ? `?period=${period}` : ''}`),
-  getErrorTrends: () => request('/api/v1/dashboard/error-trends'),
+  getDashboard: <T = unknown>(period?: string) =>
+    request<T>(`/api/v1/dashboard/summary${period ? `?period=${period}` : ''}`),
+  getErrorTrends: <T = unknown>() => request<T>('/api/v1/dashboard/error-trends'),
 
   // Claim Files
-  uploadFile: (file: File, period?: string, fileId?: string) => {
+  uploadFile: <T = unknown>(file: File, period?: string, fileId?: string) => {
     const fd = new FormData();
     fd.append('file', file);
     if (period) fd.append('period', period);
     if (fileId) fd.append('fileId', fileId);
-    return request('/api/v1/claim-files/upload', { method: 'POST', body: fd });
+    return request<T>('/api/v1/claim-files/upload', { method: 'POST', body: fd });
   },
-  getFiles: (page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string, search?: string, arsip = false, periode?: string, tampilan?: string) => {
+  getFiles: <T = unknown>(page = 1, limit = 20, jenisKlaim?: string, fromDate?: string, toDate?: string, search?: string, arsip = false, periode?: string, tampilan?: string) => {
     const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (jenisKlaim) qs.set('jenis_klaim', jenisKlaim);
     if (fromDate) qs.set('from_date', fromDate);
@@ -310,36 +310,36 @@ export const api = {
     // belum bisa ditentukan. Tampilan = perlu | siap | bulan_ini | semua.
     if (periode) qs.set('periode', periode);
     if (tampilan) qs.set('tampilan', tampilan);
-    return request(`/api/v1/claim-files?${qs.toString()}`);
+    return request<T>(`/api/v1/claim-files?${qs.toString()}`);
   },
 
   // Ringkasan pengelompokan Periode & Kategori: satu baris per kelompok beserta
   // jumlah klaim, yang perlu dikerjakan, dan yang siap. Baris klaimnya dimuat
   // terpisah saat kelompok dibuka, lewat getFiles dengan filter periode.
-  getKelompok: (arsip = false, jenisKlaim?: string) => {
+  getKelompok: <T = unknown>(arsip = false, jenisKlaim?: string) => {
     const qs = new URLSearchParams();
     if (arsip) qs.set('arsip', '1');
     if (jenisKlaim) qs.set('jenis_klaim', jenisKlaim);
     const s = qs.toString();
-    return request(`/api/v1/claim-files/kelompok${s ? `?${s}` : ''}`);
+    return request<T>(`/api/v1/claim-files/kelompok${s ? `?${s}` : ''}`);
   },
 
   // Arsip menggantikan hapus untuk merapikan daftar: datanya tetap utuh dan
   // bisa dikembalikan. Penting karena pengukuran recall bergantung pada klaim
   // lama yang masih ada saat rekap pending BPJS datang ~3 bulan kemudian.
-  bulkArchive: (ids: string[]) =>
-    request('/api/v1/claim-files/bulk-archive', { method: 'POST', body: JSON.stringify({ ids }) }),
-  bulkRestore: (ids: string[]) =>
-    request('/api/v1/claim-files/bulk-restore', { method: 'POST', body: JSON.stringify({ ids }) }),
-  getFile: (id: string) => request(`/api/v1/claim-files/${id}`),
-  getRecords: (fileId: string, params: Record<string, string> = {}) => {
+  bulkArchive: <T = unknown>(ids: string[]) =>
+    request<T>('/api/v1/claim-files/bulk-archive', { method: 'POST', body: JSON.stringify({ ids }) }),
+  bulkRestore: <T = unknown>(ids: string[]) =>
+    request<T>('/api/v1/claim-files/bulk-restore', { method: 'POST', body: JSON.stringify({ ids }) }),
+  getFile: <T = unknown>(id: string) => request<T>(`/api/v1/claim-files/${id}`),
+  getRecords: <T = unknown>(fileId: string, params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return request(`/api/v1/claim-files/${fileId}/records?${qs}`);
+    return request<T>(`/api/v1/claim-files/${fileId}/records?${qs}`);
   },
-  approveFile: (id: string) =>
-    request(`/api/v1/claim-files/${id}/approve`, { method: 'POST' }),
-  deleteFile: (id: string) =>
-    request(`/api/v1/claim-files/${id}`, { method: 'DELETE' }),
+  approveFile: <T = unknown>(id: string) =>
+    request<T>(`/api/v1/claim-files/${id}/approve`, { method: 'POST' }),
+  deleteFile: <T = unknown>(id: string) =>
+    request<T>(`/api/v1/claim-files/${id}`, { method: 'DELETE' }),
   exportFile: (id: string, filter = 'error') =>
     fetch(`${API_BASE}/api/v1/claim-files/${id}/export?filter=${filter}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
@@ -379,69 +379,69 @@ export const api = {
   },
   // Klaim pending satu bulan: tabel alasan pending & saran dengan kolom
   // Jawaban Rumah Sakit (diisi casemix).
-  exportPendingBulanan: (periode: string) =>
-    fetch(`${API_BASE}/api/v1/claim-files/export/pending-bulanan?periode=${encodeURIComponent(periode)}`, {
+  exportPendingBulanan: (periode: string, arsip = false) =>
+    fetch(`${API_BASE}/api/v1/claim-files/export/pending-bulanan?periode=${encodeURIComponent(periode)}&arsip=${arsip ? '1' : '0'}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
     }),
-  runAiAudit: (id: string) =>
-    request(`/api/v1/claim-files/${id}/ai-audit`, { method: 'POST' }),
-  auditRecordFields: (recordId: string, fields: string[] = [], style = 'ponytail') =>
-    request(`/api/v1/records/${recordId}/audit`, { method: 'POST', body: JSON.stringify({ fields, style }) }),
-  sendAuditFeedback: (auditId: string, nurse_action: 'accepted' | 'rejected' | 'unsure') =>
-    request(`/api/v1/records/audit/${auditId}/feedback`, { method: 'POST', body: JSON.stringify({ nurse_action }) }),
+  runAiAudit: <T = unknown>(id: string) =>
+    request<T>(`/api/v1/claim-files/${id}/ai-audit`, { method: 'POST' }),
+  auditRecordFields: <T = unknown>(recordId: string, fields: string[] = [], style = 'ponytail') =>
+    request<T>(`/api/v1/records/${recordId}/audit`, { method: 'POST', body: JSON.stringify({ fields, style }) }),
+  sendAuditFeedback: <T = unknown>(auditId: string, nurse_action: 'accepted' | 'rejected' | 'unsure') =>
+    request<T>(`/api/v1/records/audit/${auditId}/feedback`, { method: 'POST', body: JSON.stringify({ nurse_action }) }),
 
   // Validation Rules
-  getRules: () => request('/api/v1/validation-rules'),
-  updateRule: (id: string, data: Record<string, unknown>) =>
-    request(`/api/v1/validation-rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getRules: <T = unknown>() => request<T>('/api/v1/validation-rules'),
+  updateRule: <T = unknown>(id: string, data: Record<string, unknown>) =>
+    request<T>(`/api/v1/validation-rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Hospital Settings (Profil RS — Kode RS & Kelas RS, dipakai auto-fill saat upload PDF)
-  getHospitalSettings: () => request('/api/v1/hospital-settings'),
-  getClaimProfile: () => request('/api/v1/hospital-settings/claim-profile'),
-  updateClaimProfile: (data: Record<string, unknown>) =>
-    request('/api/v1/hospital-settings/claim-profile', { method: 'PUT', body: JSON.stringify(data) }),
-  updateHospitalSettings: (data: { kelas_rs: string }) =>
-    request('/api/v1/hospital-settings', { method: 'PUT', body: JSON.stringify(data) }),
+  getHospitalSettings: <T = unknown>() => request<T>('/api/v1/hospital-settings'),
+  getClaimProfile: <T = unknown>() => request<T>('/api/v1/hospital-settings/claim-profile'),
+  updateClaimProfile: <T = unknown>(data: Record<string, unknown>) =>
+    request<T>('/api/v1/hospital-settings/claim-profile', { method: 'PUT', body: JSON.stringify(data) }),
+  updateHospitalSettings: <T = unknown>(data: { kelas_rs: string }) =>
+    request<T>('/api/v1/hospital-settings', { method: 'PUT', body: JSON.stringify(data) }),
 
   // Users
-  getUsers: () => request('/api/v1/users'),
-  createUser: (data: Record<string, string>) =>
-    request('/api/v1/users', { method: 'POST', body: JSON.stringify(data) }),
-  updateUser: (id: string, data: Record<string, unknown>) =>
-    request(`/api/v1/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteUser: (id: string) =>
-    request(`/api/v1/users/${id}`, { method: 'DELETE' }),
+  getUsers: <T = unknown>() => request<T>('/api/v1/users'),
+  createUser: <T = unknown>(data: Record<string, string>) =>
+    request<T>('/api/v1/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: <T = unknown>(id: string, data: Record<string, unknown>) =>
+    request<T>(`/api/v1/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUser: <T = unknown>(id: string) =>
+    request<T>(`/api/v1/users/${id}`, { method: 'DELETE' }),
 
   // Audit Log
-  getAuditLogs: (page = 1, limit = 30, filters?: { user_email?: string; action?: string; resource_type?: string; from_date?: string; to_date?: string }) => {
+  getAuditLogs: <T = unknown>(page = 1, limit = 30, filters?: { user_email?: string; action?: string; resource_type?: string; from_date?: string; to_date?: string }) => {
     const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (filters?.user_email) qs.set('user_email', filters.user_email);
     if (filters?.action) qs.set('action', filters.action);
     if (filters?.resource_type) qs.set('resource_type', filters.resource_type);
     if (filters?.from_date) qs.set('from_date', filters.from_date);
     if (filters?.to_date) qs.set('to_date', filters.to_date);
-    return request(`/api/v1/audit-logs?${qs.toString()}`);
+    return request<T>(`/api/v1/audit-logs?${qs.toString()}`);
   },
 
   // PDF Upload
-  uploadTestingBatch: (files: File[], allowedCategories: string[]) => {
+  uploadTestingBatch: <T = unknown>(files: File[], allowedCategories: string[]) => {
     const fd = new FormData();
     files.forEach(file => fd.append('files', file));
     fd.append('allowed_jenis_klaim', JSON.stringify(allowedCategories));
-    return request('/api/v1/testing-pending/upload-batch', { method: 'POST', body: fd, timeout: 7200000 });
+    return request<T>('/api/v1/testing-pending/upload-batch', { method: 'POST', body: fd, timeout: 7200000 });
   },
-  getTestingJob: (jobId: string) => request(`/api/v1/testing-pending/jobs/${encodeURIComponent(jobId)}`),
-  exportTesting: () => request('/api/v1/testing-pending/export', { timeout: 120000 }),
+  getTestingJob: <T = unknown>(jobId: string) => request<T>(`/api/v1/testing-pending/jobs/${encodeURIComponent(jobId)}`),
+  exportTesting: <T = unknown>() => request<T>('/api/v1/testing-pending/export', { timeout: 120000 }),
 
-  uploadTestingPdf: (file: File, jenisKlaim: string, label: { actual_result: string; reference_source: string; actual_reason: string; notes: string }) => {
+  uploadTestingPdf: <T = unknown>(file: File, jenisKlaim: string, label: { actual_result: string; reference_source: string; actual_reason: string; notes: string }) => {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('jenis_klaim', jenisKlaim);
     Object.entries(label).forEach(([key, value]) => fd.append(key, value));
-    return request('/api/v1/testing-pending/upload', { method: 'POST', body: fd, timeout: 900000 });
+    return request<T>('/api/v1/testing-pending/upload', { method: 'POST', body: fd, timeout: 900000 });
   },
 
-  uploadPdf: (file: File, jenisKlaim: string) => {
+  uploadPdf: <T = unknown>(file: File, jenisKlaim: string) => {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('jenis_klaim', jenisKlaim);
@@ -451,7 +451,7 @@ export const api = {
     // prosesnya tetap lanjut & berhasil di server (browser bilang gagal,
     // tapi file tetap muncul di Riwayat Upload) — samakan dengan timeout
     // upload batch (10 menit) supaya cukup untuk berkas terberat sekalipun.
-    return request('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 600000 });
+    return request<T>('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 600000 });
   },
 
   // PDF Upload — batch (banyak file, 1 kategori pelayanan untuk semua file).
@@ -468,52 +468,52 @@ export const api = {
   // dibatasi ke daftar ini (lihat /upload-pdf-batch, allowed_jenis_klaim).
   // Unggah berantrean: server membalas 202 + id proses; pembacaan berjalan di
   // latar belakang dan dipantau lewat getProsesUnggah (tahan refresh).
-  uploadPdfAntre: (files: File[], allowedJenisKlaim: string[]) => {
+  uploadPdfAntre: <T = unknown>(files: File[], allowedJenisKlaim: string[]) => {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     fd.append('allowed_jenis_klaim', JSON.stringify(allowedJenisKlaim));
-    return request('/api/v1/claim-files/upload-pdf-antre', { method: 'POST', body: fd, timeout: 600000 });
+    return request<T>('/api/v1/claim-files/upload-pdf-antre', { method: 'POST', body: fd, timeout: 600000 });
   },
-  getProsesUnggah: () => request('/api/v1/claim-files/proses-unggah'),
-  tutupProsesUnggah: (ids: string[]) =>
-    request('/api/v1/claim-files/proses-unggah/tutup', { method: 'POST', body: JSON.stringify({ ids }) }),
+  getProsesUnggah: <T = unknown>() => request<T>('/api/v1/claim-files/proses-unggah'),
+  tutupProsesUnggah: <T = unknown>(ids: string[]) =>
+    request<T>('/api/v1/claim-files/proses-unggah/tutup', { method: 'POST', body: JSON.stringify({ ids }) }),
 
-  uploadPdfBatch: (files: File[], allowedJenisKlaim: string[]) => {
+  uploadPdfBatch: <T = unknown>(files: File[], allowedJenisKlaim: string[]) => {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     fd.append('allowed_jenis_klaim', JSON.stringify(allowedJenisKlaim));
-    return request('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 7200000 });
+    return request<T>('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 7200000 });
   },
 
   // Batch Audit (Phase 2)
-  batchAuditRecords: (recordIds: string[], style: 'ponytail' | 'caveman' | 'neutral') =>
-    request('/api/v1/records/batch-audit', {
+  batchAuditRecords: <T = unknown>(recordIds: string[], style: 'ponytail' | 'caveman' | 'neutral') =>
+    request<T>('/api/v1/records/batch-audit', {
       method: 'POST',
       body: JSON.stringify({ record_ids: recordIds, style }),
     }),
 
   // SIMRS Ingestion (Phase 2)
-  ingestSimrsJson: (data: Record<string, unknown>) =>
-    request('/api/v1/simrs/ingest', {
+  ingestSimrsJson: <T = unknown>(data: Record<string, unknown>) =>
+    request<T>('/api/v1/simrs/ingest', {
       method: 'POST',
       body: JSON.stringify({ data }),
     }),
 
-  ingestSimrsPdf: (file: File) => {
+  ingestSimrsPdf: <T = unknown>(file: File) => {
     const fd = new FormData();
     fd.append('file', file);
-    return request('/api/v1/simrs/ingest', { method: 'POST', body: fd });
+    return request<T>('/api/v1/simrs/ingest', { method: 'POST', body: fd });
   },
 
   // Record Verification (Phase 2)
-  updateRecordValues: (recordId: string, updates: Record<string, any>) =>
-    request(`/api/v1/claim-files/${recordId}/update-values`, {
+  updateRecordValues: <T = unknown>(recordId: string, updates: Record<string, unknown>) =>
+    request<T>(`/api/v1/claim-files/${recordId}/update-values`, {
       method: 'POST',
       body: JSON.stringify({ updates }),
     }),
 
-  getRecordValidationErrors: (recordId: string) =>
-    request(`/api/v1/claim-files/${recordId}/validation-errors`),
+  getRecordValidationErrors: <T = unknown>(recordId: string) =>
+    request<T>(`/api/v1/claim-files/${recordId}/validation-errors`),
 
   // "Baca Ulang" — jalankan ulang ekstraksi + validasi + AI review untuk 1
   // record dari PDF asli yang sudah tersimpan (dipakai saat ada field kosong/
@@ -526,104 +526,104 @@ export const api = {
   // memproses di belakang layar (ditemukan 2026-10-01, "baca ulang ga
   // bisa"). nginx proxy_read_timeout sudah 600s, bukan itu sumbernya.
   // Disamakan dengan timeout upload-pdf.
-  rereadRecord: (recordId: string) =>
-    request(`/api/v1/claim-files/records/${recordId}/reread`, { method: 'POST', timeout: 600000 }),
+  rereadRecord: <T = unknown>(recordId: string) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/reread`, { method: 'POST', timeout: 600000 }),
 
   // RV-20 (kriteria kegawatan IGD) — audit trail konfirmasi manual checklist.
-  getRv20Confirmation: (recordId: string) => request(`/api/v1/records/${recordId}/rv20-confirm`),
-  confirmRv20: (recordId: string, checklistItems: Record<string, boolean>) =>
-    request(`/api/v1/records/${recordId}/rv20-confirm`, { method: 'POST', body: JSON.stringify({ checklist_items: checklistItems }) }),
+  getRv20Confirmation: <T = unknown>(recordId: string) => request<T>(`/api/v1/records/${recordId}/rv20-confirm`),
+  confirmRv20: <T = unknown>(recordId: string, checklistItems: Record<string, boolean>) =>
+    request<T>(`/api/v1/records/${recordId}/rv20-confirm`, { method: 'POST', body: JSON.stringify({ checklist_items: checklistItems }) }),
 
   // Exempt PRB (RV-15) — daftar pasien kronis yang sengaja tidak dialihkan
   // ke Program Rujuk Balik walau sudah stabil >=3 bulan berturut, dikelola
   // admin. Dicek otomatis oleh detectAndFlagPRB() di backend.
-  getPrbExemptions: () => request('/api/v1/prb-exempt'),
-  createPrbExemption: (data: Record<string, string>) =>
-    request('/api/v1/prb-exempt', { method: 'POST', body: JSON.stringify(data) }),
-  updatePrbExemption: (id: string, data: Record<string, string>) =>
-    request(`/api/v1/prb-exempt/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deletePrbExemption: (id: string) =>
-    request(`/api/v1/prb-exempt/${id}`, { method: 'DELETE' }),
+  getPrbExemptions: <T = unknown>() => request<T>('/api/v1/prb-exempt'),
+  createPrbExemption: <T = unknown>(data: Record<string, string>) =>
+    request<T>('/api/v1/prb-exempt', { method: 'POST', body: JSON.stringify(data) }),
+  updatePrbExemption: <T = unknown>(id: string, data: Record<string, string>) =>
+    request<T>(`/api/v1/prb-exempt/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePrbExemption: <T = unknown>(id: string) =>
+    request<T>(`/api/v1/prb-exempt/${id}`, { method: 'DELETE' }),
 
   // Scan ulang RV-13/15/16 untuk 1 periode bulan ("MM/YYYY") — perlu karena
   // deteksi lintas-record cuma otomatis nyala saat file BARU diupload.
-  scanEpisodes: (periodeBulan: string) =>
-    request('/api/v1/claim-files/scan-episodes', { method: 'POST', body: JSON.stringify({ periode_bulan: periodeBulan }) }),
+  scanEpisodes: <T = unknown>(periodeBulan: string) =>
+    request<T>('/api/v1/claim-files/scan-episodes', { method: 'POST', body: JSON.stringify({ periode_bulan: periodeBulan }) }),
 
   // PDF asli yang diunggah — via helper request supaya dapat timeout + refresh
   // token otomatis; untuk konten non-JSON helper mengembalikan Response mentah
   // yang bisa diubah jadi blob lalu ditampilkan via <iframe>.
   getPdfFile: (fileId: string): Promise<Response> =>
-    request(`/api/v1/claim-files/${fileId}/file`),
+    request<Response>(`/api/v1/claim-files/${fileId}/file`),
 
   // Jawaban Pending BPJS — upload PDF surat pending, AI ekstrak alasan +
   // generate draft klarifikasi (dengan few-shot dari kasus sukses sebelumnya).
-  uploadBpjsPending: (recordId: string, file: File) => {
+  uploadBpjsPending: <T = unknown>(recordId: string, file: File) => {
     const fd = new FormData();
     fd.append('file', file);
-    return request(`/api/v1/records/${recordId}/pending-upload`, { method: 'POST', body: fd, timeout: 120000 });
+    return request<T>(`/api/v1/records/${recordId}/pending-upload`, { method: 'POST', body: fd, timeout: 120000 });
   },
-  getBpjsPending: (recordId: string) => request(`/api/v1/records/${recordId}/pending`),
-  updateBpjsPendingStatus: (pendingId: string, data: { status?: string; outcome?: string; poin_kunci?: string; draft_klarifikasi?: string }) =>
-    request(`/api/v1/records/pending/${pendingId}/status`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getBpjsPending: <T = unknown>(recordId: string) => request<T>(`/api/v1/records/${recordId}/pending`),
+  updateBpjsPendingStatus: <T = unknown>(pendingId: string, data: { status?: string; outcome?: string; poin_kunci?: string; draft_klarifikasi?: string }) =>
+    request<T>(`/api/v1/records/pending/${pendingId}/status`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   // Rekap Pending BPJS berformat Excel (2 sheet "Pending RJ"/"Pending RI",
   // 1 baris = 1 klaim pending) — import massal, bukan surat PDF per-klaim.
-  importPendingXlsx: (file: File) => {
+  importPendingXlsx: <T = unknown>(file: File) => {
     const fd = new FormData();
     fd.append('file', file);
-    return request('/api/v1/records/pending-import-xlsx', { method: 'POST', body: fd, timeout: 60000 });
+    return request<T>('/api/v1/records/pending-import-xlsx', { method: 'POST', body: fd, timeout: 60000 });
   },
-  getPendingList: (params: { status?: string; outcome?: string; jenis_klaim?: string; search?: string; pending_file_id?: string; page?: number; limit?: number } = {}) => {
+  getPendingList: <T = unknown>(params: { status?: string; outcome?: string; jenis_klaim?: string; search?: string; pending_file_id?: string; page?: number; limit?: number } = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)); });
     const q = qs.toString();
-    return request(`/api/v1/records/pending${q ? `?${q}` : ''}`);
+    return request<T>(`/api/v1/records/pending${q ? `?${q}` : ''}`);
   },
-  generatePendingDraft: (id: string) =>
-    request(`/api/v1/records/pending/${id}/generate-draft`, { method: 'POST', timeout: 90000 }),
+  generatePendingDraft: <T = unknown>(id: string) =>
+    request<T>(`/api/v1/records/pending/${id}/generate-draft`, { method: 'POST', timeout: 90000 }),
 
   // Daftar file Excel rekap pending yang sudah diimpor (tampilan per-file,
   // seperti Riwayat Upload) — lihat pending-bpjs/page.tsx dan [fileId]/page.tsx.
-  getPendingFiles: (params: { page?: number; limit?: number } = {}) => {
+  getPendingFiles: <T = unknown>(params: { page?: number; limit?: number } = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) qs.set(k, String(v)); });
     const q = qs.toString();
-    return request(`/api/v1/records/pending-files${q ? `?${q}` : ''}`);
+    return request<T>(`/api/v1/records/pending-files${q ? `?${q}` : ''}`);
   },
 
   // Saran Koding — Bukti-Dulu Design (5 langkah)
   // Step 1: Extract & Cite
-  extractClinicalFacts: (recordId: string, diagnosisSentence: string, procedureSentence: string, jenisKlaim: string) =>
-    request('/api/v1/coding/extract-facts', {
+  extractClinicalFacts: <T = unknown>(recordId: string, diagnosisSentence: string, procedureSentence: string, jenisKlaim: string) =>
+    request<T>('/api/v1/coding/extract-facts', {
       method: 'POST',
       body: JSON.stringify({ record_id: recordId, diagnosis_sentence: diagnosisSentence, procedure_sentence: procedureSentence, jenis_klaim: jenisKlaim })
     }),
 
   // Step 2: Suggest codes with citations
-  suggestCodesWithCitations: (clinicalExtract: Record<string, unknown>) =>
-    request('/api/v1/coding/suggest-codes', {
+  suggestCodesWithCitations: <T = unknown>(clinicalExtract: Record<string, unknown>) =>
+    request<T>('/api/v1/coding/suggest-codes', {
       method: 'POST',
       body: JSON.stringify({ clinical_extract: clinicalExtract })
     }),
 
   // Step 3: Group codes to INA-CBG (blind to tariff)
-  groupCodesToInaCBG: (diagnosisCodes: string[], procedureCodes: string[], jenisKlaim: string) =>
-    request('/api/v1/coding/group-codes', {
+  groupCodesToInaCBG: <T = unknown>(diagnosisCodes: string[], procedureCodes: string[], jenisKlaim: string) =>
+    request<T>('/api/v1/coding/group-codes', {
       method: 'POST',
       body: JSON.stringify({ diagnosis_codes: diagnosisCodes, procedure_codes: procedureCodes, jenis_klaim: jenisKlaim })
     }),
 
   // Step 4: Lookup tariff from PMK 3/2023
-  lookupTariff: (inacbgCode: string, region: string, kelasRs: string) =>
-    request('/api/v1/coding/tariff-lookup', {
+  lookupTariff: <T = unknown>(inacbgCode: string, region: string, kelasRs: string) =>
+    request<T>('/api/v1/coding/tariff-lookup', {
       method: 'POST',
       body: JSON.stringify({ inacbg_code: inacbgCode, region, kelas_rs: kelasRs })
     }),
 
   // Step 5: Generate alternatives with reasoning
-  generateAlternatives: (diagnosisCodes: Record<string, unknown>[], procedureCodes: Record<string, unknown>[], selectedInaCbg: string, clinicalExtract: Record<string, unknown>) =>
-    request('/api/v1/coding/alternatives', {
+  generateAlternatives: <T = unknown>(diagnosisCodes: Record<string, unknown>[], procedureCodes: Record<string, unknown>[], selectedInaCbg: string, clinicalExtract: Record<string, unknown>) =>
+    request<T>('/api/v1/coding/alternatives', {
       method: 'POST',
       body: JSON.stringify({ diagnosis_codes: diagnosisCodes, procedure_codes: procedureCodes, selected_inacbg: selectedInaCbg, clinical_extract: clinicalExtract })
     }),
@@ -632,24 +632,24 @@ export const api = {
   // Urutan pemakaian di frontend: tautkanUlangSepPending -> petakanAlasanPending
   // -> hitungTriasePending -> getDaftarPendingJawaban -> getItemPendingJawaban
   // -> buatDraftPendingJawaban -> setujuiDraftPendingJawaban/tolakDraftPendingJawaban.
-  getPendingJawabanStatistik: (params: { pending_file_id?: string; periode?: string; rincian?: boolean } = {}) => {
+  getPendingJawabanStatistik: <T = unknown>(params: { pending_file_id?: string; periode?: string; rincian?: boolean } = {}) => {
     const qs = new URLSearchParams();
     if (params.pending_file_id) qs.set('pending_file_id', params.pending_file_id);
     if (params.periode) qs.set('periode', params.periode);
     if (params.rincian) qs.set('rincian', '1');
     const q = qs.toString();
-    return request(`/api/v1/pending-jawaban/sep/statistik${q ? `?${q}` : ''}`) as Promise<PendingJawabanStatistik>;
+    return request<T>(`/api/v1/pending-jawaban/sep/statistik${q ? `?${q}` : ''}`) as Promise<PendingJawabanStatistik>;
   },
 
-  tautkanUlangSepPending: (pendingFileId?: string) =>
-    request('/api/v1/pending-jawaban/sep/tautkan-ulang', {
+  tautkanUlangSepPending: <T = unknown>(pendingFileId?: string) =>
+    request<T>('/api/v1/pending-jawaban/sep/tautkan-ulang', {
       method: 'POST',
       body: JSON.stringify(pendingFileId ? { pending_file_id: pendingFileId } : {}),
       timeout: 60000,
     }) as Promise<{ diperiksa: number; tertaut: number }>,
 
-  petakanAlasanPending: (params: { pending_file_id?: string; ulang?: boolean; pakai_ai?: boolean } = {}) =>
-    request('/api/v1/pending-jawaban/alasan/petakan', {
+  petakanAlasanPending: <T = unknown>(params: { pending_file_id?: string; ulang?: boolean; pakai_ai?: boolean } = {}) =>
+    request<T>('/api/v1/pending-jawaban/alasan/petakan', {
       method: 'POST',
       body: JSON.stringify(params),
       // Pemetaan pakai AI bisa memproses banyak baris sekaligus — beri waktu
@@ -657,30 +657,30 @@ export const api = {
       timeout: 120000,
     }),
 
-  getRingkasanAlasanPending: (params: { pending_file_id?: string; periode?: string } = {}) => {
+  getRingkasanAlasanPending: <T = unknown>(params: { pending_file_id?: string; periode?: string } = {}) => {
     const qs = new URLSearchParams();
     if (params.pending_file_id) qs.set('pending_file_id', params.pending_file_id);
     if (params.periode) qs.set('periode', params.periode);
     const q = qs.toString();
-    return request(`/api/v1/pending-jawaban/alasan/ringkasan${q ? `?${q}` : ''}`) as Promise<PendingJawabanAlasanRingkasan>;
+    return request<T>(`/api/v1/pending-jawaban/alasan/ringkasan${q ? `?${q}` : ''}`) as Promise<PendingJawabanAlasanRingkasan>;
   },
 
   // Koreksi manual kategori alasan — sekali dikoreksi manusia, backend tidak
   // pernah menimpanya lagi otomatis (lihat kontrak API).
-  koreksiKategoriAlasanPending: (pendingId: string, kategori: string) =>
-    request(`/api/v1/pending-jawaban/alasan/${pendingId}`, { method: 'PATCH', body: JSON.stringify({ kategori }) }),
+  koreksiKategoriAlasanPending: <T = unknown>(pendingId: string, kategori: string) =>
+    request<T>(`/api/v1/pending-jawaban/alasan/${pendingId}`, { method: 'PATCH', body: JSON.stringify({ kategori }) }),
 
-  hitungTriasePending: (params: { pending_file_id?: string; pending_id?: string; ulang?: boolean } = {}) =>
-    request('/api/v1/pending-jawaban/triase/hitung', { method: 'POST', body: JSON.stringify(params), timeout: 120000 }),
+  hitungTriasePending: <T = unknown>(params: { pending_file_id?: string; pending_id?: string; ulang?: boolean } = {}) =>
+    request<T>('/api/v1/pending-jawaban/triase/hitung', { method: 'POST', body: JSON.stringify(params), timeout: 120000 }),
 
-  getRingkasanTriasePending: (pendingFileId?: string) =>
-    request(`/api/v1/pending-jawaban/triase/ringkasan${pendingFileId ? `?pending_file_id=${pendingFileId}` : ''}`) as Promise<PendingJawabanTriaseRingkasan>,
+  getRingkasanTriasePending: <T = unknown>(pendingFileId?: string) =>
+    request<T>(`/api/v1/pending-jawaban/triase/ringkasan${pendingFileId ? `?pending_file_id=${pendingFileId}` : ''}`) as Promise<PendingJawabanTriaseRingkasan>,
 
   // Putusan kotak manual koder — menimpa hasil hitung otomatis untuk 1 klaim.
-  updateTriasePending: (pendingId: string, data: { kotak: KotakTriase | null; catatan?: string }) =>
-    request(`/api/v1/pending-jawaban/triase/${pendingId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  updateTriasePending: <T = unknown>(pendingId: string, data: { kotak: KotakTriase | null; catatan?: string }) =>
+    request<T>(`/api/v1/pending-jawaban/triase/${pendingId}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
-  getDaftarPendingJawaban: (params: {
+  getDaftarPendingJawaban: <T = unknown>(params: {
     pending_file_id?: string;
     kotak?: string;
     kategori?: string;
@@ -693,30 +693,30 @@ export const api = {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)); });
     const q = qs.toString();
-    return request(`/api/v1/pending-jawaban/daftar${q ? `?${q}` : ''}`) as Promise<PendingJawabanDaftarResponse>;
+    return request<T>(`/api/v1/pending-jawaban/daftar${q ? `?${q}` : ''}`) as Promise<PendingJawabanDaftarResponse>;
   },
 
-  getItemPendingJawaban: (pendingId: string) =>
-    request(`/api/v1/pending-jawaban/item/${pendingId}`) as Promise<PendingJawabanItemDetail>,
+  getItemPendingJawaban: <T = unknown>(pendingId: string) =>
+    request<T>(`/api/v1/pending-jawaban/item/${pendingId}`) as Promise<PendingJawabanItemDetail>,
 
   // pakaiAi=true (bawaan): draf disusun AI dengan kutipan berkas. pakaiAi=false
   // menghasilkan draf kosong/template untuk diisi manual koder.
-  buatDraftPendingJawaban: (pendingId: string, pakaiAi = true) =>
-    request(`/api/v1/pending-jawaban/item/${pendingId}/draft`, {
+  buatDraftPendingJawaban: <T = unknown>(pendingId: string, pakaiAi = true) =>
+    request<T>(`/api/v1/pending-jawaban/item/${pendingId}/draft`, {
       method: 'POST',
       body: JSON.stringify({ pakai_ai: pakaiAi }),
       timeout: 90000,
     }),
 
-  getRiwayatDraftPendingJawaban: (pendingId: string) =>
-    request(`/api/v1/pending-jawaban/item/${pendingId}/draft`) as Promise<{ riwayat: PendingJawabanDraftVersi[] } | PendingJawabanDraftVersi[]>,
+  getRiwayatDraftPendingJawaban: <T = unknown>(pendingId: string) =>
+    request<T>(`/api/v1/pending-jawaban/item/${pendingId}/draft`) as Promise<{ riwayat: PendingJawabanDraftVersi[] } | PendingJawabanDraftVersi[]>,
 
   // akuiPoinTanpaBukti: perlu true kalau backend menolak dengan 409
   // kode='perlu_pengakuan' (ada poin draf tanpa bukti berkas yang koder minta
   // tetap disetujui secara sadar).
-  setujuiDraftPendingJawaban: (draftId: string, data: { catatan?: string; akui_poin_tanpa_bukti?: boolean } = {}) =>
-    request(`/api/v1/pending-jawaban/draft/${draftId}/setujui`, { method: 'POST', body: JSON.stringify(data) }),
+  setujuiDraftPendingJawaban: <T = unknown>(draftId: string, data: { catatan?: string; akui_poin_tanpa_bukti?: boolean } = {}) =>
+    request<T>(`/api/v1/pending-jawaban/draft/${draftId}/setujui`, { method: 'POST', body: JSON.stringify(data) }),
 
-  tolakDraftPendingJawaban: (draftId: string, alasan?: string) =>
-    request(`/api/v1/pending-jawaban/draft/${draftId}/tolak`, { method: 'POST', body: JSON.stringify({ alasan }) }),
+  tolakDraftPendingJawaban: <T = unknown>(draftId: string, alasan?: string) =>
+    request<T>(`/api/v1/pending-jawaban/draft/${draftId}/tolak`, { method: 'POST', body: JSON.stringify({ alasan }) }),
 };

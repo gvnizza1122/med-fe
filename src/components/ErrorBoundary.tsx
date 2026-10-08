@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { Component, ReactNode } from 'react';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -96,7 +97,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
       return this.props.fallback || (
         <div className="flex flex-col items-center justify-center w-full py-16 px-6 bg-background text-center">
-          <img src="/logo.png" alt="RS Lestari Raharja" className="h-12 w-12 object-contain mb-4 opacity-90" />
+          <Image width={56} height={56} src="/logo.png" alt="RS Lestari Raharja" className="h-12 w-12 object-contain mb-4 opacity-90" />
           <div className="w-14 h-14 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-4">
             <AlertTriangle className="w-7 h-7" />
           </div>

@@ -1,8 +1,8 @@
-"use client"
-
-import { useEffect, useState, type ReactNode } from "react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { MobileNav } from "./mobile-nav"
+'use client';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+import { Avatar,AvatarFallback } from "@/components/ui/avatar";
+import { useState,type ReactNode } from "react";
+import { MobileNav } from "./mobile-nav";
 
 interface User {
   full_name: string
@@ -19,7 +19,7 @@ interface HeaderProps {
 export function Header({ title, description, actions }: HeaderProps) {
   const [user, setUser] = useState<User | null>(null)
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     const u = localStorage.getItem("user")
     if (u) {
       try {

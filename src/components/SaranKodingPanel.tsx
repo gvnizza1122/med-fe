@@ -1,17 +1,16 @@
 'use client';
-
 /**
  * Tab "Saran AI" di bagian Diagnosis & Prosedur: kode diagnosis/prosedur dan
  * perkiraan INA-CBG & tarif yang disusun dari isi berkas (backend
  * saranKodingService). Hanya menampilkan saran -- tidak mengubah data klaim;
  * penerapannya lewat "Edit data" bila koder setuju.
  */
-import { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
+import { KodingReadinessNotice,type KesiapanKoding } from '@/components/KodingReadinessNotice';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { KodingReadinessNotice, type KesiapanKoding } from '@/components/KodingReadinessNotice';
+import { AlertTriangle,ArrowRight,CheckCircle2,Lightbulb } from 'lucide-react';
+import { useEffect,useState } from 'react';
 
 interface Bukti { kutipan: string; halaman: number | null; sumber: string }
 interface KodeSaran {
@@ -201,17 +200,17 @@ export function SaranKodingPanel({ recordId, mode = 'kode' }: { recordId: string
     setMeninjau(id);
     setGalatTinjauan(null);
     try {
-      const baru: SaranKoding = await api.tinjauDiagnosis(id, paksaSol);
+      const baru: SaranKoding = await api.tinjauDiagnosis<SaranKoding>(id, paksaSol);
       tinjauanSesi.set(id, baru);
       setHasil(lama => lama?.recordId === id ? { recordId: id, data: baru, gagal: false } : lama);
-    } catch (_) {
+    } catch  {
       setGalatTinjauan({ recordId: id, pesan: 'Tinjauan belum berhasil. Coba lagi.' });
     } finally { setMeninjau(null); }
   };
   useEffect(() => {
     if (!recordId) return;
     let aktif = true;
-    api.getSaranKoding(recordId)
+    api.getSaranKoding<SaranKoding>(recordId)
       .then((data: SaranKoding) => {
         const preview = tinjauanSesi.get(recordId);
         if (preview && preview.versi_data !== data.versi_data) tinjauanSesi.delete(recordId);

@@ -1,6 +1,6 @@
 'use client';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { AnimatePresence,motion } from 'framer-motion';
+import { useState } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -16,7 +16,7 @@ interface ToastContainerProps {
   onRemove: (id: string) => void;
 }
 
-export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
+export function ToastContainer({ toasts }: ToastContainerProps) {
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
       <AnimatePresence mode="popLayout">
@@ -45,11 +45,14 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
   );
 }
 
+let nextToastId = 0;
+function toastId() { return `toast-${++nextToastId}`; }
+
 export function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = (message: string, type: ToastType = 'info', duration = 3000) => {
-    const id = Math.random().toString(36).substring(7);
+    const id = toastId();
     setToasts((prev: Toast[]) => [...prev, { id, type, message, duration }]);
 
     if (duration > 0) {

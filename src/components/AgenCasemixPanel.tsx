@@ -1,5 +1,4 @@
 'use client';
-
 /**
  * Agen Casemix: laporan casemix satu berkas (rekomendasi koding berstatus,
  * kronologi, persyaratan berregulasi, pertanyaan klarifikasi, alternatif
@@ -103,7 +102,7 @@ function KeputusanCasemixForm({ recordId, laporan, onTersimpan }: { recordId: st
     e.preventDefault();
     setMenyimpan(true); setGalat(null);
     try {
-      const r: HasilKeputusan = await api.simpanKeputusanCasemix(recordId, { diagnosis: dx, prosedur: px, catatan });
+      const r: HasilKeputusan = await api.simpanKeputusanCasemix<HasilKeputusan>(recordId, { diagnosis: dx, prosedur: px, catatan });
       setHasil(r);
       onTersimpan();
     } catch (err) {
@@ -166,7 +165,7 @@ export function AgenCasemixPanel({ recordId, onOpenPdf }: { recordId: string; on
   useEffect(() => {
     if (!recordId) return;
     let aktif = true;
-    api.getLaporanCasemix(recordId)
+    api.getLaporanCasemix<Laporan>(recordId)
       .then((data: Laporan) => { if (aktif) setHasil({ recordId, data, gagal: false }); })
       .catch(() => { if (aktif) setHasil({ recordId, data: null, gagal: true }); });
     return () => { aktif = false; };
@@ -186,7 +185,7 @@ export function AgenCasemixPanel({ recordId, onOpenPdf }: { recordId: string; on
     setMasukan('');
     setMenunggu(true);
     try {
-      const r = await api.tanyaAgenCasemix(recordId, tanya, riwayat);
+      const r = await api.tanyaAgenCasemix<{jawaban:string;rujukan:Pesan['rujukan'];biaya_idr?:number}>(recordId, tanya, riwayat);
       setPesan(p => ({ recordId, daftar: [...p.daftar, { peran: 'agen', isi: r.jawaban, rujukan: r.rujukan, biaya: r.biaya_idr }] }));
     } catch {
       setPesan(p => ({ recordId, daftar: [...p.daftar, { peran: 'agen', isi: 'Agen belum dapat menjawab. Coba lagi.' }] }));

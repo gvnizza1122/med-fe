@@ -1,41 +1,43 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import {
-  FileText,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  AlertTriangle,
-  Upload,
-  Inbox,
-  RotateCcw,
-} from 'lucide-react';
-import { api } from '@/lib/api';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { Header } from '@/components/dashboard/header';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from '@/components/ui/table';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import {
+AlertTriangle,
+CheckCircle2,
+ChevronLeft,
+ChevronRight,
+Clock,
+FileText,
+Inbox,
+RotateCcw,
+Upload,
+XCircle,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback,useEffect,useState } from 'react';
 
 interface DashboardData {
   total_files: number;
@@ -256,12 +258,12 @@ export default function DashboardPage() {
   const [uploadPage, setUploadPage] = useState(1);
   const [contentKey, setContentKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [autoRefreshEnabled] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const d = await api.getDashboard(period || undefined);
+      const d = await api.getDashboard<DashboardData>(period || undefined);
       setData(d);
       setContentKey((k) => k + 1);
     } catch (err) {
@@ -288,7 +290,7 @@ export default function DashboardPage() {
   }, [data, autoRefreshEnabled, loadData]);
 
   // Load data saat mount atau period berubah
-  useEffect(() => {
+  useDeferredEffect(() => {
     loadData();
   }, [period, loadData]);
 

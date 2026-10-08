@@ -243,7 +243,7 @@ export async function example_severity_escalation() {
       diagnosisCodes: [diagnosis],
       procedureCodes: [],
       serviceType: 'RAWAT_INAP',
-      clinicalFindings: scenario.findings as any,
+      clinicalFindings: scenario.findings as NonNullable<ClaimGroupingInput['clinicalFindings']>,
     };
 
     const result = await groupClaimToCmg(input);

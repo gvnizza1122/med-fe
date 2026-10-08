@@ -1,15 +1,18 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useTheme } from 'next-themes';
-import { ShieldCheck, FileCheck, Activity, Sun, Moon } from 'lucide-react';
-import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import Image from 'next/image';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
+import { Alert,AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { AnimatePresence,motion } from 'framer-motion';
+import { Activity,FileCheck,Moon,ShieldCheck,Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 /* ─── SVG Icon Components ─── */
 const EyeIcon = () => (
@@ -85,7 +88,7 @@ export default function LoginPage() {
   const passwordStrength = getPasswordStrength(password);
   const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setMounted(true);
     const interval = setInterval(() => {
       setActiveImageIndex((prev) => (prev + 1) % images.length);
@@ -98,7 +101,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await api.login(username, password);
+      const data = await api.login<{access_token:string;refresh_token:string;user:{role:string;full_name:string}}>(username, password);
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -130,7 +133,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md animate-slide-in-up">
           {/* Header / branding */}
           <div className="mb-8 flex flex-col items-center text-center lg:items-start lg:text-left">
-            <img
+            <Image width={56} height={56}
               src="/logo.png"
               alt="RS Lestari Raharja"
               className="mb-4 h-14 w-14 rounded-xl object-contain"
@@ -270,7 +273,7 @@ export default function LoginPage() {
                 exit={{ opacity: 0, scale: 1 }}
                 transition={{ duration: 1.4, ease: [0.25, 0.46, 0.45, 0.94] }}
               >
-                <img
+                <Image fill sizes="50vw"
                   src={src}
                   alt="RS Lestari Raharja"
                   className="h-full w-full object-cover object-center"

@@ -1,24 +1,27 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X, ScrollText } from 'lucide-react';
-import { api } from '@/lib/api';
-import { useRequireRole } from '@/lib/useRequireRole';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { Header } from '@/components/dashboard/header';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+Dialog,DialogContent,DialogHeader,DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+Select,SelectContent,SelectItem,SelectTrigger,SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+Table,
+TableCell,TableHead,TableHeader,TableRow
+} from '@/components/ui/table';
+import { api } from '@/lib/api';
+import { useRequireRole } from '@/lib/useRequireRole';
+import { AnimatePresence,motion,type Variants } from 'framer-motion';
+import { ChevronLeft,ChevronRight,ScrollText,X } from 'lucide-react';
+import { useCallback,useEffect,useState } from 'react';
 
 interface AuditLogEntry {
   id: string;
@@ -137,7 +140,7 @@ export default function AuditLogPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const d = await api.getAuditLogs(page, 30, {
+      const d = await api.getAuditLogs<{logs: AuditLogEntry[]; total: number; available_actions?: string[]}>(page, 30, {
         user_email: userEmail || undefined,
         action: actionFilter || undefined,
         from_date: fromDate || undefined,
@@ -153,7 +156,7 @@ export default function AuditLogPage() {
     }
   }, [page, userEmail, actionFilter, fromDate, toDate]);
 
-  useEffect(() => { if (allowed) load(); }, [allowed, load]);
+  useDeferredEffect(() => { if (allowed) load(); }, [allowed, load]);
 
   if (checking || !allowed) return null;
 

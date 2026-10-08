@@ -1,25 +1,19 @@
-import React, { CSSProperties } from 'react';
-import { cn } from '@/lib/utils';
 import {
-  HeartPulse,
-  Activity,
-  Droplet,
-  Thermometer,
-  Brain,
-  AlertTriangle,
-  FileText,
-  User,
-  Clock,
-  Stethoscope,
-  Download,
-  RotateCcw,
-  MonitorCheck,
-  ShieldAlert,
-  ChevronRight,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
-  Info
+Activity,
+AlertTriangle,
+Brain,
+CheckCircle2,
+Download,
+FileText,
+HeartPulse,
+HelpCircle,
+Info,
+MonitorCheck,
+RotateCcw,
+ShieldAlert,
+Stethoscope,
+Thermometer,
+User
 } from 'lucide-react';
 
 interface KegawatdaruratanParameterFinding {
@@ -70,31 +64,19 @@ interface KegawatdaruratanAssessment {
   age_group: string | null;
 }
 
-export function parseAiReview(recordData: any) {
+export function parseAiReview(recordData: Record<string, unknown>): { kegawatdaruratan_assessment?: KegawatdaruratanAssessment } {
   try {
     return typeof recordData?.ai_review === 'string'
       ? JSON.parse(recordData.ai_review)
-      : recordData?.ai_review || {};
-  } catch (e) {
+      : (recordData?.ai_review || {}) as { kegawatdaruratan_assessment?: KegawatdaruratanAssessment };
+  } catch  {
     return {};
   }
 }
 
-const VITAL_LABELS: Record<string, { label: string; unit: string; referensiDewasa: string }> = {
-  RR: { label: 'Laju Napas (RR)', unit: 'x/mnt', referensiDewasa: 'Normal 12-20, Borderline 21-29/10-11, Gawat <10/>29' },
-  SpO2: { label: 'Saturasi Oksigen (SpO2)', unit: '%', referensiDewasa: 'Normal >=95, Borderline 90-94, Gawat <90 (sama semua usia)' },
-  HR: { label: 'Denyut Nadi (HR)', unit: 'bpm', referensiDewasa: 'Normal 60-100, Borderline 50-59/101-120, Gawat <50/>120' },
-  TD_sistolik: { label: 'TD Sistolik', unit: 'mmHg', referensiDewasa: 'Normal 90-140, Borderline 80-89/141-179, Gawat <80/>=180' },
-  TD_diastolik: { label: 'TD Diastolik', unit: 'mmHg', referensiDewasa: 'Normal 60-89, Borderline 50-59/90-120, Gawat <50/>120' },
-  Suhu: { label: 'Suhu Tubuh', unit: '°C', referensiDewasa: 'Normal 36.1-37.5, Borderline 35-36/37.6-38.4, Gawat <35/>=39' },
-  GCS: { label: 'GCS 15', unit: 'poin', referensiDewasa: 'Normal 15, Borderline 13-14, Gawat <13 (sama semua usia)' },
-  Nyeri: { label: 'Skala Nyeri', unit: 'NRS', referensiDewasa: 'Normal 0, Borderline 1-6, Gawat >6 (sama semua usia)' },
-};
 
-const KRITERIA_SHORT_LABEL: Record<string, string> = {
-  K1: 'Ancaman Kelangsungan Hidup', K2: 'Gangguan Napas / Jalan Napas', K3: 'Penurunan Kesadaran Akut',
-  K4: 'Instabilitas Hemodinamik', K5: 'Kebutuhan Tindakan Segera',
-};
+
+
 
 const AGE_GROUP_LABELS: Record<string, string> = {
   neonatus: 'Neonatus (0-28 hari)', bayi: 'Bayi (1-12 bulan)', toddler: 'Toddler (1-2 th)',
@@ -102,35 +84,31 @@ const AGE_GROUP_LABELS: Record<string, string> = {
   dewasa: 'Dewasa (16-64 th)', lansia: 'Lansia / Geriatri (>=65 th)',
 };
 
-export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<string, any> }) {
+export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<string, string | number | null | undefined> }) {
   const assessment = parseAiReview(recordData)?.kegawatdaruratan_assessment;
-  
-  if (!assessment || Array.isArray(assessment) || !Array.isArray(assessment.kriteria)) return null;
-  const { ringkasan, parameter_findings, vital_findings, kriteria, age_group } = assessment;
 
-  const yaCount = kriteria.filter((k: KegawatdaruratanKriteria) => k.status === 'ya').length;
-  const borderlineCount = kriteria.filter((k: KegawatdaruratanKriteria) => k.status === 'borderline').length;
-  const tidakCount = kriteria.filter((k: KegawatdaruratanKriteria) => k.status === 'tidak').length;
+  if (!assessment || Array.isArray(assessment) || !Array.isArray(assessment.kriteria)) return null;
+  const { parameter_findings, age_group } = assessment;
+
+
+
+
 
   const documentedParams = parameter_findings.filter((p: KegawatdaruratanParameterFinding) => p.ditemukan);
   const undocumentedParams = parameter_findings.filter((p: KegawatdaruratanParameterFinding) => !p.ditemukan);
   const abnormalParams = documentedParams.filter((p: KegawatdaruratanParameterFinding) => p.status === 'abnormal');
 
-  const vitalEntries = Object.entries(VITAL_LABELS).map(([key, meta]) => {
-    const vf = vital_findings?.[key];
-    const isEmpty = vf?.nilai === null || vf?.nilai === undefined;
-    return { key, meta, vf, isEmpty, level: (isEmpty ? 'missing' : (vf?.band || 'normal')) as 'normal' | 'borderline' | 'gawat' | 'missing' };
-  });
 
-  const getSystemParams = (keys: string[]) => parameter_findings.filter((p: KegawatdaruratanParameterFinding) => keys.includes(p.key));
 
-  const respiratoryParams = getSystemParams(['suara_napas', 'ronkhi', 'wheezing', 'retraksi', 'sianosis']);
-  const cardioParams = getSystemParams(['akral', 'crt', 'bunyi_jantung']);
-  const neuroParams = getSystemParams(['kesadaran', 'edema', 'defisit_fokal', 'kejang', 'pupil']);
+
+
+
+
+
 
   return (
     <div className="mt-8 rounded-xl bg-white dark:bg-gray-800 border shadow-sm text-sm text-slate-800 dark:text-gray-100 font-sans">
-      
+
       {/* HEADER TABS (Mockup style) */}
       <div className="flex border-b bg-white items-center p-3 gap-2 overflow-x-auto rounded-t-xl">
         <div className="flex-1 min-w-[300px] flex items-center gap-3">
@@ -176,13 +154,13 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
       </div>
 
       <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-[#f8f9fa]">
-        
+
         {/* LEFT COLUMN (Patient Info + Dashboard Widgets) */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          
+
           {/* DOSSIER & ADJUDIKASI */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
+
             {/* DOSSIER IDENTITAS KLINIS */}
             <div className="bg-white rounded-xl border p-5 shadow-sm relative overflow-hidden">
               <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-4">Dossier Identitas Klinis</div>
@@ -191,14 +169,14 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
               </div>
               <h2 className="text-2xl font-bold text-slate-800 mb-1">{recordData.pasien_nama || 'Tn. Marto Soeprapto'}</h2>
               <p className="text-sm text-slate-500 mb-6">{recordData.pasien_usia || '67 Tahun 4 Bln'} • Lansia / Geriatri (≥65 Thn)</p>
-              
+
               <div className="grid grid-cols-12 gap-2 text-xs text-slate-600">
                 <div className="col-span-4 text-slate-400">NO. SEP BPJS:</div>
                 <div className="col-span-8 font-mono">{recordData.SEP || '0301R0011023V008841'}</div>
-                
+
                 <div className="col-span-4 text-slate-400">WAKTU MASUK IGD:</div>
                 <div className="col-span-8 font-medium">24 Okt 2023 • 08:42 WIB</div>
-                
+
                 <div className="col-span-4 text-slate-400">DOKTER DPJP IGD:</div>
                 <div className="col-span-8 font-medium">{recordData.dpjp_nama || 'dr. Radityo Bramantyo, Sp.EM'}</div>
               </div>
@@ -213,12 +191,12 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
                 <div>
                   <div className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">HASIL ADJUDIKASI OTOMATIS PERMENKES 47/2018</div>
                   <div className="text-base font-bold text-slate-800 flex items-center gap-2 mt-0.5">
-                    1 KRITERIA BORDERLINE (KRITERIA K2) 
-                    <span className="bg-yellow-200 text-yellow-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">TELA'AH DPJP DIPERLUKAN</span>
+                    1 KRITERIA BORDERLINE (KRITERIA K2)
+                    <span className="bg-yellow-200 text-yellow-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">TELAAH DPJP DIPERLUKAN</span>
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg border border-yellow-100 p-3 mb-4 text-xs relative">
                 <div className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 bg-white border border-yellow-200 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold shadow-sm flex items-center gap-1">
                   <FileText className="w-3 h-3"/> Potensi Dispute BPJS: Sedang
@@ -270,7 +248,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              
+
               {/* RR */}
               <div className="border border-orange-200 bg-orange-50/50 rounded-lg p-3 relative overflow-hidden">
                 <div className="absolute top-3 right-3 text-orange-400"><Activity className="w-4 h-4"/></div>
@@ -367,7 +345,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
                 </div>
                 <div className="p-3">
                   <div className="text-xs font-semibold text-slate-700 mb-3 pb-2 border-b border-dashed">Pemeriksaan Paru & Jalan Napas</div>
-                  
+
                   <div className="mb-3">
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className="font-bold text-slate-700">Ronkhi (Rh)</span>
@@ -376,7 +354,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
                     <div className="text-sm font-bold text-slate-800 mb-0.5">Rh (+/+) Minimal</div>
                     <div className="text-[9px] text-slate-400 flex items-center gap-1"><FileText className="w-3 h-3"/> Sumber: Resume Medis IGD Hal 1</div>
                   </div>
-                  
+
                   <div className="mb-3">
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className="font-bold text-slate-700">Wheezing (Wh)</span>
@@ -405,7 +383,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
                 </div>
                 <div className="p-3">
                   <div className="text-xs font-semibold text-slate-700 mb-3 pb-2 border-b border-dashed">Perfusi Perifer & Sirkulasi Jantung</div>
-                  
+
                   <div className="mb-3">
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className="font-bold text-slate-700">Status Akral</span>
@@ -414,7 +392,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
                     <div className="text-sm font-semibold text-slate-800 mb-0.5">Hangat, Kering, Merah</div>
                     <div className="text-[9px] text-slate-400 flex items-center gap-1"><FileText className="w-3 h-3"/> Sumber: Form Triase Primer</div>
                   </div>
-                  
+
                   <div className="mb-3">
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className="font-bold text-slate-700">Capillary Refill (CRT)</span>
@@ -443,7 +421,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
                 </div>
                 <div className="p-3">
                   <div className="text-xs font-semibold text-slate-700 mb-3 pb-2 border-b border-dashed">Kesadaran & Tanda Kongestif</div>
-                  
+
                   <div className="mb-3 bg-white p-2 rounded border border-blue-100 shadow-sm">
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className="font-bold text-blue-800">Tingkat Kesadaran</span>
@@ -452,7 +430,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
                     <div className="text-sm font-bold text-slate-800 mb-0.5">Compos Mentis (CM)</div>
                     <div className="text-[9px] text-slate-500">Kooperatif, Orientasi P/W/T baik</div>
                   </div>
-                  
+
                   <div className="mb-3 border-b pb-2">
                     <div className="flex justify-between text-[10px] mb-1">
                       <span className="font-bold text-slate-700">Edema Perifer</span>
@@ -478,7 +456,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
             <div className="mt-4 bg-blue-50/50 border border-blue-100 rounded-lg p-3 flex justify-between items-center">
               <div>
                 <div className="text-[10px] flex gap-2 items-center text-slate-500 mb-1">
-                  <HelpCircle className="w-3.5 h-3.5"/> 3 Parameter Audit Belum Terekam: 
+                  <HelpCircle className="w-3.5 h-3.5"/> 3 Parameter Audit Belum Terekam:
                   <span className="bg-white border rounded px-1.5 text-slate-400">Refleks Pupil</span>
                   <span className="bg-white border rounded px-1.5 text-slate-400">Sianosis Sentral</span>
                   <span className="bg-white border rounded px-1.5 text-slate-400">Pola Napas / Retraksi</span>
@@ -508,7 +486,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
             </div>
 
             <div className="space-y-4">
-              
+
               {/* K1 */}
               <div className="bg-slate-50/50 border rounded-lg p-3">
                 <div className="flex justify-between items-center mb-2">
@@ -599,7 +577,7 @@ export function KegawatdaruratanDashboard({ recordData }: { recordData: Record<s
         </div>
 
       </div>
-      
+
       {/* FOOTER */}
       <div className="flex justify-between items-center px-6 py-2 border-t bg-slate-50 text-[10px] text-slate-400 font-medium font-mono uppercase tracking-widest rounded-b-xl">
         <div>RSUD STANDAR AKREDITASI KARS / PERMENKES RI NO. 47 TAHUN 2018 • Audit Engine v4.2.0</div>

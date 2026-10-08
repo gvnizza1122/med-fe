@@ -18,7 +18,7 @@ export function ProfilKlaimRsCard() {
   const [pesan,setPesan]=useState('');
   const [gagal,setGagal]=useState(false);
   useEffect(()=>{ let aktif=true;
-    api.getClaimProfile().then(d=>{if(!aktif)return;setProfil(d.profil);setKatalog(d.katalog);setTemplate(d.template_lokal);
+    api.getClaimProfile<{profil: Profil;katalog: Katalog;template_lokal: {id:string;nama:string;kode_diagnosis:string}[]}>().then(d=>{if(!aktif)return;setProfil(d.profil);setKatalog(d.katalog);setTemplate(d.template_lokal);
       if(d.profil.konfigurasi_belum_terbaca){setGagal(true);setPesan('Pengaturan RS belum berhasil dimuat. Muat ulang sebelum mengubah profil.');}}
     ).catch(()=>{if(aktif){setGagal(true);setPesan('Profil ketentuan klaim belum berhasil dimuat.');}});
     return()=>{aktif=false;};
@@ -26,7 +26,7 @@ export function ProfilKlaimRsCard() {
   const ubahLokal=(id:string,update:Partial<Lokal>)=>setProfil(p=>p?{...p,ketentuan_lokal:p.ketentuan_lokal.map(a=>a.id===id?{...a,...update}:a)}:p);
   const simpan=async()=>{
     if(!profil || gagal)return;setSaving(true);setPesan('');
-    try {const d=await api.updateClaimProfile({layanan:profil.layanan,referensi_dinonaktifkan:profil.referensi_dinonaktifkan,ketentuan_lokal:profil.ketentuan_lokal});setProfil(d.profil);setPesan('Profil tersimpan untuk RS ini. Hasil berikutnya mengikuti pengaturan ini.');}
+    try {const d=await api.updateClaimProfile<{profil:Profil}>({layanan:profil.layanan,referensi_dinonaktifkan:profil.referensi_dinonaktifkan,ketentuan_lokal:profil.ketentuan_lokal});setProfil(d.profil);setPesan('Profil tersimpan untuk RS ini. Hasil berikutnya mengikuti pengaturan ini.');}
     catch(e){setPesan(e instanceof Error?e.message:'Profil belum berhasil disimpan.');}finally{setSaving(false);}
   };
   return <Card className="mb-6"><CardContent className="space-y-4 pt-6">

@@ -53,7 +53,7 @@ export default function PendingBpjsFilesPage() {
   const loadFiles = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.getPendingFiles({ page, limit: LIMIT });
+      const res = await api.getPendingFiles<{files: PendingFile[];total: number}>({ page, limit: LIMIT });
       setFiles(res.files || []);
       setTotal(res.total || 0);
     } catch (err) {
@@ -73,7 +73,7 @@ export default function PendingBpjsFilesPage() {
     }
     setImporting(true);
     try {
-      const res = await api.importPendingXlsx(file);
+      const res = await api.importPendingXlsx<{duplicate?: boolean;updated_confirmation?:number;total_rows:number;matched_rows:number;unmatched_rows:number;linked_rows?:number;file_id:string;jenis_klaim?:string;periode?:string;total_files?:number;imported:number;matched_claim:number;skipped_duplicate:number}>(file);
       if (!res.file_id) {
         addToast(
           res.updated_confirmation

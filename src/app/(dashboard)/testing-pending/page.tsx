@@ -1,4 +1,5 @@
-"use client"
+'use client';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Info, RefreshCw, Search, ChevronLeft, ChevronRight, Upload, Download } from "lucide-react"
@@ -25,7 +26,7 @@ function hasilCocok(c: Claim) {
 }
 export default function TestingPendingPage() {
   const [category, setCategory] = useState("RAWAT_JALAN")
-  useEffect(() => { if (new URLSearchParams(window.location.search).get("jenis_klaim") === "RAWAT_INAP") setCategory("RAWAT_INAP") }, [])
+  useDeferredEffect(() => { if (new URLSearchParams(window.location.search).get("jenis_klaim") === "RAWAT_INAP") setCategory("RAWAT_INAP") }, [])
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
@@ -45,10 +46,10 @@ export default function TestingPendingPage() {
     const timer = setTimeout(() => { setSearch(searchInput); setPage(1) }, 300)
     return () => clearTimeout(timer)
   }, [searchInput])
-  useEffect(() => {
+  useDeferredEffect(() => {
     let active = true
     setBusy(true); setError(""); setReport(null)
-    api.getTestingPending(category, page, search, includeArsip).then((data: Report) => { if (active) setReport(data) })
+    api.getTestingPending<Report>(category, page, search, includeArsip).then((data: Report) => { if (active) setReport(data) })
       .catch((err: Error) => { if (active) setError(err.message) })
       .finally(() => { if (active) setBusy(false) })
     return () => { active = false }

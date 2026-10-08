@@ -39,13 +39,15 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
   const highest = useRef(new Map<string, number>());
   const mounted = useRef(false);
 
+  const invalidateMonitoring = useCallback(() => { revision.current++; }, []);
+
   // One request at a time; old responses cannot overwrite a new upload.
   const pantauServer = useCallback(async () => {
     if (polling.current || !mounted.current) return;
     polling.current = true;
     const currentRevision = revision.current;
     try {
-      const data = await api.getProsesUnggah();
+      const data = await api.getProsesUnggah<{proses:ProsesUnggah[]}>();
       if (!mounted.current || currentRevision !== revision.current) return;
       const j = jobDariServer(((data.proses || []) as ProsesUnggah[]).filter(p => !dismissed.current.has(p.id)), batchSesi.current, highest.current, trackedBatches.current);
       setJob(prev => prev && !prev.server ? prev : j);
@@ -64,8 +66,8 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
     batchSesi.current = localStorage.getItem('eclaim-upload-batch');
     void pantauServer();
     const timer = setInterval(() => { void pantauServer(); }, 3000);
-    return () => { mounted.current = false; revision.current++; clearInterval(timer); };
-  }, [pantauServer]);
+    return () => { mounted.current = false; invalidateMonitoring(); clearInterval(timer); };
+  }, [pantauServer, invalidateMonitoring]);
 
   const dismissJob = useCallback(() => {
     if (job?.active) return;
@@ -88,7 +90,7 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
     let failures = 0;
     for (;;) {
       try {
-        const state = await api.getTestingJob(jobId);
+        const state = await api.getTestingJob<{total:number;statuses:BatchFileStatus[];successful:number;failed:number;active:boolean;error?:string}>(jobId);
         failures = 0;
         setJob({ type: 'batch', testing: true, jobId, total: state.total,
           statuses: state.statuses, doneCount: state.successful, failedCount: state.failed,
@@ -115,7 +117,7 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
 
   // Kirim berkas ke antrean server; pembacaan lanjut walau halaman di-refresh.
   const kirimKeAntrean = useCallback(async (files: File[], allowedCategories: string[]) => {
-    const res = await api.uploadPdfAntre(files, allowedCategories);
+    const res = await api.uploadPdfAntre<{batch_id:string;proses:ProsesUnggah[]}>(files, allowedCategories);
     revision.current++;
     batchSesi.current = res.batch_id;
     localStorage.setItem('eclaim-upload-batch', res.batch_id);
@@ -156,7 +158,7 @@ export function UploadJobProvider({ children }: { children: ReactNode }) {
 
     try {
       if (testing) {
-        const accepted = await api.uploadTestingBatch(files, allowedCategories);
+        const accepted = await api.uploadTestingBatch<{job_id:string}>(files, allowedCategories);
         localStorage.setItem('eclaim-testing-job', accepted.job_id);
         setJob(prev => prev ? { ...prev, jobId: accepted.job_id } : prev);
         await monitorTestingJob(accepted.job_id);

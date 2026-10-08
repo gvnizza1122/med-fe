@@ -1,5 +1,5 @@
-"use client"
-
+'use client';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
 import Link from "next/link"
 import { useEffect, useState, type ReactNode } from "react"
 import { RefreshCw, Download, Info, Coins, Hash, Activity, DollarSign } from "lucide-react"
@@ -55,10 +55,10 @@ function BiayaBerkas({ month, refresh }: { month: string; refresh: number }) {
   const [page, setPage] = useState(1)
   const [state, setState] = useState<{ key: string; data?: FileReport; error?: string } | null>(null)
   const key = `${month}:${page}:${refresh}`
-  useEffect(() => { setPage(1) }, [month])
+  useDeferredEffect(() => { setPage(1) }, [month])
   useEffect(() => {
     let active = true
-    api.getAiFileCosts(month, page).then((data: FileReport) => { if (active) setState({ key, data }) })
+    api.getAiFileCosts<FileReport>(month, page).then((data: FileReport) => { if (active) setState({ key, data }) })
       .catch((error: Error) => { if (active) setState({ key, error: error.message }) })
     return () => { active = false }
   }, [month, page, refresh, key])
@@ -97,15 +97,15 @@ export default function PenggunaanAiPage() {
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState("")
   const [refresh, setRefresh] = useState(0)
-  useEffect(() => {
+  useDeferredEffect(() => {
     try { setAllowed(["admin", "superadmin"].includes(JSON.parse(localStorage.getItem("user") || "{}").role)) }
     catch { setAllowed(false) }
   }, [])
-  useEffect(() => {
+  useDeferredEffect(() => {
     if (!allowed) return
     let active = true
     setBusy(true); setError(""); setReport(null)
-    api.getAiUsage(month).then((data: Report) => { if (active) setReport(data) })
+    api.getAiUsage<Report>(month).then((data: Report) => { if (active) setReport(data) })
       .catch((err: Error) => { if (active) setError(err.message) })
       .finally(() => { if (active) setBusy(false) })
     return () => { active = false }

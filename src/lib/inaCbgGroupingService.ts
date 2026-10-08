@@ -501,7 +501,7 @@ export async function groupClaimToCmg(input: ClaimGroupingInput): Promise<Groupi
   let bestMatchScore = 0;
 
   for (const rule of GROUPING_RULES) {
-    const { matched, diagnosisMatch, procedureMatch } = matchGroupingRule(input, rule);
+    const { matched, procedureMatch } = matchGroupingRule(input, rule);
 
     if (matched) {
       // Calculate confidence score (procedures increase confidence)

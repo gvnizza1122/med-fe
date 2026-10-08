@@ -11,29 +11,36 @@
 // benar-benar terlihat begitu halaman ini dibuka pertama kali di produksi.
 //
 // Aturan produk: TIDAK PERNAH menampilkan persentase/keyakinan di UI ini.
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, type Variants } from 'framer-motion';
-import {
-  Link2, Tags, Boxes, ArrowRight, ClipboardList, RefreshCw, ListFilter,
-} from 'lucide-react';
-import { api, type KotakTriase, type PendingJawabanStatistik, type PendingJawabanAlasanRingkasan, type PendingJawabanTriaseRingkasan } from '@/lib/api';
 import { Header } from '@/components/dashboard/header';
-import { ToastContainer, useToast } from '@/components/Toast';
+import { ToastContainer,useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
-  Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription,
+Empty,
+EmptyDescription,
+EmptyHeader,EmptyMedia,EmptyTitle,
 } from '@/components/ui/empty';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+Select,SelectContent,SelectItem,SelectTrigger,SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+Table,TableBody,TableCell,TableHead,TableHeader,TableRow,
 } from '@/components/ui/table';
+import { api,type KotakTriase,type PendingJawabanAlasanRingkasan,type PendingJawabanStatistik,type PendingJawabanTriaseRingkasan } from '@/lib/api';
+import { motion,type Variants } from 'framer-motion';
+import {
+ArrowRight,
+Boxes,
+ClipboardList,
+Link2,
+ListFilter,
+RefreshCw,
+Tags,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback,useEffect,useState } from 'react';
 
 interface PendingFileOption {
   id: string;
@@ -75,7 +82,7 @@ export default function PendingJawabanOverviewPage() {
     (async () => {
       try {
         setLoadingFiles(true);
-        const res = await api.getPendingFiles({ page: 1, limit: 100 });
+        const res = await api.getPendingFiles<{files:{id:string;file_name:string}[]}>({ page: 1, limit: 100 });
         setFiles((res.files || []).map((f: { id: string; file_name: string }) => ({ id: f.id, file_name: f.file_name })));
       } catch (err) {
         console.error('[PendingJawaban] gagal memuat daftar file:', err);
@@ -107,7 +114,7 @@ export default function PendingJawabanOverviewPage() {
     } finally {
       setLoadingRingkasan(false);
     }
-  }, [fileId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fileId]);
 
   useEffect(() => { loadRingkasan(); }, [loadRingkasan]); // eslint-disable-line react-hooks/set-state-in-effect
 
@@ -127,7 +134,7 @@ export default function PendingJawabanOverviewPage() {
   const handlePetakan = async () => {
     setRunningPetakan(true);
     try {
-      const res = await api.petakanAlasanPending({ pending_file_id: fileId || undefined, pakai_ai: pakaiAi });
+      const res = await api.petakanAlasanPending<{oleh_aturan?:number;oleh_ai?:number;tidak_terpetakan?:number;dilewati_manual?:number}>({ pending_file_id: fileId || undefined, pakai_ai: pakaiAi });
       const bagian: string[] = [];
       if (typeof res?.oleh_aturan === 'number') bagian.push(`${res.oleh_aturan} dari aturan`);
       if (typeof res?.oleh_ai === 'number') bagian.push(`${res.oleh_ai} dari AI`);

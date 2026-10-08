@@ -1,6 +1,6 @@
-'use client'
-
+'use client';
 import * as React from 'react'
+import { useDeferredEffect } from '@/lib/useDeferredEffect'
 import useEmblaCarousel, {
   type UseEmblaCarouselType,
 } from 'embla-carousel-react'
@@ -93,7 +93,7 @@ function Carousel({
     setApi(api)
   }, [api, setApi])
 
-  React.useEffect(() => {
+  useDeferredEffect(() => {
     if (!api) return
     onSelect(api)
     api.on('reInit', onSelect)
@@ -101,6 +101,7 @@ function Carousel({
 
     return () => {
       api?.off('select', onSelect)
+      api?.off('reInit', onSelect)
     }
   }, [api, onSelect])
 

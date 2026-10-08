@@ -16,7 +16,7 @@ import {
 } from './regression_runner';
 
 describe('Regression Testing — Firdan Case', () => {
-  let goldenData: any;
+  let goldenData: ReturnType<typeof loadGoldenData>;
   it('tidak mengambil expected dari hasil ekstraksi untuk menutupi kode salah', () => {
     const expected = [{ icd10: 'J45.9', sequence: 1 }];
     const diffs = compareData({ DIAGLIST: { diagnoses: [{ icd10: 'WRONG', sequence: 1 }], expected } },

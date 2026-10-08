@@ -12,7 +12,7 @@ test.each(['tinjau', 'tanya'])('pemeriksaan %s tidak diputus frontend sebelum pe
     await jest.advanceTimersByTimeAsync(121000);
     expect(signal?.aborted).toBe(false);
     expect(f).toHaveBeenCalledTimes(1);
-    selesai({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => ({ selesai: true }) } as Response);
+    selesai(new Response(JSON.stringify({ selesai: true }), { status: 200, headers: { 'content-type': 'application/json' } }));
     await expect(hasil).resolves.toEqual({ selesai: true });
     expect(jest.getTimerCount()).toBe(0);
   } finally {

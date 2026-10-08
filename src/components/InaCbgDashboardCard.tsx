@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
-import { cn } from '@/lib/utils';
-import { CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
+Accordion,
+AccordionContent,
+AccordionItem,
+AccordionTrigger,
 } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
 
 function isBlankValue(v: unknown): boolean {
   if (v === null || v === undefined) return true;
@@ -14,11 +12,13 @@ function isBlankValue(v: unknown): boolean {
   return s === '' || s === 'none' || s === 'null';
 }
 
-function parseAiReview(recordData: any) {
+interface SuggestedCode { code: string; type: string; reasoning?: string; page_number?: number; quotation?: string }
+interface Review { suggested_codes?: SuggestedCode[]; suggested_inacbg?: string; suggested_tarif?: number }
+function parseAiReview(recordData: Record<string, unknown>): Review {
   try {
     return typeof recordData?.ai_review === 'string'
-      ? JSON.parse(recordData.ai_review) : (recordData?.ai_review || {});
-  } catch (e) { return {}; }
+      ? JSON.parse(recordData.ai_review) : ((recordData?.ai_review || {}) as Review);
+  } catch  { return {}; }
 }
 
 /** Pecah string kode seperti "J18.0;K30;I10" jadi array ["J18.0","K30","I10"] */
@@ -41,7 +41,7 @@ function CodeChip({ code, className }: { code: string; className?: string }) {
 export function InaCbgDashboardCard({
   recordData,
 }: {
-  recordData: Record<string, any>;
+  recordData: Record<string, unknown>;
 }) {
   const inacbgRawValue = recordData?.INACBG;
   const inacbgFilled = !isBlankValue(inacbgRawValue);
@@ -59,8 +59,8 @@ export function InaCbgDashboardCard({
   const hasSuggestedCodes = suggestedCodes.length > 0;
 
   // Suggested codes grouped by type
-  const suggestedDiag = suggestedCodes.filter((c: any) => c.type === 'diagnosis');
-  const suggestedProc = suggestedCodes.filter((c: any) => c.type === 'procedure');
+  const suggestedDiag = suggestedCodes.filter((c: SuggestedCode) => c.type === 'diagnosis');
+  const suggestedProc = suggestedCodes.filter((c: SuggestedCode) => c.type === 'procedure');
 
   const suggestedInacbg = aiReview?.suggested_inacbg;
   const suggestedTarif = aiReview?.suggested_tarif;
@@ -164,7 +164,7 @@ export function InaCbgDashboardCard({
                 <div className="flex items-center justify-between px-4 py-3 bg-black/20">
                   <div className="flex items-center gap-4 text-xs text-gray-400">
                     {inacbgFilled && (
-                      <span>Kode INA-CBG: <span className="font-mono text-gray-300">{inacbgRawValue}</span></span>
+                      <span>Kode INA-CBG: <span className="font-mono text-gray-300">{String(inacbgRawValue ?? '')}</span></span>
                     )}
                     {!isBlankValue(tarifInacbg) && Number(tarifInacbg) > 0 && (
                       <span>Tarif: <span className="font-mono text-gray-300">
@@ -204,7 +204,7 @@ export function InaCbgDashboardCard({
                     <div className="grid grid-cols-12 items-start gap-2">
                       <div className="col-span-3 font-semibold text-gray-100 pt-0.5">Usulan Diagnosis</div>
                       <div className="col-span-7 flex flex-wrap gap-1.5">
-                        {suggestedDiag.map((c: any) => (
+                        {suggestedDiag.map((c: SuggestedCode) => (
                           <span
                             key={c.code}
                             title={c.quotation ? `Hal. ${c.page_number}: "${c.quotation}"` : c.reasoning}
@@ -227,7 +227,7 @@ export function InaCbgDashboardCard({
                     <div className="grid grid-cols-12 items-start gap-2">
                       <div className="col-span-3 font-semibold text-gray-100 pt-0.5">Usulan Prosedur</div>
                       <div className="col-span-7 flex flex-wrap gap-1.5">
-                        {suggestedProc.map((c: any) => (
+                        {suggestedProc.map((c: SuggestedCode) => (
                           <span
                             key={c.code}
                             title={c.quotation ? `Hal. ${c.page_number}: "${c.quotation}"` : c.reasoning}

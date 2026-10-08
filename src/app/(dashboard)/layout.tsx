@@ -1,4 +1,6 @@
 'use client';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,7 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!token) router.replace('/login');
   }, [router]);
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setSidebarCollapsed(localStorage.getItem('sidebar_collapsed') === 'true');
   }, []);
 
@@ -43,7 +45,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   // Trigger progress bar on every route change
-  useEffect(() => {
+  useDeferredEffect(() => {
     setIsNavigating(true);
     const timer = setTimeout(() => setIsNavigating(false), 850);
     return () => clearTimeout(timer);

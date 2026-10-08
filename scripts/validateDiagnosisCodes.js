@@ -26,7 +26,7 @@
  */
 
 const fs = require('fs');
-const path = require('path');
+
 const http = require('http');
 
 // Configuration
@@ -60,7 +60,7 @@ function extractCodes(diagStr) {
  * Get valid ICD-10 WHO codes from backend
  */
 function fetchICD10WHOCodes() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const url = new URL('/icd10-codes', API_BASE);
     const options = {
       method: 'GET',
@@ -85,7 +85,7 @@ function fetchICD10WHOCodes() {
             const codeSet = new Set(codes.map(c => c.code || c));
             resolve(codeSet);
           }
-        } catch (e) {
+        } catch  {
           resolve(null);
         }
       });

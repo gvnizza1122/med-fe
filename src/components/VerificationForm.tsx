@@ -1,13 +1,14 @@
 'use client';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useMemo, useEffect, type ReactElement } from 'react';
-import { CheckCircle2, XCircle, AlertTriangle, CircleDot, ClipboardCheck, Lightbulb, Pencil, Save, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { fieldValue,type ClaimValidationIssue } from '@/lib/claimData';
+import { cn } from '@/lib/utils';
+import { AnimatePresence,motion } from 'framer-motion';
+import { AlertTriangle,CheckCircle2,CircleDot,ClipboardCheck,Lightbulb,Pencil,Save,X,XCircle } from 'lucide-react';
+import { useMemo,useState,type ReactElement } from 'react';
 
 interface FieldData {
   column_name: string;
@@ -20,10 +21,10 @@ interface FieldData {
 
 interface VerificationFormProps {
   recordId: string;
-  recordData: Record<string, any>;
-  validationErrors: Array<any>;
+  recordData: Record<string, unknown>;
+  validationErrors: ClaimValidationIssue[];
   vclaimColumns?: string[];
-  onSave?: (changes: Record<string, any>) => Promise<void>;
+  onSave?: (changes: Record<string, unknown>) => Promise<void>;
   isSaving?: boolean;
 }
 
@@ -67,7 +68,6 @@ const FIELD_CATEGORIES: Record<string, string[]> = {
 const VCLAIM_COLUMNS = Object.values(FIELD_CATEGORIES).flat();
 
 function VerificationForm({
-  recordId,
   recordData,
   validationErrors = [],
   vclaimColumns = VCLAIM_COLUMNS,
@@ -75,7 +75,7 @@ function VerificationForm({
   isSaving = false,
 }: VerificationFormProps) {
   const [showAll, setShowAll] = useState(false);
-  const [editedValues, setEditedValues] = useState<Record<string, any>>({});
+  const [editedValues, setEditedValues] = useState<Record<string, unknown>>({});
   const [isEditing, setIsEditing] = useState(false);
 
   const fieldValidationMap = useMemo(() => {
@@ -83,20 +83,20 @@ function VerificationForm({
 
     vclaimColumns.forEach(colName => {
       const dbField = FIELD_MAPPING[colName];
-      const value = dbField ? recordData[dbField] : null;
+      const value = fieldValue(dbField ? recordData[dbField] : null);
 
       map[colName] = {
         column_name: colName,
-        value: value ?? null,
+        value,
         status: VCLAIM_FILLED_COLUMNS.has(colName) ? 'not_validated' :
                 (value === null || value === undefined || value === '') ? 'empty' : 'valid',
       };
     });
 
-    validationErrors?.forEach((err: any) => {
+    validationErrors?.forEach((err: ClaimValidationIssue) => {
       const fieldName = err.field_name || '';
       const colName = Object.entries(FIELD_MAPPING).find(
-        ([_, dbField]) => dbField === fieldName
+        ([, dbField]) => dbField === fieldName
       )?.[0];
 
       if (colName && map[colName]) {
@@ -126,10 +126,10 @@ function VerificationForm({
         .map(colName => fieldValidationMap[colName])
         .filter(f => showAll || f.status === 'error' || f.status === 'empty');
     });
-    return Object.fromEntries(Object.entries(grouped).filter(([_, fields]) => fields.length > 0));
+    return Object.fromEntries(Object.entries(grouped).filter(([, fields]) => fields.length > 0));
   }, [fieldValidationMap, showAll]);
 
-  const handleFieldChange = (colName: string, newValue: any) => {
+  const handleFieldChange = (colName: string, newValue: unknown) => {
     setEditedValues(prev => ({
       ...prev,
       [colName]: newValue,

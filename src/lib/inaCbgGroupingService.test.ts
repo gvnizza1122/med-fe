@@ -9,12 +9,11 @@
  */
 
 import {
-  groupClaimToCmg,
-  validateCbgCode,
-  extractCmgPrefix,
-  compareCbgCodes,
-  type ClaimGroupingInput,
-  type GroupingResult,
+compareCbgCodes,
+extractCmgPrefix,
+groupClaimToCmg,
+validateCbgCode,
+type ClaimGroupingInput
 } from './inaCbgGroupingService';
 
 // ============================================================================

@@ -1,5 +1,4 @@
 'use client';
-
 /**
  * Bagian "Pemeriksaan penunjang" di bawah pemeriksaan khusus: pemeriksaan yang
  * sudah dilakukan ke pasien (laboratorium, CTG, EKG, radiologi, ...) dan hasil
@@ -69,7 +68,7 @@ export function PemeriksaanPenunjangPanel({ recordId, onOpenPdf, tertanam = fals
   useEffect(() => {
     if (!recordId) return;
     let aktif = true;
-    api.getPemeriksaanPenunjang(recordId)
+    api.getPemeriksaanPenunjang<DataPenunjang>(recordId)
       .then((data: DataPenunjang) => { if (aktif) setHasil({ recordId, data, gagal: false }); })
       .catch(() => { if (aktif) setHasil({ recordId, data: null, gagal: true }); });
     return () => { aktif = false; };

@@ -55,7 +55,7 @@ function apiRequest(endpoint, method = 'GET', body = null) {
           } else {
             resolve(result);
           }
-        } catch (e) {
+        } catch  {
           reject(new Error(`Failed to parse response: ${data}`));
         }
       });
@@ -193,7 +193,7 @@ async function createTestRecords() {
 
     try {
       // Attempt to create the record
-      const response = await apiRequest('/records', 'POST', record);
+      await apiRequest('/records', 'POST', record);
       console.log(`${progress} ✓ Created: ${record.id}`);
       successCount++;
     } catch (error) {

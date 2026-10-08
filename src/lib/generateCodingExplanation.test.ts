@@ -8,9 +8,8 @@
  */
 
 import {
-  generateCodingExplanation,
-  getCodeDescription,
-  type CodingExplanationResult
+generateCodingExplanation,
+type CodingExplanationResult
 } from './generateCodingExplanation';
 
 // ─── Test Case 1: Firdan (Asthma J45.9) ─────────────────────────────────────
@@ -229,12 +228,12 @@ export function sampleUIOutput(): string {
 
 // Test: Export untuk dijalankan di console browser
 if (typeof window !== 'undefined') {
-  (window as any).testCodingExplanation = {
+  Object.assign(window, { testCodingExplanation: {
     runAllTests,
     testFirdanCase,
     testHypertensionCase,
     testMultipleCodesCase,
     testProcedureCase,
     sampleUIOutput
-  };
+  } });
 }

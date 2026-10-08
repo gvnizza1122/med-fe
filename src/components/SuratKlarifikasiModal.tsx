@@ -1,4 +1,6 @@
 'use client';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 // Generator draft Surat Klarifikasi ke BPJS — dipakai saat klaim IGD kena
 // RV-20 (kegawatan lemah) dan verifikator perlu menjawab pertanyaan BPJS
 // "kriteria kegawatan apa?". Auto-terisi HANYA dari data yang benar-benar
@@ -7,17 +9,17 @@
 // fisik, tindakan) dibiarkan placeholder [isi ...] karena app ini tidak
 // menyimpan data granular itu; mengarang isinya melanggar prinsip
 // anti-halusinasi yang dipegang di seluruh aplikasi ini.
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from '@/components/ui/dialog';
+import { api } from '@/lib/api';
+import { useState } from 'react';
 
 const CHECKLIST_LABELS: Record<string, string> = {
   ttv_abnormal: 'TTV abnormal terdokumentasi',
@@ -34,7 +36,7 @@ function formatTanggal(iso?: string | null): string {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-function buildTemplate(record: Record<string, any>, checklist: Record<string, boolean> | null): string {
+function buildTemplate(record: Record<string, unknown>, checklist: Record<string, boolean> | null): string {
   const checklistLines = Object.entries(CHECKLIST_LABELS)
     .map(([key, label]) => `   ${checklist?.[key] ? '[x]' : '[ ]'} ${label}`)
     .join('\n');
@@ -48,7 +50,7 @@ Perihal: Klarifikasi Klaim IGD
 Nomor SEP   : ${record.sep || '[isi nomor SEP]'}
 Nama Pasien : ${record.nama_pasien || '[isi nama pasien]'}
 MRN         : ${record.mrn || '[isi MRN]'}
-Tanggal     : ${formatTanggal(record.admission_date)}
+Tanggal     : ${formatTanggal(typeof record.admission_date === 'string' ? record.admission_date : null)}
 Diagnosis   : ${record.diagnosa_list || '[isi kode ICD-10]'}
 DPJP        : ${record.dpjp_name || '[isi nama DPJP]'}
 
@@ -93,17 +95,17 @@ export function SuratKlarifikasiModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  record: Record<string, any>;
+  record: Record<string, unknown>;
 }) {
   const [text, setText] = useState('');
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     if (!open) return;
     setCopied(false);
     setLoading(true);
-    api.getRv20Confirmation(record.id)
+    api.getRv20Confirmation<{confirmation?: {checklist_items?:string|Record<string,boolean>}}>(String(record.id))
       .then(res => setText(buildTemplate(record, res.confirmation?.checklist_items ? JSON.parse(
         // Backend simpan checklist_items sebagai TEXT (JSON.stringify) — parse balik.
         typeof res.confirmation.checklist_items === 'string' ? res.confirmation.checklist_items : JSON.stringify(res.confirmation.checklist_items)

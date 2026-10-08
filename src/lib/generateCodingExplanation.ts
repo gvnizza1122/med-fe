@@ -289,7 +289,7 @@ export function generateCodingExplanation(
   codesString: string, // e.g., "J45.9;I10"
   type: 'diagnosis' | 'procedure',
   status: 'valid' | 'approved',
-  clinicalFindings?: Record<string, any>, // Temuan klinis dari record
+  clinicalFindings?: Record<string, unknown>, // Temuan klinis dari record
   pageReference?: string, // e.g., "Resume Medis hal. 2"
   codeEvidence?: CodeEvidenceEntry[] // Data dari ai_review.code_evidence
 ): CodingExplanationResult {
@@ -371,7 +371,7 @@ export function generateCodingExplanation(
     // Mapping temuan klinis yang relevan
     const supportingFindings: string[] = [];
     if (clinicalFindings) {
-      Object.entries(CLINICAL_FINDINGS).forEach(([key, finding]) => {
+      Object.entries(CLINICAL_FINDINGS).forEach(([, finding]) => {
         // Cek apakah ada keyword dari finding di clinical findings
         const clinicalText = JSON.stringify(clinicalFindings).toLowerCase();
         if (
@@ -464,7 +464,7 @@ export function generateBatchExplanations(
     code: string;
     type: 'diagnosis' | 'procedure';
     status: 'valid' | 'approved';
-    clinicalFindings?: Record<string, any>;
+    clinicalFindings?: Record<string, unknown>;
     pageReference?: string;
   }>
 ): Record<string, CodingExplanationResult> {

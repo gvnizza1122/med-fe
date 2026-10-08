@@ -1,40 +1,41 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { Pencil, Ban, CheckCircle2, Users as UsersIcon } from 'lucide-react';
-import { api } from '@/lib/api';
-import { useRequireRole } from '@/lib/useRequireRole';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { Header } from '@/components/dashboard/header';
-import { Card } from '@/components/ui/card';
+import { Avatar,AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+Dialog,
+DialogContent,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableCell,
+TableHead,
+TableHeader,
+TableRow
 } from '@/components/ui/table';
+import { api } from '@/lib/api';
+import { useRequireRole } from '@/lib/useRequireRole';
 import { cn } from '@/lib/utils';
+import { AnimatePresence,motion,type Variants } from 'framer-motion';
+import { Ban,CheckCircle2,Pencil,Users as UsersIcon } from 'lucide-react';
+import { useCallback,useState } from 'react';
 
 interface User { id: string; email: string; full_name: string; nik: string; role: string; is_active: number; last_login: string; created_at: string; }
 
@@ -91,9 +92,9 @@ export default function UsersPage() {
   const [form, setForm] = useState({ email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
   const [error, setError] = useState('');
 
-  const loadUsers = useCallback(async () => { try { setLoading(true); const d = await api.getUsers(); setUsers(d.users); } catch (err) { console.error('[Users] Gagal memuat user:', err); } finally { setLoading(false); } }, []);
+  const loadUsers = useCallback(async () => { try { setLoading(true); const d = await api.getUsers<{users: User[]}>(); setUsers(d.users); } catch (err) { console.error('[Users] Gagal memuat user:', err); } finally { setLoading(false); } }, []);
 
-  useEffect(() => { if (allowed) loadUsers(); }, [allowed, loadUsers]);
+  useDeferredEffect(() => { if (allowed) loadUsers(); }, [allowed, loadUsers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('');

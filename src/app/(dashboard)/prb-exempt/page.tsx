@@ -1,31 +1,32 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { Pencil, Trash2, HeartPulse } from 'lucide-react';
-import { api } from '@/lib/api';
-import { useRequireRole } from '@/lib/useRequireRole';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { Header } from '@/components/dashboard/header';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+Dialog,
+DialogContent,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableCell,
+TableHead,
+TableHeader,
+TableRow
 } from '@/components/ui/table';
+import { api } from '@/lib/api';
+import { useRequireRole } from '@/lib/useRequireRole';
+import { AnimatePresence,motion,type Variants } from 'framer-motion';
+import { HeartPulse,Pencil,Trash2 } from 'lucide-react';
+import { useCallback,useState } from 'react';
 
 interface PrbExemption {
   id: string;
@@ -84,12 +85,12 @@ export default function PrbExemptPage() {
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    try { setLoading(true); const d = await api.getPrbExemptions(); setItems(d.exemptions); }
+    try { setLoading(true); const d = await api.getPrbExemptions<{exemptions: PrbExemption[]}>(); setItems(d.exemptions); }
     catch (err) { console.error('[PrbExempt] Gagal memuat data:', err); }
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { if (allowed) load(); }, [allowed, load]);
+  useDeferredEffect(() => { if (allowed) load(); }, [allowed, load]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('');

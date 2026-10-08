@@ -24,8 +24,8 @@
  */
 
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
+
+
 const readline = require('readline');
 
 // Configuration
@@ -58,7 +58,7 @@ function apiRequest(endpoint, method = 'GET', body = null) {
           } else {
             resolve(result);
           }
-        } catch (e) {
+        } catch  {
           reject(new Error(`Failed to parse response: ${data}`));
         }
       });

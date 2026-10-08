@@ -1,25 +1,27 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { Settings2, Building2, Pencil, Check, X, Save } from 'lucide-react';
-import { api } from '@/lib/api';
-import { ProfilKlaimRsCard } from '@/components/ProfilKlaimRsCard';
-import { useRequireRole } from '@/lib/useRequireRole';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { Header } from '@/components/dashboard/header';
-import { Card, CardContent } from '@/components/ui/card';
+import { ProfilKlaimRsCard } from '@/components/ProfilKlaimRsCard';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Card,CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { api } from '@/lib/api';
+import { useRequireRole } from '@/lib/useRequireRole';
+import { AnimatePresence,motion,type Variants } from 'framer-motion';
+import { Building2,Check,Pencil,Save,Settings2,X } from 'lucide-react';
+import { useCallback,useState } from 'react';
 
 interface Rule {
   id: string;
@@ -66,7 +68,7 @@ export default function RulesPage() {
 
   const loadRules = useCallback(async () => {
     try {
-      const d = await api.getRules();
+      const d = await api.getRules<{rules: Rule[]}>();
       setRules(d.rules);
     } catch (err) {
       console.error('[Rules] Gagal memuat aturan:', err);
@@ -77,7 +79,7 @@ export default function RulesPage() {
 
   const loadHospitalSettings = useCallback(async () => {
     try {
-      const d = await api.getHospitalSettings();
+      const d = await api.getHospitalSettings<{kelas_rs:string;hospital_code:string}>();
       setHospitalCode(d.hospital_code || '');
       setKelasRs(d.kelas_rs || '');
       setKelasRsDraft(d.kelas_rs || '');
@@ -86,7 +88,7 @@ export default function RulesPage() {
     }
   }, []);
 
-  useEffect(() => { if (allowed) { loadRules(); loadHospitalSettings(); } }, [allowed, loadRules, loadHospitalSettings]);
+  useDeferredEffect(() => { if (allowed) { loadRules(); loadHospitalSettings(); } }, [allowed, loadRules, loadHospitalSettings]);
 
   const handleSaveKelasRs = async () => {
     if (!kelasRsDraft || kelasRsDraft === kelasRs) return;

@@ -55,7 +55,7 @@ export function LaporanOperasiPanel({recordId,hashBukti,onOpenPdf}:{recordId:str
   const [hasil,setHasil]=useState<{id:string;hash?:string;data:DataLaporanOperasi|null;gagal:boolean}|null>(null);
   const [percobaan,setPercobaan]=useState(0);
   useEffect(()=>{let aktif=true;
-    api.getLaporanOperasi(recordId).then((data:DataLaporanOperasi)=>{if(aktif)setHasil({id:recordId,hash:hashBukti,data,gagal:false});})
+    api.getLaporanOperasi<DataLaporanOperasi>(recordId).then((data:DataLaporanOperasi)=>{if(aktif)setHasil({id:recordId,hash:hashBukti,data,gagal:false});})
       .catch(()=>{if(aktif)setHasil({id:recordId,hash:hashBukti,data:null,gagal:true});});
     return()=>{aktif=false;};
   },[recordId,hashBukti,percobaan]);

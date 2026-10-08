@@ -1,4 +1,6 @@
 'use client';
+import { useEffect } from 'react';
+
 /**
  * Tarif INA-CBG dan iDRG berdampingan, plus koding versi iDRG.
  *
@@ -11,10 +13,10 @@
  * belum memuat lembar hasil grouper iDRG, tarifnya ditampilkan "belum dapat
  * dihitung" -- tidak pernah ditebak.
  */
-import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface KodeIdrg {
   kode: string;
@@ -100,15 +102,15 @@ function BarisKode({ k }: { k: KodeIdrg }) {
 }
 
 export function TarifGandaCard({ recordId }: { recordId: string }) {
-  const [data, setData] = useState<TarifGanda | null>(null);
-  const [galat, setGalat] = useState<string | null>(null);
+  const [hasil, setHasil] = useState<{ recordId: string; data?: TarifGanda; galat?: string } | null>(null);
+  const data = hasil?.recordId === recordId ? hasil.data : undefined;
+  const galat = hasil?.recordId === recordId ? hasil.galat : undefined;
 
   useEffect(() => {
     let batal = false;
-    setData(null); setGalat(null);
-    api.getTarifGanda(recordId)
-      .then((d: TarifGanda) => { if (!batal) setData(d); })
-      .catch((e: Error) => { if (!batal) setGalat(e.message || 'Tarif gagal dimuat'); });
+    api.getTarifGanda<TarifGanda>(recordId)
+      .then((d: TarifGanda) => { if (!batal) setHasil({ recordId, data: d }); })
+      .catch((e: Error) => { if (!batal) setHasil({ recordId, galat: e.message || 'Tarif gagal dimuat' }); });
     return () => { batal = true; };
   }, [recordId]);
 

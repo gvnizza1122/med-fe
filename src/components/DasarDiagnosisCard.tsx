@@ -1,5 +1,4 @@
 'use client';
-
 interface Bukti { page_number: number; kutipan: string; }
 export interface DasarDiagnosis {
   diagnosis_dokter: (Bukti & { peran: string })[];

@@ -1,32 +1,33 @@
 'use client';
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useUploadJob } from '@/contexts/UploadJobContext';
-import {
-  FileText,
-  UploadCloud,
-  CheckCircle2,
-  XCircle,
-  X,
-  ArrowRight,
-  AlertTriangle,
-  Siren,
-  ScanSearch,
-  ShieldCheck,
-  Sparkles,
-  Layers,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { formatSisa, gabungFileUnik } from '@/lib/upload-progress';
-import { HistoryTabs } from '@/components/dashboard/history-tabs';
+import { useDeferredEffect } from '@/lib/useDeferredEffect';
+
 import { Header } from '@/components/dashboard/header';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { HistoryTabs } from '@/components/dashboard/history-tabs';
+import { Alert,AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Spinner } from '@/components/ui/spinner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card,CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
+import { useUploadJob } from '@/contexts/UploadJobContext';
+import { formatSisa,gabungFileUnik } from '@/lib/upload-progress';
+import { cn } from '@/lib/utils';
+import { AnimatePresence,motion } from 'framer-motion';
+import {
+AlertTriangle,
+ArrowRight,
+CheckCircle2,
+FileText,
+Layers,
+ScanSearch,
+ShieldCheck,
+Sparkles,
+UploadCloud,
+X,
+XCircle
+} from 'lucide-react';
+import { usePathname,useRouter } from 'next/navigation';
+import { useCallback,useEffect,useRef,useState } from 'react';
 
 
 const MAX_BATCH_FILES = 300; // harus sinkron dengan MAX_BATCH_PDF_FILES di backend (claimFiles.js)
@@ -84,9 +85,10 @@ export default function ClaimPdfUpload({ testing = false }: { testing?: boolean 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job, pathname]);
 
-  useEffect(() => {
-    if (testing && ownJob && !ownJob.active && !ownJob.error) setFiles([]);
-  }, [testing, ownJob?.active]);
+  const testingComplete = Boolean(testing && ownJob && !ownJob.active && !ownJob.error);
+  useDeferredEffect(() => {
+    if (testingComplete) setFiles([]);
+  }, [testingComplete]);
 
   const validateFile = (f: File): string | null => {
     const ext = f.name.toLowerCase().split('.').pop();

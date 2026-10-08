@@ -48,12 +48,7 @@ const ICD10CM_PATTERN_STRICT = /^[A-Z]\d{2}\.\d{2,3}$/; // Only matches .XX or .
 const ICD10CM_PATTERN_LOOSE = /^[A-Z]\d{2}\.\d{1,3}$/;   // Also matches .X (less specific)
 
 // Common ICD-10-CM codes that should not be in BPJS system
-const SUSPECT_CODES = new Set([
-  'J45.909', // Unspecified asthma
-  'E86.0',   // Dehydration
-  'R01.1',   // Cardiac murmur
-  'I10',     // Essential hypertension (ICD-10 WHO), but often confused with CM format
-]);
+
 
 /**
  * Make HTTP request to backend API
@@ -81,7 +76,7 @@ function apiRequest(endpoint, method = 'GET', body = null) {
           } else {
             resolve(result);
           }
-        } catch (e) {
+        } catch  {
           reject(new Error(`Failed to parse response: ${data}`));
         }
       });
@@ -473,7 +468,7 @@ async function main() {
     process.exit(0);
   }
 
-  const isReport = args.includes('--report');
+
   const isCleanup = args.includes('--cleanup');
   const optionIdx = args.indexOf('--option');
   const option = optionIdx >= 0 ? args[optionIdx + 1] : 'nullify';
@@ -486,7 +481,7 @@ async function main() {
   }
 
   // Run audit
-  const { report, affectedRecords } = await runAudit();
+  const { affectedRecords } = await runAudit();
 
   // Handle cleanup if requested
   if (isCleanup) {
