@@ -151,15 +151,17 @@ export function RingkasanTemuanCard({
               {putusan.alasan.map((a, i) => (
                 <li key={`${a.kode}-${i}`} className="flex gap-1.5 leading-snug">
                   <span className={cn('font-bold', TITIK[a.keparahan] || 'text-muted-foreground')}>•</span>
-                  <span className="min-w-0 flex-1 text-muted-foreground">
-                    <strong className="text-foreground">{a.ringkas}</strong>
-                    {a.bukti && <span className="italic"> — {a.bukti}</span>}
-                    {a.tindakan && (
-                      <span className="block text-xs">
-                        <span className="text-muted-foreground">Lakukan:</span> {a.tindakan}
-                      </span>
-                    )}
-                  </span>
+                  <div className="min-w-0 flex-1 text-muted-foreground">
+                    <strong className="text-foreground">{a.sumber_pemeriksaan}</strong>
+                    <ul className="mt-1.5 list-disc space-y-1.5 pl-4 text-sm leading-relaxed">
+                      {(a.poin?.length ? a.poin : [
+                        { label: 'Alasan', isi: a.ringkas },
+                        ...(a.bukti ? [{ label: 'Bukti / sumber', isi: a.bukti }] : []),
+                        ...(a.penjelasan ? [{ label: 'Dasar pemeriksaan', isi: a.penjelasan }] : []),
+                        ...(a.tindakan ? [{ label: 'Perbaikan', isi: a.tindakan }] : []),
+                      ]).map((p, j) => <li key={j} className="break-words"><span className="font-medium text-foreground">{p.label}:</span> {p.isi}</li>)}
+                    </ul>
+                  </div>
                 </li>
               ))}
             </ul>

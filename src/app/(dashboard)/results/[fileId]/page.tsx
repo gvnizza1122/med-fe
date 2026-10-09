@@ -2980,6 +2980,7 @@ export default function ResultsPage() {
                   {selectedRecord.id && (
                     <AgenCasemixPanel
                       recordId={String(selectedRecord.id)}
+                      onEvaluasiTersimpan={() => { void loadRecords(); void loadFileInfo(); }}
                       onOpenPdf={String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf') ? setEvidencePdfPage : undefined}
                     />
                   )}

@@ -41,9 +41,9 @@ async function request<T = unknown>(endpoint: string, options: RequestInit & { t
   // Pesan untuk pengguna akhir (perawat/verifikator) — tanpa istilah teknis.
   let res: Response;
   try {
-    const timeoutMs = options.timeout || 30000; // default 30 detik
+    const timeoutMs = options.timeout ?? 30000; // default 30 detik
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
     try {
       res = await fetch(`${API_BASE}${endpoint}`, {
@@ -273,6 +273,9 @@ export const api = {
   simpanKeputusanCasemix: <T = unknown>(recordId: string, data: { diagnosis: string; prosedur: string; catatan: string }) =>
     request<T>(`/api/v1/claim-files/records/${recordId}/keputusan-casemix`, { method: 'POST', body: JSON.stringify(data) }),
 
+  simpanEvaluasiCasemix: <T = unknown>(recordId: string, data: { status: 'pending' | 'valid' | 'perlu_klarifikasi'; alasan: string; bukti: { halaman: number; kutipan: string }[] }) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/evaluasi-casemix`, { method: 'POST', body: JSON.stringify(data) }),
+
   tinjauDiagnosis: <T = unknown>(recordId: string, paksaSol = false) =>
     request<T>(`/api/v1/claim-files/records/${recordId}/tinjauan-diagnosis`, { method: 'POST', body: JSON.stringify({ paksa_sol: paksaSol }), timeout: 600000 }),
 
@@ -447,21 +450,12 @@ export const api = {
     fd.append('jenis_klaim', jenisKlaim);
     // Ekstraksi AI biasanya 10-20 detik, tapi berkas RAWAT_INAP (banyak
     // halaman/catatan multi-hari -> OCR + AI review lebih lama) bisa jauh
-    // melebihi itu. 90 detik sebelumnya sering keburu timeout padahal
-    // prosesnya tetap lanjut & berhasil di server (browser bilang gagal,
-    // tapi file tetap muncul di Riwayat Upload) — samakan dengan timeout
-    // upload batch (10 menit) supaya cukup untuk berkas terberat sekalipun.
-    return request<T>('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 600000 });
+    // Menunggu hingga server selesai; file besar tidak diputus oleh durasi.
+    return request<T>('/api/v1/claim-files/upload-pdf', { method: 'POST', body: fd, timeout: 0 });
   },
 
   // PDF Upload — batch (banyak file, 1 kategori pelayanan untuk semua file).
-  // Maks 300 file/batch (26 Aug 2026, permintaan klien) — estimasi ~90 menit
-  // untuk 300 file (konsisten dengan hasil testing 50 file = ~15,5 menit dgn
-  // BATCH_AI_CONCURRENCY=20 di server) — timeout digenerosikan ke 2 jam supaya
-  // batch besar tidak keburu di-abort padahal masih diproses server-side.
-  // Progress real-time tetap masuk lewat socket event 'pdf-batch:*' walau
-  // request fetch ini sendiri akhirnya timeout/gagal (lihat UploadJobContext:
-  // status per-file yang sudah dilaporkan via socket TIDAK ditimpa jadi error).
+  // Maksimal 300 file; penerimaan dan pemrosesan tidak dibatasi durasi di klien.
   // allowedJenisKlaim: kategori yang MUNGKIN ada di batch ini (verifikator
   // toggle 1/2/3 kategori sebelum drag file) — BUKAN kategori pasti per file.
   // Backend mendeteksi kategori tiap file dari isi dokumennya sendiri,
@@ -472,7 +466,7 @@ export const api = {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     fd.append('allowed_jenis_klaim', JSON.stringify(allowedJenisKlaim));
-    return request<T>('/api/v1/claim-files/upload-pdf-antre', { method: 'POST', body: fd, timeout: 600000 });
+    return request<T>('/api/v1/claim-files/upload-pdf-antre', { method: 'POST', body: fd, timeout: 0 });
   },
   getProsesUnggah: <T = unknown>() => request<T>('/api/v1/claim-files/proses-unggah'),
   tutupProsesUnggah: <T = unknown>(ids: string[]) =>
@@ -482,7 +476,7 @@ export const api = {
     const fd = new FormData();
     files.forEach(f => fd.append('files', f));
     fd.append('allowed_jenis_klaim', JSON.stringify(allowedJenisKlaim));
-    return request<T>('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 7200000 });
+    return request<T>('/api/v1/claim-files/upload-pdf-batch', { method: 'POST', body: fd, timeout: 0 });
   },
 
   // Batch Audit (Phase 2)
@@ -527,7 +521,7 @@ export const api = {
   // bisa"). nginx proxy_read_timeout sudah 600s, bukan itu sumbernya.
   // Disamakan dengan timeout upload-pdf.
   rereadRecord: <T = unknown>(recordId: string) =>
-    request<T>(`/api/v1/claim-files/records/${recordId}/reread`, { method: 'POST', timeout: 600000 }),
+    request<T>(`/api/v1/claim-files/records/${recordId}/reread`, { method: 'POST', timeout: 0 }),
 
   // RV-20 (kriteria kegawatan IGD) — audit trail konfirmasi manual checklist.
   getRv20Confirmation: <T = unknown>(recordId: string) => request<T>(`/api/v1/records/${recordId}/rv20-confirm`),

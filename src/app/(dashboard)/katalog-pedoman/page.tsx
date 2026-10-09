@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 interface Source {url:string; id_daftar:string}
 interface FileInfo {sha256:string; jumlah_halaman:number; status_ekstraksi:string}
-interface Doc {id:string; judul:string; nomor:string|null; tahun:number|null; jenis:string; cakupan_usia:string; berlaku_mulai:string|null; status_unduh:string; status_telaah:string; catatan:string[]; berkas:FileInfo[]; sumber:Source[]; menggantikan:string[]; digantikan_oleh:string[]; cuplikan?:{halaman:number;kutipan:string}[]}
+interface Doc {id:string; judul:string; nomor:string|null; tahun:number|null; jenis:string; cakupan_usia:string; berlaku_mulai:string|null; status_unduh:string; status_telaah:string; catatan:string[]; berkas:FileInfo[]; sumber:Source[]; menggantikan:string[]; digantikan_oleh:string[]; cuplikan?:{halaman:number;kutipan:string}[]; pengetahuan_agen?:{tersedia:boolean;bagian:{topik:string;halaman:number;kutipan?:string}[]}}
 interface Data { total:number; cakupan:string; diperiksa_pada:string; ringkasan:{entri:number;pdf_unik:number;halaman_pdf:number;belum_terunduh:number}; dokumen:Doc[] }
 const ages:Record<string,string>={dewasa:'Dewasa',anak:'Anak',anak_remaja:'Anak dan remaja',remaja:'Remaja',bayi:'Bayi',per_butir:'Usia mengikuti butir',perlu_telaah:'Cakupan usia perlu telaah'};
+const topics:Record<string,string>={definisi:'Definisi',kriteria_diagnosis:'Dasar diagnosis',penunjang:'Pemeriksaan penunjang',rawat_inap:'Rawat inap',intensif:'Perawatan intensif',indikasi_tindakan:'Indikasi tindakan',pulang_rujuk:'Pulang dan rujuk',tata_laksana:'Tata laksana'};
 const kinds:Record<string,string>={pnpk:'PNPK Kemenkes',pnpk_profesi:'Pedoman profesi',ba:'BA kesepakatan',tkmkb:'TKMKB',manual_bpjs:'Manual BPJS',pedoman_lain:'Pedoman lain',koleksi:'Koleksi tautan'};
 function DocumentCard({d}:{d:Doc}) {
   const [error,setError]=useState('');const [busy,setBusy]=useState(false);
@@ -30,6 +31,15 @@ function DocumentCard({d}:{d:Doc}) {
     {d.menggantikan.length>0 && <p className="text-xs">Mencabut dokumen: {d.menggantikan.join(', ')}</p>}
     {d.digantikan_oleh.length>0 && <p className="text-xs text-amber-700 dark:text-amber-400">Memiliki pengganti: {d.digantikan_oleh.join(', ')}. Sesuaikan dengan tanggal episode.</p>}
     <p className="text-xs text-muted-foreground">{d.status_telaah==='memiliki_aturan_ditelaah'?'Sebagian butir telah ditelaah dan digunakan aplikasi; cakupan mengikuti aturan terkait.':'Rujukan katalog; kriteria belum dijadikan aturan otomatis.'}</p>
+    {d.pengetahuan_agen?.tersedia && <details className="rounded-md border p-3 text-sm">
+      <summary className="cursor-pointer font-medium">Ringkasan sumber tersedia · {d.pengetahuan_agen.bagian.length} bagian</summary>
+      <p className="mt-2 text-xs text-muted-foreground">Bagian pokok dari PDF, dengan halaman sumber. Ringkasan membantu telaah; cakupan usia dan konteks tetap mengikuti dokumen.</p>
+      <ul className="mt-3 space-y-3">{d.pengetahuan_agen.bagian.map((b,i)=><li key={`${b.topik}-${b.halaman}-${i}`}>
+        <p className="text-xs font-medium">{topics[b.topik] || b.topik} · halaman {b.halaman}</p>
+        {b.kutipan && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{b.kutipan}</p>}
+      </li>)}</ul>
+      {!d.pengetahuan_agen.bagian.some(b=>b.kutipan) && <a className="mt-3 inline-block text-xs text-primary underline" href={`/katalog-pedoman?dokumen=${encodeURIComponent(d.id)}`}>Baca ringkasan sumber</a>}
+    </details>}
     {d.catatan.map((c,i)=><p key={i} className="text-xs leading-relaxed text-muted-foreground">{c}</p>)}
     {d.cuplikan?.map((c,i)=><blockquote key={i} className="border-l-2 border-primary/30 pl-3 text-xs leading-relaxed"><span className="font-medium">Halaman PDF {c.halaman}</span> · {c.kutipan}</blockquote>)}
     <div className="flex flex-wrap items-center gap-2">{d.berkas.map((f,i)=><Button key={f.sha256} variant="outline" size="sm" disabled={busy} onClick={()=>download(i)}><Download className="h-4 w-4"/>{busy?'Menyiapkan...':i?`PDF salinan ${i+1}`:'Unduh PDF'}</Button>)}

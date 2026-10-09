@@ -12,6 +12,7 @@ export interface AlasanPending {
   kode: string | null;
   ringkas: string;
   penjelasan?: string;
+  poin?: { label: string; isi: string }[];
   keparahan: string;
   bukti: string | null;
   tindakan: string | null;
