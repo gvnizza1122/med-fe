@@ -37,7 +37,10 @@ import { AnimatePresence,motion,type Variants } from 'framer-motion';
 import { Ban,CheckCircle2,Pencil,Users as UsersIcon } from 'lucide-react';
 import { useCallback,useState } from 'react';
 
-interface User { id: string; email: string; full_name: string; nik: string; role: string; is_active: number; last_login: string; created_at: string; }
+interface User { id: string; email: string; username?: string | null; full_name: string; nik: string; role: string; is_active: number; last_login: string; created_at: string; }
+
+// Alamat pengganti dari backend untuk user yang hanya punya username.
+const EMAIL_INTERNAL = '@pengguna.medaudit.invalid';
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -89,7 +92,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [form, setForm] = useState({ email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
+  const [form, setForm] = useState({ username: '', email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
   const [error, setError] = useState('');
 
   const loadUsers = useCallback(async () => { try { setLoading(true); const d = await api.getUsers<{users: User[]}>(); setUsers(d.users); } catch (err) { console.error('[Users] Gagal memuat user:', err); } finally { setLoading(false); } }, []);
@@ -107,14 +110,14 @@ export default function UsersPage() {
         await api.createUser(form);
       }
       setShowModal(false); setEditUser(null);
-      setForm({ email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
+      setForm({ username: '', email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
       loadUsers();
     } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Gagal menyimpan'); }
   };
 
   const handleEdit = (u: User) => {
     setEditUser(u);
-    setForm({ email: u.email, password: '', full_name: u.full_name, nik: u.nik || '', role: u.role });
+    setForm({ username: u.username || '', email: u.email, password: '', full_name: u.full_name, nik: u.nik || '', role: u.role });
     setShowModal(true);
   };
 
@@ -124,7 +127,7 @@ export default function UsersPage() {
 
   const openCreateModal = () => {
     setEditUser(null);
-    setForm({ email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
+    setForm({ username: '', email: '', password: '', full_name: '', nik: '', role: 'verifikator' });
     setShowModal(true);
   };
 
@@ -159,7 +162,7 @@ export default function UsersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nama</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Username / Email</TableHead>
               <TableHead>NIK</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
@@ -197,7 +200,11 @@ export default function UsersPage() {
                       <span className="text-foreground">{u.full_name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {u.username && <div className="font-mono text-xs text-foreground">{u.username}</div>}
+                    {/* Email internal (user tanpa email) tidak ditampilkan. */}
+                    <div>{u.email.endsWith(EMAIL_INTERNAL) ? (u.username ? '' : '-') : u.email}</div>
+                  </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{u.nik || '-'}</TableCell>
                   <TableCell>
                     <Badge variant={roleBadgeVariant(u.role)} className="capitalize">
@@ -281,13 +288,27 @@ export default function UsersPage() {
             </motion.div>
 
             <motion.div className="space-y-1.5" variants={fieldVariants}>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username (untuk login)</Label>
+              <Input
+                id="username"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })}
+                pattern="[a-z0-9._\-]{3,32}"
+                title="3-32 karakter: huruf kecil, angka, titik, garis bawah, atau tanda minus"
+                autoComplete="off"
+                required={!editUser && !form.email}
+                disabled={!!editUser}
+              />
+            </motion.div>
+
+            <motion.div className="space-y-1.5" variants={fieldVariants}>
+              <Label htmlFor="email">Email{!editUser && ' (opsional bila username diisi)'}</Label>
               <Input
                 id="email"
                 type="email"
-                value={form.email}
+                value={editUser && editUser.email.endsWith(EMAIL_INTERNAL) ? '' : form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                required
+                required={!editUser && !form.username}
                 disabled={!!editUser}
               />
             </motion.div>
