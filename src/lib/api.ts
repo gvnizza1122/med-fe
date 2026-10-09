@@ -251,6 +251,10 @@ export const api = {
     request<{ diagnosis: Record<string, string>; procedure: Record<string, string> }>('/api/v1/code-descriptions/lookup', { method: 'POST', body: JSON.stringify({ diagnosis, procedure }) }),
   // Tab "Saran AI": diagnosis, prosedur, INA-CBG & tarif yang disusun dari isi
   // berkas. Hanya dibaca, tidak mengubah data klaim.
+  // Daftar pasien di samping Hasil Validasi: klaim dengan periode (bulan
+  // pelayanan) yang sama dengan record ini. status: semua | pending | valid.
+  getPasienSebulan: <T = unknown>(recordId: string, params: Record<string, string> = {}) =>
+    request<T>(`/api/v1/claim-files/records/${recordId}/sebulan?${new URLSearchParams(params).toString()}`),
   getSaranKoding: <T = unknown>(recordId: string) =>
     request<T>(`/api/v1/claim-files/records/${recordId}/saran-koding`),
 

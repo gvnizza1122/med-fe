@@ -18,7 +18,6 @@ import { PadananKodeNyeriCard } from '@/components/PadananKodeNyeriCard';
 import { PemeriksaanPenunjangPanel } from '@/components/PemeriksaanPenunjangPanel';
 import type { PutusanPending } from '@/components/PutusanPendingCard';
 import { ReferensiKlaimCard,type HasilReferensiKlaim } from '@/components/ReferensiKlaimCard';
-import { RingkasanTemuanCard } from '@/components/RingkasanTemuanCard';
 import { Rv20ConfirmationModal } from '@/components/Rv20ConfirmationModal';
 import { SaranKodingPanel } from '@/components/SaranKodingPanel';
 import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
@@ -29,9 +28,8 @@ import { ToastContainer,useToast } from '@/components/Toast';
 import { api } from '@/lib/api';
 import { DOCUMENT_TYPE_LABELS } from '@/lib/generateCodingExplanation';
 import { validateClinicalCoherence,type ClinicalCoherenceInput,type VitalSigns } from '@/services/clinicalCoherenceValidator';
-import { AnimatePresence,motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { useParams,useSearchParams } from 'next/navigation';
+import { useParams,useRouter,useSearchParams } from 'next/navigation';
 import { Fragment,useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode,type Ref } from 'react';
 // import { InaCbgDashboardCard } from '@/components/InaCbgDashboardCard'; // disembunyikan sementara (18 Sep 2026)
 
@@ -47,8 +45,9 @@ import { BilahAksiKlaim } from '@/components/hasil-validasi/BilahAksiKlaim';
 import { formatRupiah,InaCbgRingkasCard } from '@/components/hasil-validasi/InaCbgRingkasCard';
 import { KepalaPasienCard,type PeringatanKolom } from '@/components/hasil-validasi/KepalaPasienCard';
 import { adaBukti,cariBukti,KodeKlaimPanel,pecahKode,type BuktiKode } from '@/components/hasil-validasi/KodeKlaimPanel';
-import { RingkasanKpi } from '@/components/hasil-validasi/RingkasanKpi';
-import { AlertTriangle,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,FileText,Lightbulb,PanelLeftOpen,Pencil,RotateCw,Sparkles,XCircle } from 'lucide-react';
+import { AlasanPendingCard,type BagianDetail,type ItemAlasan,type Keparahan } from '@/components/hasil-validasi/AlasanPendingCard';
+import { DaftarPasienSebulan,type Filter as FilterDaftar,type PasienSebulan } from '@/components/hasil-validasi/DaftarPasienSebulan';
+import { AlertTriangle,BookOpen,CheckCircle2,ChevronDown,FileCode2,FileText,HeartPulse,Lightbulb,MessageSquare,Pencil,RotateCw,Sparkles,Table2,X,XCircle } from 'lucide-react';
 
 // react-pdf (pdfjs-dist) mengakses DOMMatrix di level modul — API browser
 // yang tidak ada saat Next.js SSR. Import statis biasa bikin server crash
@@ -468,11 +467,6 @@ function toBulletPoints(text: string): string[] {
   return lines;
 }
 
-/** Potong teks jadi maks N karakter, sisipkan "…" kalau kepotong. */
-function truncatePoint(text: string, max = 110): string {
-  if (text.length <= max) return text;
-  return `${text.slice(0, max).replace(/\s+\S*$/, '')}…`;
-}
 
 function parseAiReview(recordData: Record<string, unknown>): AiReview | null {
   if (!recordData.ai_review) return null;
@@ -2485,14 +2479,32 @@ function LoadingSpinner() {
 // dalamnya (TS18049), sehingga `npm run build` gagal.
 const SHOW_RV20: boolean = false;
 
+const BAGIAN_DETAIL: { id: BagianDetail; label: string; ikon: typeof FileText }[] = [
+  { id: 'kode', label: 'Kode dan tarif', ikon: FileCode2 },
+  { id: 'bukti', label: 'Bukti dan referensi', ikon: BookOpen },
+  { id: 'fisik', label: 'Pemeriksaan fisik', ikon: HeartPulse },
+  { id: 'agen', label: 'Agen casemix', ikon: MessageSquare },
+  { id: 'semua', label: 'Semua data klaim', ikon: Table2 },
+];
+
+const KEPARAHAN_AI: Record<string, Keparahan> = { tinggi: 'berat', sedang: 'sedang', rendah: 'ringan' };
+
+/** Ambil nomor halaman dari teks bukti seperti "Resume medis hal. 2". */
+function halamanDariTeks(teks?: string | null): number | null {
+  const m = /hal(?:aman)?\.?\s*(\d+)/i.exec(teks || '');
+  return m ? Number(m[1]) : null;
+}
+
 export default function ResultsPage() {
   const params = useParams();
+  const router = useRouter();
   const fileId = params.fileId as string;
-  // ?sep=... (dari link Pending BPJS atau hasil pencarian Riwayat Upload) —
-  // langsung loncat ke record yang cocok, bukan selalu record pertama
+  // ?sep=... / ?record=... (dari Riwayat Upload, Pending BPJS, atau daftar
+  // pasien sebulan) — langsung ke record yang dimaksud, bukan record pertama
   // (penting untuk file legacy TXT/Excel berisi ratusan record).
   const searchParams = useSearchParams();
   const search = searchParams.get('sep') || '';
+  const recordDiminta = searchParams.get('record') || '';
   // ?highlight=DIAGLIST,TOTAL_TARIF (dari link Pending BPJS) — kolom vClaim
   // penyebab pending, disorot di RecordFieldsTable.
   const highlightFields = useMemo(
@@ -2504,68 +2516,71 @@ export default function ResultsPage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [records, setRecords] = useState<ClaimRecord[]>([]);
   const [recordsError, setRecordsError] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [isSavingRecord, setIsSavingRecord] = useState(false);
   const [isRereading, setIsRereading] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
-  // Dialog PDF: { halaman, satuHalaman } -- satuHalaman=true untuk bukti per
-  // kutipan, false untuk tombol "Lihat PDF asli" (seluruh dokumen).
+  // Dialog PDF: satuHalaman=true untuk bukti per kutipan, false untuk tombol
+  // "PDF asli" (seluruh dokumen).
   const [pdfDialog, setPdfDialog] = useState<{ halaman: number; satuHalaman: boolean } | null>(null);
   const [maximizeData, setMaximizeData] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, unknown>>({});
   const [onlyIssues, setOnlyIssues] = useState(false);
-  // Seluruh kolom data klaim (tabel 60 kolom + pratinjau PDF) disembunyikan
-  // sampai diminta. Terbuka otomatis bila datang dari tautan Pending BPJS
-  // yang menyorot kolom (?highlight=).
-  const [tampilkanDetail, setTampilkanDetail] = useState(() => highlightFields.size > 0);
-  const [tabKanan, setTabKanan] = useState<'data' | 'saran' | 'tarif' | 'operasi'>('data');
-  const [listCollapsed, setListCollapsed] = useState(false);
+  // Halaman dibuka dengan HANYA alasan pending. Bagian lain dibuka lewat
+  // tombol pilihan dan ditutup lagi setiap pindah pasien (permintaan casemix:
+  // yang pertama dilihat untuk setiap pasien selalu alasan pendingnya).
+  // Pengecualian: tautan Pending BPJS yang menyorot kolom (?highlight=).
+  const [bagianTerbuka, setBagianTerbuka] = useState<Set<BagianDetail>>(
+    () => new Set<BagianDetail>(highlightFields.size > 0 ? ['semua'] : [])
+  );
+  const [tabKode, setTabKode] = useState<'data' | 'saran' | 'tarif' | 'operasi'>('data');
   const [rv20ConfirmedRecordIds, setRv20ConfirmedRecordIds] = useState<Set<string>>(new Set());
   const [suratKlarifikasiOpen, setSuratKlarifikasiOpen] = useState(false);
-  // Nomor permintaan terakhir -- respons lama (filter/halaman yang sudah
-  // diganti) tidak boleh menimpa daftar yang lebih baru.
+  // Nomor permintaan terakhir -- respons lama tidak boleh menimpa yang baru.
   const permintaanRecords = useRef(0);
 
   const bukaBukti = useCallback((halaman: number) => setPdfDialog({ halaman, satuHalaman: true }), []);
 
-  // Edit data dan pratinjau PDF ada di dalam bagian detail -- buka otomatis.
-  useDeferredEffect(() => {
-    if (isEditing || showPdf || highlightFields.size > 0) setTampilkanDetail(true);
-  }, [isEditing, showPdf, highlightFields]);
-
-  const selectRecord = (id: string) => {
-    setSelectedRecordId(id);
-    setListCollapsed(true);
+  const bukaBagian = useCallback((bagian: BagianDetail) => {
+    setBagianTerbuka(prev => new Set(prev).add(bagian));
+    // Tunggu bagian ter-render, lalu gulir ke sana.
+    setTimeout(() => document.getElementById(`bagian-${bagian}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }, []);
+  const alihBagian = (bagian: BagianDetail) => {
+    if (bagianTerbuka.has(bagian)) {
+      setBagianTerbuka(prev => { const s = new Set(prev); s.delete(bagian); return s; });
+    } else bukaBagian(bagian);
   };
+
+  // Edit data dan pratinjau PDF ada di bagian "Semua data klaim".
+  useDeferredEffect(() => {
+    if (isEditing || showPdf) setBagianTerbuka(prev => (prev.has('semua') ? prev : new Set(prev).add('semua')));
+  }, [isEditing, showPdf]);
 
   const loadRecords = useCallback(async () => {
     const nomor = ++permintaanRecords.current;
     try {
-      const p: Record<string, string> = { page: String(page), limit: '30' };
-      if (filter !== 'all') p.status = filter;
+      const p: Record<string, string> = { page: '1', limit: '30' };
       if (search) p.search = search;
       const d = await api.getRecords<{ records: ClaimRecord[]; total: number }>(fileId, p);
       if (nomor !== permintaanRecords.current) return;
       setRecordsError(null);
       setRecords(d.records);
-      setTotal(d.total);
       if (d.records.length > 0) {
         const firstErrorRecord = d.records.find(r => r.error_count > 0);
         setSelectedRecordId(prev => {
+          if (recordDiminta && d.records.some(r => r.id === recordDiminta)) return recordDiminta;
           if (prev && d.records.some(r => r.id === prev)) return prev;
           return firstErrorRecord ? firstErrorRecord.id : d.records[0].id;
         });
       }
     } catch (err) {
       if (nomor !== permintaanRecords.current) return;
-      setRecordsError(err instanceof Error ? err.message : 'Daftar klaim gagal dimuat.');
+      setRecordsError(err instanceof Error ? err.message : 'Data klaim gagal dimuat.');
     }
-  }, [fileId, page, filter, search]);
+  }, [fileId, search, recordDiminta]);
 
   const loadFileInfo = useCallback(async () => {
     try {
@@ -2587,12 +2602,15 @@ export default function ResultsPage() {
 
   useDeferredEffect(() => { loadRecords(); }, [loadRecords]);
 
-  // Reset per-record edit/evidence state saat ganti record
+  // Pindah pasien: kembali ke tampilan alasan pending saja.
   useDeferredEffect(() => {
     setIsEditing(false);
     setEditedValues({});
     setShowPdf(false);
     setMaximizeData(false);
+    setTabKode('data');
+    setBagianTerbuka(new Set<BagianDetail>(highlightFields.size > 0 ? ['semua'] : []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRecordId]);
 
   // RV-20 (kriteria kegawatan IGD, non-blocking): cek ke server apakah sudah
@@ -2616,6 +2634,19 @@ export default function ResultsPage() {
   // ai_review bisa besar; di-parse sekali per record, bukan di setiap kartu.
   const aiReview = useMemo(() => (selectedRecord ? parseAiReview(selectedRecord) : null), [selectedRecord]);
   const dataMentah = useMemo(() => (selectedRecord ? parseRawData(selectedRecord) : {}), [selectedRecord]);
+
+  const filterDaftar = searchParams.get('daftar');
+  const pilihPasienSebulan = useCallback((p: PasienSebulan, filter: FilterDaftar) => {
+    if (p.file_id === fileId && records.some(r => r.id === p.record_id)) {
+      setSelectedRecordId(p.record_id);
+      return;
+    }
+    const q = new URLSearchParams();
+    if (p.sep) q.set('sep', p.sep);
+    q.set('record', p.record_id);
+    if (filter !== 'semua') q.set('daftar', filter);
+    router.push(`/results/${p.file_id}?${q.toString()}`);
+  }, [fileId, records, router]);
 
   const handleApprove = async () => {
     if (!fileInfo) return;
@@ -2684,7 +2715,6 @@ export default function ResultsPage() {
     </div>
   );
 
-  const totalPages = Math.ceil(total / 30);
   // Dibungkus try/catch: nilai localStorage yang rusak tidak boleh
   // menjatuhkan seluruh halaman. Peran di sini hanya untuk menampilkan
   // tombol; izinnya tetap diperiksa backend.
@@ -2696,115 +2726,12 @@ export default function ResultsPage() {
   const isPdf = String(fileInfo.file_name || '').toLowerCase().endsWith('.pdf');
   const onOpenPdf = isPdf ? bukaBukti : undefined;
   const kategori = JENIS_KLAIM_OPTIONS.find(o => o.value === fileInfo.jenis_klaim);
-  const multiRecord = total > 1 || records.length > 1;
-
-  const daftarPasien = multiRecord && (
-    <motion.div
-      className="shrink-0 overflow-hidden"
-      animate={{ width: listCollapsed ? 48 : 340 }}
-      initial={false}
-      transition={{ type: 'spring', stiffness: 340, damping: 32 }}
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        {listCollapsed ? (
-          <motion.button
-            key="rail"
-            onClick={() => setListCollapsed(false)}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="flex h-[420px] w-12 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-            aria-label={`Tampilkan daftar pasien (${total || records.length})`}
-          >
-            <PanelLeftOpen aria-hidden="true" className="size-4" />
-            <span className="text-[11px] font-medium tracking-wide" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
-              Daftar Pasien ({total || records.length})
-            </span>
-          </motion.button>
-        ) : (
-          <motion.div
-            key="list"
-            className="w-[340px] space-y-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, delay: 0.1 }}
-          >
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              Status
-              <select
-                className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                value={filter}
-                onChange={e => { setFilter(e.target.value); setPage(1); }}
-              >
-                <option value="all">Semua rekam</option>
-                <option value="valid">Valid</option>
-                <option value="error">Pending - wajib revisi</option>
-                <option value="pending">Pending - perlu dicek</option>
-              </select>
-            </label>
-            <Card className="gap-0 overflow-hidden p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th scope="col" className="px-3 py-2 text-left text-xs font-semibold">Pasien</th>
-                    <th scope="col" className="px-3 py-2 text-left text-xs font-semibold">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.length === 0 ? (
-                    <tr><td colSpan={2} className="py-6 text-center text-muted-foreground">Tidak ada data</td></tr>
-                  ) : records.map(rec => (
-                    <tr
-                      key={rec.id}
-                      className={cn('cursor-pointer border-b last:border-0 hover:bg-muted/40', selectedRecordId === rec.id && 'bg-primary/10')}
-                      onClick={() => selectRecord(rec.id)}
-                      aria-selected={selectedRecordId === rec.id}
-                    >
-                      <td className="px-3 py-2">
-                        <div className="text-[13px] font-semibold">{rec.nama_pasien || '(kosong)'}</div>
-                        <div className="text-[11px] text-muted-foreground">RM {rec.mrn || '-'} · <span className="font-mono">{rec.sep || '-'}</span></div>
-                      </td>
-                      <td className="px-3 py-2"><RecordStatusBadge status={rec.validation_status} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Card>
-            {totalPages > 1 && (
-              <div className="flex flex-wrap items-center gap-1">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} aria-label="Halaman sebelumnya">
-                  <ChevronLeft className="size-3.5" />
-                </Button>
-                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                  let pageNum: number;
-                  if (totalPages <= 7) pageNum = i + 1;
-                  else if (page <= 4) pageNum = i + 1;
-                  else if (page >= totalPages - 3) pageNum = totalPages - 6 + i;
-                  else pageNum = page - 3 + i;
-                  return (
-                    <Button key={pageNum} variant={page === pageNum ? 'default' : 'outline'} size="sm" className="w-8 px-0" onClick={() => setPage(pageNum)}>
-                      {pageNum}
-                    </Button>
-                  );
-                })}
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} aria-label="Halaman berikutnya">
-                  <ChevronRight className="size-3.5" />
-                </Button>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
 
   const detail = (() => {
     if (!selectedRecord) {
       return (
         <Card className="p-10 text-center text-muted-foreground">
-          {recordsError ? 'Daftar klaim gagal dimuat.' : records.length === 0 ? 'Tidak ada klaim pada filter ini.' : 'Pilih pasien dari daftar untuk melihat hasil validasi.'}
+          {recordsError ? 'Data klaim gagal dimuat.' : records.length === 0 ? 'Klaim tidak ditemukan di berkas ini.' : 'Pilih pasien untuk melihat hasil validasi.'}
         </Card>
       );
     }
@@ -2812,24 +2739,94 @@ export default function ResultsPage() {
     const kodeDiagnosis = pecahKode(selectedRecord.diagnosa_list ?? dataMentah.DIAGLIST);
     const kodeProsedur = pecahKode(selectedRecord.prosedur_list ?? dataMentah.PROCLIST);
     const buktiKode = (aiReview?.code_evidence || []) as BuktiKode[];
-    const prosedurKosong = kodeProsedur.length === 0 && !String(dataMentah.PROCLIST ?? '').trim();
     const putusan = aiReview?.putusan_pending;
     const kelengkapan = aiReview?.kelengkapan_analisis;
     const analisisLengkap = !kelengkapan || kelengkapan.status === 'lengkap';
     const errors = selectedRecord.errors || [];
+    const statusPending = ['pending', 'error'].includes(String(selectedRecord.validation_status).toLowerCase());
 
-    // Satu peringatan per kolom (rule engine bisa melaporkan kolom yang sama
-    // lebih dari sekali); maksimal 4 di kepala, sisanya ada di daftar masalah.
-    const kolomBermasalah = [...new Map(errors.map(e => [e.field_name, e])).values()];
-    const peringatan: PeringatanKolom[] = kolomBermasalah.slice(0, 4).map(e => ({
-      kunci: e.field_name,
-      teks: `${getFieldLabel(e.field_name)}: ${String(e.actual_value ?? '').trim() ? 'perlu diperbaiki' : 'kosong, isi manual'}`,
-    }));
-    if (kolomBermasalah.length > 4) peringatan.push({ kunci: '_lainnya', teks: `+${kolomBermasalah.length - 4} kolom lain` });
+    // Bagian Pemeriksaan fisik hanya ada bila asesmen bentuk baru tersedia
+    // (asesmen lama berupa array, lihat KegawatdaruratanTable).
+    const asesmenGawat = aiReview?.kegawatdaruratan_assessment;
+    const adaFisik = Boolean(asesmenGawat && !Array.isArray(asesmenGawat) && Array.isArray(asesmenGawat.kriteria));
 
-    const tanggalLahirMentah = String(selectedRecord.birth_date ?? dataMentah.BIRTH_DATE ?? '');
-    const isoLahir = /^(\d{4})-(\d{2})-(\d{2})/.exec(tanggalLahirMentah);
-    const tanggalLahir = isoLahir ? `${isoLahir[3]}/${isoLahir[2]}/${isoLahir[1]}` : (tanggalLahirMentah || null);
+    // ─── Satu daftar alasan pending dari semua sumber ───
+    const alasan: ItemAlasan[] = [];
+    const ruleDariError = new Set(errors.map(e => e.rule_id));
+    errors.forEach((err, i) => {
+      const poin = toBulletPoints(aiReview?.field_notes?.[err.field_name] || err.error_message);
+      alasan.push({
+        id: `aturan-${err.rule_id}-${i}`,
+        judul: `${getFieldLabel(err.field_name)}: ${poin[0] || 'periksa kembali nilai pada kolom ini'}`,
+        rincian: poin.slice(1),
+        sumber: 'Aturan validasi',
+        keparahan: err.severity === 'critical' || err.severity === 'major' ? 'berat' : 'sedang',
+        buka: { bagian: 'semua', label: 'Perbaiki di data klaim' },
+      });
+    });
+    (putusan?.alasan || []).forEach((a, i) => {
+      // Alasan dari aturan validasi sudah tampil dari daftar error di atas.
+      if (a.sumber_pemeriksaan === 'Aturan validasi' && a.kode && ruleDariError.has(a.kode)) return;
+      const teks = `${a.kode || ''} ${a.ringkas} ${a.sumber_pemeriksaan}`.toLowerCase();
+      alasan.push({
+        id: `ai-${a.kode || 'x'}-${i}`,
+        judul: a.ringkas,
+        rincian: a.penjelasan ? toBulletPoints(a.penjelasan) : undefined,
+        sumber: a.dari_rekap_pending ? `${a.sumber_pemeriksaan} · pernah jadi alasan penolakan BPJS` : a.sumber_pemeriksaan,
+        keparahan: KEPARAHAN_AI[a.keparahan] || 'sedang',
+        bukti: a.bukti,
+        halaman: halamanDariTeks(a.bukti),
+        tindakan: a.tindakan,
+        buka: adaFisik && /kegawat|triase|vital/.test(teks) ? { bagian: 'fisik', label: 'Buka pemeriksaan fisik' }
+          : /kode|koding|kamus|icd|tarif|inacbg|ina-cbg/.test(teks) ? { bagian: 'kode', label: 'Buka kode dan tarif' }
+          : undefined,
+      });
+    });
+    (aiReview?.pending_risk_notes || []).forEach((r, i) => {
+      const poin = toBulletPoints(r.note);
+      alasan.push({
+        id: `pola-${r.pattern}-${i}`,
+        judul: PENDING_RISK_LABELS[r.pattern] || r.pattern,
+        rincian: poin,
+        sumber: 'Pola yang biasa membuat klaim dipending',
+        keparahan: 'sedang',
+        halaman: r.page_number,
+      });
+    });
+    const teksAlasanAi = (putusan?.alasan || []).map(a => `${a.kode || ''} ${a.ringkas}`).join(' ').toUpperCase();
+    const periksaKode = (kode: string, jenis: BuktiKode['type']) => {
+      if (teksAlasanAi.includes(kode.toUpperCase())) return;
+      const b = cariBukti(buktiKode, kode, jenis);
+      const nama = jenis === 'diagnosis' ? 'Diagnosis' : 'Prosedur';
+      const buka = { bagian: 'kode' as const, label: 'Buka kode dan tarif' };
+      if (b?.dictionary_status === 'not_found') {
+        alasan.push({ id: `kode-${jenis}-${kode}`, judul: `${nama} ${kode} tidak ada di kamus resmi`, sumber: 'Bukti kode', keparahan: 'berat', tindakan: 'Ganti dengan kode ICD yang sah.', buka });
+      } else if (b && (b.review_status === 'PENDING' || b.coding_review_status === 'PENDING')) {
+        alasan.push({ id: `kode-${jenis}-${kode}`, judul: `${nama} ${kode} perlu dicek`, sumber: 'Bukti kode', keparahan: 'sedang', halaman: b.page_number, buka });
+      } else if (aiReview && !adaBukti(b)) {
+        alasan.push({ id: `kode-${jenis}-${kode}`, judul: `${nama} ${kode} belum ada buktinya di dokumen`, sumber: 'Bukti kode', keparahan: 'ringan', tindakan: 'Cek resume medis, atau hapus kode bila memang tidak tertulis.', buka });
+      }
+    };
+    kodeDiagnosis.forEach(k => periksaKode(k, 'diagnosis'));
+    kodeProsedur.forEach(k => periksaKode(k, 'procedure'));
+    if (statusPending && kodeProsedur.length === 0 && !String(dataMentah.PROCLIST ?? '').trim()) {
+      alasan.push({
+        id: 'proclist-kosong',
+        judul: 'Daftar prosedur (PROCLIST) masih kosong',
+        rincian: ['Lengkapi hanya bila ada prosedur yang benar-benar tertulis; jangan menambahkan tindakan atau kode berdasarkan dugaan.'],
+        sumber: 'Kelengkapan klaim',
+        keparahan: 'sedang',
+        buka: { bagian: 'kode', label: 'Lihat usulan di Saran AI' },
+      });
+    }
+    const tindakanTerbaca = (aiReview?.temuan_tindakan || [])
+      .filter((t, i, semua) => !t.kode_usulan || semua.findIndex(x => x.kode_usulan === t.kode_usulan) === i)
+      .map(t => (t.kode_usulan ? `${t.nama} (${t.kode_usulan})` : t.nama));
+
+    const jumlahBukti = [
+      aiReview?.penjaminan, aiReview?.referensi_klaim, (aiReview?.syarat_penunjang?.length ?? 0) > 0,
+      aiReview?.dasar_diagnosis || (aiReview?.tindakan_belum_dikode?.length ?? 0) > 0, aiReview?.analisis_kritis,
+    ].filter(Boolean).length;
 
     const kodeInacbg = String(selectedRecord.inacbg_code || dataMentah.INACBG || aiReview?.inacbg_result?.code || '').trim() || null;
     const deskripsiInacbg = String(selectedRecord.deskripsi_inacbg || dataMentah.DESKRIPSI_INACBG || aiReview?.inacbg_result?.description || '').trim() || null;
@@ -2841,30 +2838,31 @@ export default function ResultsPage() {
       : tarifResult ? [tarifResult.source, tarifResult.region, tarifResult.class && `kelas ${tarifResult.class}`].filter(Boolean).join(' · ') : null;
     const rupiah = formatRupiah(tarifInacbg);
 
-    const siapKirim = analisisLengkap && selectedRecord.validation_status === 'valid' && putusan?.status !== 'berisiko_pending';
+    const kolomBermasalah = [...new Map(errors.map(e => [e.field_name, e])).values()];
+    const peringatan: PeringatanKolom[] = kolomBermasalah.slice(0, 3).map(e => ({
+      kunci: e.field_name,
+      teks: `${getFieldLabel(e.field_name)}: ${String(e.actual_value ?? '').trim() ? 'perlu diperbaiki' : 'kosong, isi manual'}`,
+    }));
+    if (kolomBermasalah.length > 3) peringatan.push({ kunci: '_lainnya', teks: `+${kolomBermasalah.length - 3} kolom lain` });
+
+    const tanggalLahirMentah = String(selectedRecord.birth_date ?? dataMentah.BIRTH_DATE ?? '');
+    const isoLahir = /^(\d{4})-(\d{2})-(\d{2})/.exec(tanggalLahirMentah);
+    const tanggalLahir = isoLahir ? `${isoLahir[3]}/${isoLahir[2]}/${isoLahir[1]}` : (tanggalLahirMentah || null);
+
+    const siapKirim = analisisLengkap && selectedRecord.validation_status === 'valid' && alasan.length === 0;
     const sudahDisetujui = fileInfo.status === 'approved';
 
-    const aksiKepala = (
-      <>
-        {isPdf && (
-          <Button variant="outline" size="sm" className="min-h-10" onClick={() => setPdfDialog({ halaman: 1, satuHalaman: false })}>
-            <FileText aria-hidden="true" className="size-4" /> Lihat PDF asli
-          </Button>
-        )}
-        <Button variant="outline" size="sm" className="min-h-10" disabled={isRereading} onClick={handleReread}
-          title="Ekstraksi ulang dari PDF asli — untuk kolom kosong/keliru yang sebenarnya ada di dokumen, atau bila analisis AI gagal">
-          <RotateCw aria-hidden="true" className={cn('size-4', isRereading && 'animate-spin')} /> {isRereading ? 'Membaca ulang...' : 'Baca ulang'}
-        </Button>
-        {!isEditing && (
-          <Button variant="outline" size="sm" className="min-h-10" onClick={() => setIsEditing(true)}>
-            <Pencil aria-hidden="true" className="size-4" /> Edit data
-          </Button>
-        )}
-        <Button size="sm" className="min-h-10" aria-expanded={tampilkanDetail} aria-controls="detail-klaim" onClick={() => setTampilkanDetail(v => !v)}>
-          <ChevronDown aria-hidden="true" className={cn('size-4 transition-transform', tampilkanDetail && 'rotate-180')} />
-          {tampilkanDetail ? 'Sembunyikan semua data' : 'Tampilkan semua data'}
-        </Button>
-      </>
+    const tutupBagian = (bagian: BagianDetail) => (
+      <button type="button" onClick={() => alihBagian(bagian)} aria-label="Tutup bagian ini"
+        className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+        <X aria-hidden="true" className="size-4" />
+      </button>
+    );
+    const kepalaBagian = (bagian: BagianDetail, judul: string, tambahan?: ReactNode) => (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-foreground">{judul}</h2>
+        <div className="flex flex-wrap items-center gap-2">{tambahan}{tutupBagian(bagian)}</div>
+      </div>
     );
 
     return (
@@ -2879,257 +2877,237 @@ export default function ResultsPage() {
           umur={extractAge(selectedRecord)}
           dpjp={String(selectedRecord.dpjp_name || dataMentah.DPJP || '') || null}
           peringatan={peringatan}
-          aksi={aksiKepala}
+          aksi={
+            <>
+              {isPdf && (
+                <Button variant="outline" size="sm" className="min-h-10" onClick={() => setPdfDialog({ halaman: 1, satuHalaman: false })}>
+                  <FileText aria-hidden="true" className="size-4" /> PDF asli
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="min-h-10" disabled={isRereading} onClick={handleReread}
+                title="Ekstraksi ulang dari PDF asli — untuk kolom kosong/keliru yang sebenarnya ada di dokumen, atau bila analisis AI gagal">
+                <RotateCw aria-hidden="true" className={cn('size-4', isRereading && 'animate-spin')} /> {isRereading ? 'Membaca ulang...' : 'Baca ulang'}
+              </Button>
+              {!isEditing && (
+                <Button variant="outline" size="sm" className="min-h-10" onClick={() => setIsEditing(true)}>
+                  <Pencil aria-hidden="true" className="size-4" /> Edit data
+                </Button>
+              )}
+            </>
+          }
         />
 
-        <RingkasanKpi
-          totalRekam={fileInfo.total_records}
-          rekamValid={fileInfo.valid_count}
-          kodeDiagnosis={{ terbukti: kodeDiagnosis.filter(k => adaBukti(cariBukti(buktiKode, k, 'diagnosis'))).length, total: kodeDiagnosis.length }}
-          risiko={{ status: putusan?.status ?? null, jumlahAlasan: putusan?.jumlah?.total ?? putusan?.alasan?.length ?? 0, jumlahBerat: putusan?.jumlah?.berat ?? 0 }}
+        <AlasanPendingCard
+          items={alasan}
+          analisisTersedia={Boolean(aiReview)}
+          catatanKelengkapan={!analisisLengkap && kelengkapan ? kelengkapan.alasan.map(a => a.pesan) : []}
+          tindakanTerbaca={tindakanTerbaca}
+          keandalan={putusan?.catatan_keandalan || 'Penilaian aplikasi, bukan keputusan BPJS.'}
+          onBuka={bukaBagian}
+          onOpenPdf={onOpenPdf}
         />
 
-        {/* Breakpoint mengikuti lebar area detail (@container), bukan layar:
-            saat daftar pasien terbuka, area ini jauh lebih sempit. */}
-        <div className="grid items-start gap-4 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] @6xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
-          {/* ─── Kolom kiri: status, analisis risiko, bukti ─── */}
-          <div className="min-w-0 space-y-4">
-            {!analisisLengkap && kelengkapan && (
-              <section role="alert" className="rounded-xl border border-amber-600/25 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h3 className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300">
-                    <AlertTriangle aria-hidden="true" className="size-4" /> Berkas tersimpan · Analisis belum lengkap
-                  </h3>
-                </div>
-                <p className="mt-1 text-sm">Hasil yang tersedia masih sebagian. Persetujuan dan ekspor siap submit ditahan sampai analisis dilengkapi.</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{kelengkapan.alasan.map(a => <li key={a.kode}>{a.pesan}</li>)}</ul>
-              </section>
-            )}
+        {/* ─── Pilihan bagian lain (semua tertutup di awal) ─── */}
+        <nav aria-label="Lihat detail lainnya" className="space-y-2">
+          <p className="text-sm text-muted-foreground">Lihat detail lainnya</p>
+          <div className="flex flex-wrap gap-2">
+            {BAGIAN_DETAIL.filter(b => b.id !== 'fisik' || adaFisik).map(b => {
+              const terbuka = bagianTerbuka.has(b.id);
+              const Ikon = b.ikon;
+              const info = b.id === 'kode' ? kodeInacbg : b.id === 'bukti' && jumlahBukti ? String(jumlahBukti) : null;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  aria-pressed={terbuka}
+                  aria-controls={`bagian-${b.id}`}
+                  onClick={() => alihBagian(b.id)}
+                  className={cn('inline-flex min-h-10 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors',
+                    terbuka ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:bg-muted')}
+                >
+                  <Ikon aria-hidden="true" className="size-4" />
+                  {b.label}
+                  {info && <span className={cn('font-mono-data text-xs', terbuka ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{info}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
+        {bagianTerbuka.has('kode') && (
+          <section id="bagian-kode" className="scroll-mt-4 space-y-3">
+            {kepalaBagian('kode', 'Kode dan tarif')}
+            {/* Breakpoint mengikuti lebar area detail (@container), bukan layar. */}
+            <div className="grid items-start gap-4 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+              <Card className="gap-0 overflow-hidden p-0">
+                <Tabs value={tabKode} onValueChange={v => setTabKode(v as typeof tabKode)} className="gap-0">
+                  <div className="border-b border-border px-3 py-2.5">
+                    <TabsList aria-label="Kode klaim, saran AI, tarif, dan laporan operasi" className="h-auto w-full flex-wrap justify-start gap-1">
+                      <TabsTrigger value="data" className="min-h-9 px-3">Data klaim</TabsTrigger>
+                      <TabsTrigger value="saran" className="min-h-9 px-3">Saran AI</TabsTrigger>
+                      <TabsTrigger value="tarif" className="min-h-9 px-3">Tarif</TabsTrigger>
+                      <TabsTrigger value="operasi" className="min-h-9 px-3">Lap. operasi</TabsTrigger>
+                    </TabsList>
+                  </div>
+                  <TabsContent value="data" className="p-4">
+                    <KodeKlaimPanel diagnosis={kodeDiagnosis} prosedur={kodeProsedur} bukti={buktiKode} onOpenPdf={onOpenPdf} />
+                  </TabsContent>
+                  <TabsContent value="saran"><SaranKodingPanel recordId={String(selectedRecord.id)} /></TabsContent>
+                  <TabsContent value="tarif" className="space-y-4 p-4">
+                    <TarifGandaCard recordId={String(selectedRecord.id)} />
+                    <div className="border-t border-border pt-4"><SaranKodingPanel recordId={String(selectedRecord.id)} mode="tarif" /></div>
+                    <section aria-label="Detail grouping data klaim" className="border-t border-border pt-4">
+                      <h4 className="text-sm font-medium">Detail grouping dan kesesuaian klinis</h4>
+                      <div className="mt-3"><InaCbgCoherenceDisplay recordData={selectedRecord} /></div>
+                    </section>
+                  </TabsContent>
+                  <TabsContent value="operasi">
+                    <LaporanOperasiPanel recordId={String(selectedRecord.id)} hashBukti={aiReview?.laporan_operasi?.hash_bukti} onOpenPdf={onOpenPdf} />
+                  </TabsContent>
+                </Tabs>
+              </Card>
+              <InaCbgRingkasCard
+                kode={kodeInacbg}
+                deskripsi={deskripsiInacbg}
+                tarif={tarifInacbg}
+                sumber={sumberTarif}
+                jenisLayanan={kategori?.label}
+                catatan={!tarifInacbg && tarifResult?.note ? tarifResult.note : null}
+              />
+            </div>
+          </section>
+        )}
+
+        {bagianTerbuka.has('bukti') && (
+          <section id="bagian-bukti" className="scroll-mt-4 space-y-3">
+            {kepalaBagian('bukti', 'Bukti dan referensi')}
             {aiReview?.penjaminan && (
               <p className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground">
                 <CheckCircle2 aria-hidden="true" className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span><strong>Penjamin BPJS · SEP tersedia.</strong> Label UMUM pada resume tidak menjadi alasan pending.</span>
               </p>
             )}
-
-            {errors.length > 0 && (
-              <section aria-label="Masalah validasi data" className="rounded-xl border border-amber-600/25 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10 sm:p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
-                    <div>
-                      <h3 className="text-base font-semibold text-amber-900 dark:text-amber-300">Perlu perbaikan data</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-foreground/85">Ditemukan oleh pemeriksaan aturan aplikasi. Periksa data dan dokumen asli sebelum klaim dikirim.</p>
-                    </div>
-                  </div>
-                  <span className="rounded-full border border-amber-600/25 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-                    {errors.length} masalah
-                  </span>
-                </div>
-                <div className="mt-4 divide-y divide-amber-500/20 border-t border-amber-500/20">
-                  {errors.map((err, i) => {
-                    const points = toBulletPoints(aiReview?.field_notes?.[err.field_name] || err.error_message);
-                    return (
-                      <div key={`${err.rule_id}-${i}`} className="py-3 last:pb-0">
-                        <p className="text-sm font-semibold text-foreground">{getFieldLabel(err.field_name)}</p>
-                        <ul className="mt-1.5 list-disc space-y-1 break-words pl-5 text-sm leading-relaxed text-foreground/85">
-                          {(points.length ? points : ['Periksa kembali nilai pada kolom ini.']).map((point, j) => <li key={j}>{point}</li>)}
-                        </ul>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            <RingkasanTemuanCard
-              putusan={putusan}
-              tindakan={aiReview?.temuan_tindakan}
-              validationStatus={selectedRecord.validation_status}
-              prosedurKosong={prosedurKosong}
-              currentValidationIssues={errors.length}
-            />
-
-            {(aiReview?.pending_risk_notes?.length ?? 0) > 0 && (
-              <section className="space-y-2 rounded-xl border border-violet-500/30 bg-violet-500/[0.06] px-4 py-3 text-sm">
-                <h3 className="flex items-center gap-1.5 font-semibold text-violet-800 dark:text-violet-300">
-                  <Sparkles aria-hidden="true" className="size-4" /> Pola yang biasa membuat klaim dipending
-                </h3>
-                <div className="space-y-2">
-                  {aiReview?.pending_risk_notes?.map((risk, i) => (
-                    <div key={i}>
-                      <strong className="text-foreground">{PENDING_RISK_LABELS[risk.pattern] || risk.pattern}</strong>
-                      <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
-                        {toBulletPoints(risk.note).map((pt, j) => (
-                          <li key={j} className="text-muted-foreground" title={pt}>{truncatePoint(pt, 160)}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {!aiReview && (
-              <section className="space-y-1.5 rounded-xl border border-border bg-muted px-4 py-3 text-sm">
-                <h3 className="font-semibold text-foreground">Analisis AI tidak tersedia</h3>
-                <p className="text-muted-foreground">
-                  Analisis AI untuk klaim ini gagal dibuat saat unggah (bukan berarti tidak ada catatan). Klik &ldquo;Baca ulang&rdquo; untuk mencoba lagi.
-                </p>
-              </section>
-            )}
-
             <ReferensiKlaimCard hasil={aiReview?.referensi_klaim} />
             <SyaratPenunjangCard temuan={aiReview?.syarat_penunjang} />
             <DasarDiagnosisCard dasar={aiReview?.dasar_diagnosis} tindakan={aiReview?.tindakan_belum_dikode} onOpenPdf={onOpenPdf} />
             <AnalisisKritisCard analisis={aiReview?.analisis_kritis} onOpenPdf={onOpenPdf} />
-            {/* Komponennya sendiri return null kalau tidak ada asesmen. */}
-            <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} onOpenPdf={onOpenPdf} />
-          </div>
-
-          {/* ─── Kolom kanan: kode klaim, saran, tarif, laporan operasi ─── */}
-          <div className="min-w-0 space-y-4">
-            <Card className="gap-0 overflow-hidden p-0">
-              <Tabs value={tabKanan} onValueChange={v => setTabKanan(v as typeof tabKanan)} className="gap-0">
-                <div className="border-b border-border px-3 py-2.5">
-                  <TabsList aria-label="Kode klaim, saran AI, tarif, dan laporan operasi" className="h-auto w-full flex-wrap justify-start gap-1">
-                    <TabsTrigger value="data" className="min-h-9 px-3">Data klaim</TabsTrigger>
-                    <TabsTrigger value="saran" className="min-h-9 px-3">Saran AI</TabsTrigger>
-                    <TabsTrigger value="tarif" className="min-h-9 px-3">Tarif</TabsTrigger>
-                    <TabsTrigger value="operasi" className="min-h-9 px-3">Lap. operasi</TabsTrigger>
-                  </TabsList>
-                </div>
-                <TabsContent value="data" className="p-4">
-                  <KodeKlaimPanel diagnosis={kodeDiagnosis} prosedur={kodeProsedur} bukti={buktiKode} onOpenPdf={onOpenPdf} />
-                </TabsContent>
-                <TabsContent value="saran"><SaranKodingPanel recordId={String(selectedRecord.id)} /></TabsContent>
-                <TabsContent value="tarif" className="space-y-4 p-4">
-                  <TarifGandaCard recordId={String(selectedRecord.id)} />
-                  <div className="border-t border-border pt-4"><SaranKodingPanel recordId={String(selectedRecord.id)} mode="tarif" /></div>
-                  <section aria-label="Detail grouping data klaim" className="border-t border-border pt-4">
-                    <h4 className="text-sm font-medium">Detail grouping dan kesesuaian klinis</h4>
-                    <div className="mt-3"><InaCbgCoherenceDisplay recordData={selectedRecord} /></div>
-                  </section>
-                </TabsContent>
-                <TabsContent value="operasi">
-                  <LaporanOperasiPanel recordId={String(selectedRecord.id)} hashBukti={aiReview?.laporan_operasi?.hash_bukti} onOpenPdf={onOpenPdf} />
-                </TabsContent>
-              </Tabs>
-            </Card>
-            <InaCbgRingkasCard
-              kode={kodeInacbg}
-              deskripsi={deskripsiInacbg}
-              tarif={tarifInacbg}
-              sumber={sumberTarif}
-              jenisLayanan={kategori?.label}
-              catatan={!tarifInacbg && tarifResult?.note ? tarifResult.note : null}
-            />
-          </div>
-        </div>
-
-        {/* ─── Seluruh data klaim (tersembunyi sampai diminta) ─── */}
-        {tampilkanDetail && (
-          <Card id="detail-klaim" className="gap-5 p-5 sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-foreground sm:text-xl">Semua data klaim</h2>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Periksa kolom yang perlu ditindaklanjuti dan cocokkan dengan dokumen asli.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-foreground hover:bg-muted/50">
-                  <input type="checkbox" className="size-4 accent-primary" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
-                  Hanya tampilkan masalah
-                </label>
-                {SHOW_RV20 && errors.some(e => e.rule_id === 'RV-20') && (
-                  <Button variant="outline" size="sm" className="min-h-10 px-3 text-sm" onClick={() => setSuratKlarifikasiOpen(true)}>
-                    Buat Surat Klarifikasi
-                  </Button>
-                )}
-                {isPdf && (
-                  <Button variant="outline" size="sm" className="min-h-10 px-3 text-sm" onClick={() => setShowPdf(v => !v)}>
-                    <FileText aria-hidden="true" className="size-4" />
-                    {showPdf ? 'Sembunyikan PDF' : 'PDF di samping'}
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* RV-13 s/d RV-16 silent-valid: baris ringkas HANYA bila datanya ada dan keempat rule bersih. */}
-            {hasEpisodeTrackingData(selectedRecord) && !errors.some(e => ['RV-13', 'RV-14', 'RV-15', 'RV-16'].includes(e.rule_id)) && (
-              <p className="text-xs text-muted-foreground">RV-13 s/d RV-16: tidak ada isu terdeteksi.</p>
-            )}
-
-            {SHOW_RV20 && errors.some(e => e.rule_id === 'RV-20') && <PadananKodeNyeriCard />}
-
-            {showPdf ? (
-              <div>
-                <div className="mb-2 flex items-center gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setMaximizeData(v => !v)}>
-                    {maximizeData ? 'Kembali' : 'Perbesar data'}
-                  </Button>
-                </div>
-                <div className={cn('grid gap-4', maximizeData ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2')}>
-                  <div
-                    className={cn('min-w-0', maximizeData ? 'order-1' : 'order-2 xl:order-1')}
-                    style={{ maxHeight: maximizeData ? 'none' : 780, overflowY: maximizeData ? 'visible' : 'auto' }}
-                  >
-                    <RecordFieldsTable
-                      recordData={selectedRecord}
-                      validationErrors={errors}
-                      editing={isEditing}
-                      editedValues={editedValues}
-                      onEdit={(col, val) => { setIsEditing(true); setEditedValues(prev => ({ ...prev, [col]: val })); }}
-                      onlyIssues={onlyIssues}
-                      jenisKlaim={fileInfo.jenis_klaim}
-                      highlightFields={highlightFields}
-                    />
-                  </div>
-                  <div className={cn('min-w-0', maximizeData ? 'order-2' : 'order-1 xl:order-2')}>
-                    {/* ErrorBoundary lokal: crash pdf.js di satu perangkat tidak boleh
-                        menjatuhkan tabel data. Key per record supaya boundary reset
-                        saat pindah pasien (sebelumnya key={fileId}, sama untuk semua
-                        pasien di berkas, jadi sekali gagal tetap gagal). */}
-                    <ErrorBoundary
-                      key={`${fileId}-${selectedRecord.id}`}
-                      fallback={
-                        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card p-6 text-center" style={{ height: maximizeData ? 420 : 780 }}>
-                          <FileText className="size-6 text-muted-foreground" />
-                          <p className="text-sm font-semibold text-foreground">Dokumen PDF tidak dapat ditampilkan</p>
-                          <p className="max-w-xs text-xs text-muted-foreground">
-                            Terjadi kendala teknis saat menampilkan pratinjau PDF di perangkat ini. Data klaim di sebelah tetap bisa dibaca &amp; diedit seperti biasa.
-                          </p>
-                        </div>
-                      }
-                    >
-                      <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 420 : 780} />
-                    </ErrorBoundary>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <RecordFieldsTable
-                recordData={selectedRecord}
-                validationErrors={errors}
-                editing={isEditing}
-                editedValues={editedValues}
-                onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
-                onlyIssues={onlyIssues}
-                jenisKlaim={fileInfo.jenis_klaim}
-                highlightFields={highlightFields}
-              />
-            )}
-
-            {SHOW_RV20 && errors.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
-              <Rv20ConfirmationModal
-                recordId={selectedRecord.id}
-                onConfirmed={() => setRv20ConfirmedRecordIds(prev => new Set(prev).add(selectedRecord.id))}
-              />
-            )}
-          </Card>
+            {jumlahBukti === 0 && <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">Belum ada bukti atau referensi tambahan untuk klaim ini.</p>}
+          </section>
         )}
 
-        <AgenCasemixPanel recordId={String(selectedRecord.id)} onOpenPdf={onOpenPdf} />
+        {bagianTerbuka.has('fisik') && adaFisik && (
+          <section id="bagian-fisik" className="scroll-mt-4 space-y-3">
+            {kepalaBagian('fisik', 'Pemeriksaan fisik')}
+            <KegawatdaruratanTable key={`kegawatdaruratan-${selectedRecord.id}`} recordData={selectedRecord} onOpenPdf={onOpenPdf} />
+          </section>
+        )}
+
+        {bagianTerbuka.has('agen') && (
+          <section id="bagian-agen" className="scroll-mt-4 space-y-3">
+            {kepalaBagian('agen', 'Agen casemix')}
+            <AgenCasemixPanel recordId={String(selectedRecord.id)} onOpenPdf={onOpenPdf} />
+          </section>
+        )}
+
+        {bagianTerbuka.has('semua') && (
+          <section id="bagian-semua" className="scroll-mt-4">
+            <Card id="detail-klaim" className="gap-5 p-5 sm:p-6">
+              <div className="border-b border-border pb-4">
+                {kepalaBagian('semua', 'Semua data klaim', (
+                  <>
+                    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-foreground hover:bg-muted/50">
+                      <input type="checkbox" className="size-4 accent-primary" checked={onlyIssues} onChange={e => setOnlyIssues(e.target.checked)} />
+                      Hanya tampilkan masalah
+                    </label>
+                    {SHOW_RV20 && errors.some(e => e.rule_id === 'RV-20') && (
+                      <Button variant="outline" size="sm" className="min-h-10 px-3 text-sm" onClick={() => setSuratKlarifikasiOpen(true)}>
+                        Buat Surat Klarifikasi
+                      </Button>
+                    )}
+                    {isPdf && (
+                      <Button variant="outline" size="sm" className="min-h-10 px-3 text-sm" onClick={() => setShowPdf(v => !v)}>
+                        <FileText aria-hidden="true" className="size-4" />
+                        {showPdf ? 'Sembunyikan PDF' : 'PDF di samping'}
+                      </Button>
+                    )}
+                  </>
+                ))}
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Periksa kolom yang perlu ditindaklanjuti dan cocokkan dengan dokumen asli.</p>
+              </div>
+
+              {/* RV-13 s/d RV-16 silent-valid: baris ringkas HANYA bila datanya ada dan keempat rule bersih. */}
+              {hasEpisodeTrackingData(selectedRecord) && !errors.some(e => ['RV-13', 'RV-14', 'RV-15', 'RV-16'].includes(e.rule_id)) && (
+                <p className="text-xs text-muted-foreground">RV-13 s/d RV-16: tidak ada isu terdeteksi.</p>
+              )}
+
+              {SHOW_RV20 && errors.some(e => e.rule_id === 'RV-20') && <PadananKodeNyeriCard />}
+
+              {showPdf ? (
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => setMaximizeData(v => !v)}>
+                      {maximizeData ? 'Kembali' : 'Perbesar data'}
+                    </Button>
+                  </div>
+                  <div className={cn('grid gap-4', maximizeData ? 'grid-cols-1' : 'grid-cols-1 @4xl:grid-cols-2')}>
+                    <div
+                      className={cn('min-w-0', maximizeData ? 'order-1' : 'order-2 @4xl:order-1')}
+                      style={{ maxHeight: maximizeData ? 'none' : 780, overflowY: maximizeData ? 'visible' : 'auto' }}
+                    >
+                      <RecordFieldsTable
+                        recordData={selectedRecord}
+                        validationErrors={errors}
+                        editing={isEditing}
+                        editedValues={editedValues}
+                        onEdit={(col, val) => { setIsEditing(true); setEditedValues(prev => ({ ...prev, [col]: val })); }}
+                        onlyIssues={onlyIssues}
+                        jenisKlaim={fileInfo.jenis_klaim}
+                        highlightFields={highlightFields}
+                      />
+                    </div>
+                    <div className={cn('min-w-0', maximizeData ? 'order-2' : 'order-1 @4xl:order-2')}>
+                      {/* ErrorBoundary lokal: crash pdf.js di satu perangkat tidak boleh
+                          menjatuhkan tabel data. Key per record supaya boundary reset
+                          saat pindah pasien. */}
+                      <ErrorBoundary
+                        key={`${fileId}-${selectedRecord.id}`}
+                        fallback={
+                          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card p-6 text-center" style={{ height: maximizeData ? 420 : 780 }}>
+                            <FileText className="size-6 text-muted-foreground" />
+                            <p className="text-sm font-semibold text-foreground">Dokumen PDF tidak dapat ditampilkan</p>
+                            <p className="max-w-xs text-xs text-muted-foreground">
+                              Terjadi kendala teknis saat menampilkan pratinjau PDF di perangkat ini. Data klaim di sebelah tetap bisa dibaca &amp; diedit seperti biasa.
+                            </p>
+                          </div>
+                        }
+                      >
+                        <PdfViewer fileId={fileId} fileName={fileInfo.file_name} height={maximizeData ? 420 : 780} />
+                      </ErrorBoundary>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <RecordFieldsTable
+                  recordData={selectedRecord}
+                  validationErrors={errors}
+                  editing={isEditing}
+                  editedValues={editedValues}
+                  onEdit={(col, val) => setEditedValues(prev => ({ ...prev, [col]: val }))}
+                  onlyIssues={onlyIssues}
+                  jenisKlaim={fileInfo.jenis_klaim}
+                  highlightFields={highlightFields}
+                />
+              )}
+
+              {SHOW_RV20 && errors.some(e => e.rule_id === 'RV-20') && !rv20ConfirmedRecordIds.has(selectedRecord.id) && (
+                <Rv20ConfirmationModal
+                  recordId={selectedRecord.id}
+                  onConfirmed={() => setRv20ConfirmedRecordIds(prev => new Set(prev).add(selectedRecord.id))}
+                />
+              )}
+            </Card>
+          </section>
+        )}
 
         <BilahAksiKlaim
           nada={siapKirim ? 'siap' : 'tunda'}
@@ -3144,8 +3122,9 @@ export default function ResultsPage() {
                   ? `${Object.keys(editedValues).length} perubahan belum disimpan`
                   : sudahDisetujui ? 'Berkas sudah disetujui.'
                   : !analisisLengkap ? 'Analisis belum lengkap — persetujuan ditahan.'
+                  : alasan.length > 0 ? `Masih ada ${alasan.length} hal yang perlu ditindaklanjuti.`
                   : siapKirim ? 'Klaim siap diproses lanjut ke ekspor.'
-                  : 'Masih ada hal yang perlu ditindaklanjuti sebelum dikirim.'}
+                  : 'Periksa status klaim sebelum dikirim.'}
               </span>
             </p>
           }
@@ -3181,14 +3160,18 @@ export default function ResultsPage() {
 
       {recordsError && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-          <span>Daftar klaim gagal dimuat: {recordsError}</span>
+          <span>Data klaim gagal dimuat: {recordsError}</span>
           <Button variant="outline" size="sm" onClick={loadRecords}>Coba lagi</Button>
         </div>
       )}
 
-      <div className={cn('flex items-start gap-4', !multiRecord && 'block')}>
-        {daftarPasien}
-        <div className="@container min-w-0 flex-1">{detail}</div>
+      <div className="flex flex-col items-start gap-4 md:flex-row">
+        {selectedRecordId && (
+          <div className="w-full shrink-0 md:w-auto md:self-stretch">
+            <DaftarPasienSebulan recordId={selectedRecordId} filterAwal={filterDaftar} onPilih={pilihPasienSebulan} />
+          </div>
+        )}
+        <div className="@container w-full min-w-0 flex-1">{detail}</div>
       </div>
 
       <Dialog open={pdfDialog !== null} onOpenChange={open => { if (!open) setPdfDialog(null); }}>
