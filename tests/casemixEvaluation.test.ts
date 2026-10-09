@@ -12,11 +12,14 @@ test('pendapat petugas dan kebutuhan evaluasi ulang tampil, form meminta alasan 
  expect(h).toContain('value="" selected=""');expect(h).not.toContain('value="valid" selected');
  expect(h).toContain('Simpan evaluasi petugas');expect(h).toContain('disabled=""');
 });
-test('alasan terstruktur menjadi poin; kutipan tidak tergabung ke paragraf tebal panjang',()=>{
+test('alasan terstruktur menjadi poin; kartu ringkas, dasar & sumber tertutup',()=>{
  const putusan:PutusanPending={status:'berisiko_pending',ringkasan:'Periksa lesi dalam.',catatan_keandalan:'Penilaian aplikasi.',jumlah:{total:1,berat:1,sudah_disahkan:0,belum_disahkan:1,dari_rekap_pending:0},alasan:[{sumber_pemeriksaan:'Kesesuaian STT (BA 2024)',kode:'BA-STT-KODE',ringkas:'Ringkasan panjang lama',poin:[{label:'Alasan',isi:'Lesi dalam tidak tercermin di kode.'},{label:'Bukti',isi:'Massa di antara otot (hal. 14).'},{label:'Perbaikan',isi:'Konfirmasi kepada operator.'}],keparahan:'tinggi',bukti:null,tindakan:null,diverifikasi:true,dari_rekap_pending:false}]};
  const {judul,rincian}=judulDanRincianAlasan(putusan.alasan[0]);
  const h=renderToStaticMarkup(React.createElement(AlasanPendingCard,{items:[{id:'stt',judul,rincian,sumber:'Kesesuaian STT (BA 2024)',keparahan:'berat'}],analisisTersedia:true,catatanKelengkapan:[],tindakanTerbaca:[],onBuka:()=>{}}));
- expect(h).toContain('Lesi dalam tidak tercermin di kode.');expect(h).toContain('Bukti: Massa');expect(h).toContain('Perbaikan: Konfirmasi');expect(h).not.toContain('Ringkasan panjang lama');expect(h.match(/<li /g)?.length).toBe(3);
+ expect(rincian).toEqual(['Bukti: Massa di antara otot (hal. 14).','Perbaikan: Konfirmasi kepada operator.']);
+ expect(h).toContain('Lesi dalam tidak tercermin di kode.');expect(h).not.toContain('Ringkasan panjang lama');
+ // Ringkas: dasar & sumber tertutup sampai dibuka petugas.
+ expect(h).toContain('Dasar &amp; sumber');expect(h).not.toContain('Bukti: Massa');expect(h.match(/<li /g)?.length).toBe(1);
 });
 test('API mengirim pendapat petugas, alasan dan rujukan halaman ke endpoint evaluasi',async()=>{
  const fetchMock=jest.fn().mockResolvedValue({ok:true,status:200,headers:{get:()=> 'application/json'},json:async()=>({tersimpan:true})});

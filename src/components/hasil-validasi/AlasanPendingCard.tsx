@@ -3,7 +3,8 @@
 // SATU daftar, urut dari yang paling berat. Sumbernya berbeda-beda (aturan
 // validasi, analisis AI, pola pending, bukti kode) dan disusun induknya;
 // kartu ini hanya mengurutkan dan menampilkan. Tidak mengubah data klaim.
-import { AlertCircle, AlertTriangle, CheckCircle2, CircleAlert, FileText } from 'lucide-react';
+import { useState } from 'react';
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, CircleAlert, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +60,15 @@ export function AlasanPendingCard({
   const urut = [...items].sort((a, b) => URUTAN[a.keparahan] - URUTAN[b.keparahan]);
   const jumlahBerat = urut.filter(i => i.keparahan === 'berat').length;
   const bersih = urut.length === 0;
+  // Dasar pemeriksaan & sumber disembunyikan supaya daftar langsung ke inti;
+  // dibuka per alasan. Reset otomatis saat daftar alasan (pasien) berganti.
+  const [dasar, setDasar] = useState<{ items: ItemAlasan[]; ids: Set<string> }>({ items, ids: new Set() });
+  const dasarTerbuka = dasar.items === items ? dasar.ids : new Set<string>();
+  const toggleDasar = (id: string) => {
+    const ids = new Set(dasarTerbuka);
+    if (ids.has(id)) ids.delete(id); else ids.add(id);
+    setDasar({ items, ids });
+  };
 
   return (
     <Card className={cn('gap-0 p-0', bersih ? 'border-emerald-500/40' : jumlahBerat ? 'border-red-300 dark:border-red-500/40' : 'border-amber-500/40')}>
@@ -100,30 +110,37 @@ export function AlasanPendingCard({
                 <Ikon aria-label={k.label} className={cn('mt-0.5 size-5', k.kelas)} />
                 <div className="min-w-0">
                   <p className="break-words font-medium leading-snug text-foreground">{item.judul}</p>
-                  {item.rincian && item.rincian.length > 0 && (
-                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-foreground/80">
-                      {item.rincian.map((r, i) => <li key={i} className="break-words">{r}</li>)}
-                    </ul>
-                  )}
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {item.sumber}
-                    {item.bukti && <> · <span className="italic">{item.bukti}</span></>}
-                  </p>
-                  {item.tindakan && <p className="mt-1 text-sm text-foreground"><span className="text-muted-foreground">Lakukan:</span> {item.tindakan}</p>}
-                  {((item.halaman && onOpenPdf) || item.buka) && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {item.halaman && onOpenPdf && (
-                        <button type="button" onClick={() => onOpenPdf(item.halaman!)}
-                          className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted">
-                          <FileText aria-hidden="true" className="size-3.5" /> Lihat bukti hal. {item.halaman}
-                        </button>
+                  {item.tindakan && <p className="mt-1 text-sm text-foreground/85"><span className="text-muted-foreground">Lakukan:</span> {item.tindakan}</p>}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {item.halaman && onOpenPdf && (
+                      <button type="button" onClick={() => onOpenPdf(item.halaman!)}
+                        className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted">
+                        <FileText aria-hidden="true" className="size-3.5" /> Lihat bukti hal. {item.halaman}
+                      </button>
+                    )}
+                    {item.buka && (
+                      <button type="button" onClick={() => onBuka(item.buka!.bagian)}
+                        className="inline-flex min-h-8 items-center rounded-md border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary hover:bg-primary/10">
+                        {item.buka.label}
+                      </button>
+                    )}
+                    <button type="button" aria-expanded={dasarTerbuka.has(item.id)} onClick={() => toggleDasar(item.id)}
+                      className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+                      {dasarTerbuka.has(item.id) ? 'Sembunyikan dasar' : 'Dasar & sumber'}
+                      <ChevronDown aria-hidden="true" className={cn('size-3.5 transition-transform', dasarTerbuka.has(item.id) && 'rotate-180')} />
+                    </button>
+                  </div>
+                  {dasarTerbuka.has(item.id) && (
+                    <div className="mt-2 rounded-md bg-muted/50 px-3 py-2">
+                      {item.rincian && item.rincian.length > 0 && (
+                        <ul className="mb-1 list-disc space-y-0.5 pl-5 text-sm text-foreground/80">
+                          {item.rincian.map((r, i) => <li key={i} className="break-words">{r}</li>)}
+                        </ul>
                       )}
-                      {item.buka && (
-                        <button type="button" onClick={() => onBuka(item.buka!.bagian)}
-                          className="inline-flex min-h-8 items-center rounded-md border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary hover:bg-primary/10">
-                          {item.buka.label}
-                        </button>
-                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {item.sumber}
+                        {item.bukti && <> · <span className="italic">{item.bukti}</span></>}
+                      </p>
                     </div>
                   )}
                 </div>
