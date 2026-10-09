@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { EvaluasiCasemixForm, type EvaluasiCasemix } from './EvaluasiCasemixForm';
 
 type StatusKode = 'didukung_bukti' | 'perlu_klarifikasi' | 'belum_cukup_bukti' | 'belum_dinilai';
 interface Bukti { kutipan: string; halaman: number | null; jenis?: string }
@@ -23,7 +24,18 @@ interface Regulasi { id: string; judul: string; nomor: string | null; versi: str
 interface Syarat { syarat: string; status: 'terpenuhi' | 'perlu_konfirmasi' | 'belum_ditemukan'; sumber: string; regulasi?: Regulasi | null; bukti: string | null }
 interface Pertanyaan { untuk: 'dokter' | 'koder'; pertanyaan: string; dasar: string | null; halaman: number | null }
 interface Grup { diagnosis: string[]; prosedur: string[]; inacbg: string | null; deskripsi: string | null; tarif: number | null }
-interface Alternatif extends Grup { jenis: 'kepatuhan' | 'optimasi'; judul: string; selisih_tarif: number | null; syarat: string }
+interface Alternatif extends Grup { jenis: 'kepatuhan' | 'optimasi' | 'diagnosis_alternatif'; judul: string; selisih_tarif: number | null; syarat: string }
+type PenilaianSkenario = 'ditulis_dpjp_belum_dikode' | 'ditulis_dpjp_bukti_belum_cukup' | 'berisiko_upcoding' | 'perlu_diagnosis_dpjp' | 'bukti_belum_cukup';
+/** Diagnosis yang tersirat dari temuan berkas (skenarioDiagnosisService); tidak pernah diterapkan otomatis. */
+interface SkenarioDiagnosis extends Alternatif {
+  jenis: 'diagnosis_alternatif'; posisi: 'utama' | 'sekunder'; kode_pemicu: string;
+  penilaian: PenilaianSkenario; ringkas: string; alasan: string[]; peringatan: string;
+  ditulis_dpjp: 'ya' | 'suspek' | 'tidak';
+  dasar_temuan: { kutipan: string; halaman: number | null }[];
+  kode_dihapus: { kode: string; aturan: string; alasan: string }[];
+  syarat_terpenuhi: { syarat: string; dasar: string }[];
+  syarat_belum: { syarat: string; dasar: string }[];
+}
 interface Peristiwa { tanggal: string; jam: string | null; peristiwa: string; halaman: number; kutipan: string }
 interface LangkahJejak { nama: string; status: string | null; biaya_idr: number | null; keterangan: string | null; oleh?: 'agen' | 'luna' | 'sol' }
 interface Laporan {
@@ -39,6 +51,8 @@ interface Laporan {
   keyakinan: { skor: number; tingkat: string } | null;
   jejak_kerja: { langkah: LangkahJejak[]; total_biaya_ai_idr: number; sumber?: 'orkestrator'; durasi_detik?: number };
   keputusan_casemix: Keputusan | null;
+  evaluasi_casemix?: EvaluasiCasemix;
+  alignment_checklist?: { status: string; catatan: string; komponen: { id: string; nama: string; status: string; alasan: string; bukti: { page_number: number; kutipan: string }[] }[] };
   pelajaran_casemix: { kode: string; pola: 'sering_dihapus' | 'sering_ditambah'; pesan: string }[];
   catatan: string;
 }
@@ -64,6 +78,17 @@ const WARNA_KODE: Record<StatusKode, string> = {
   belum_dinilai: 'bg-muted text-muted-foreground',
 };
 const LABEL_SYARAT = { terpenuhi: 'Terpenuhi', perlu_konfirmasi: 'Perlu konfirmasi', belum_ditemukan: 'Belum ditemukan' };
+const LABEL_SKENARIO: Record<PenilaianSkenario, string> = {
+  ditulis_dpjp_belum_dikode: 'Kode terlewat', ditulis_dpjp_bukti_belum_cukup: 'Ditulis DPJP, bukti kurang',
+  berisiko_upcoding: 'Berisiko upcoding', perlu_diagnosis_dpjp: 'Perlu diagnosis DPJP', bukti_belum_cukup: 'Bukti belum cukup',
+};
+const WARNA_SKENARIO: Record<PenilaianSkenario, string> = {
+  ditulis_dpjp_belum_dikode: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+  ditulis_dpjp_bukti_belum_cukup: 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
+  berisiko_upcoding: 'bg-red-500/10 text-red-700 dark:text-red-400',
+  perlu_diagnosis_dpjp: 'bg-sky-500/10 text-sky-800 dark:text-sky-300',
+  bukti_belum_cukup: 'bg-muted text-muted-foreground',
+};
 const CONTOH_TANYA = ['Kenapa diagnosis utama ini dipilih?', 'Berapa selisih tarif bila diagnosis sekunder dihapus?', 'Buat draf jawaban bila klaim ini dipending'];
 
 const rupiah = (n: number | null | undefined) => (n == null ? '—' : `Rp${Math.round(n).toLocaleString('id-ID')}`);
@@ -84,6 +109,54 @@ function Bagian({ judul, children }: { judul: string; children: React.ReactNode 
       <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{judul}</h5>
       {children}
     </div>
+  );
+}
+
+function KemungkinanDiagnosisLain({ skenario, dasar, onOpenPdf }: { skenario: SkenarioDiagnosis[]; dasar: Grup; onOpenPdf?: (page: number) => void }) {
+  return (
+    <Bagian judul="Kemungkinan diagnosis lain dari isi berkas">
+      <ul className="space-y-2">
+        {skenario.map((s, i) => (
+          <li key={i} className="space-y-1.5 rounded-md bg-background/60 p-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', WARNA_SKENARIO[s.penilaian])}>{LABEL_SKENARIO[s.penilaian]}</span>
+              <span className="font-medium">{s.judul}</span>
+            </div>
+            <p>{s.ringkas}</p>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-mono-data">{dasar.diagnosis.join('; ')}</span> {dasar.inacbg && <>({dasar.inacbg} {rupiah(dasar.tarif)})</>}
+              {' → '}<span className="font-mono-data">{s.diagnosis.join('; ')}</span> {s.inacbg && <>({s.inacbg} {rupiah(s.tarif)})</>}
+              {s.selisih_tarif != null && <> · selisih {s.selisih_tarif >= 0 ? '+' : '−'}{rupiah(Math.abs(s.selisih_tarif))}</>}
+            </p>
+            {s.kode_dihapus.length > 0 && (
+              <p className="text-xs text-muted-foreground">{s.kode_dihapus.map(k => `${k.kode} tidak dikode (${k.aturan}: ${k.alasan})`).join(' · ')}</p>
+            )}
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground">Dasar temuan, alasan, dan syarat</summary>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <p className="font-medium">Dasar temuan di berkas</p>
+                  {s.dasar_temuan.map((b, j) => <div key={j} className="mt-1 flex flex-wrap items-center gap-2"><span>“{b.kutipan}”</span><Hal halaman={b.halaman} onOpenPdf={onOpenPdf} /></div>)}
+                </div>
+                {s.alasan.length > 0 && (
+                  <div>
+                    <p className="font-medium">Alasan</p>
+                    <ul className="ml-4 list-disc space-y-0.5">{s.alasan.map((a, j) => <li key={j}>{a}</li>)}</ul>
+                  </div>
+                )}
+                {s.syarat_terpenuhi.length > 0 && (
+                  <div>
+                    <p className="font-medium">Syarat yang sudah terpenuhi</p>
+                    <ul className="ml-4 list-disc space-y-0.5">{s.syarat_terpenuhi.map((a, j) => <li key={j}>{a.syarat}: {a.dasar}</li>)}</ul>
+                  </div>
+                )}
+                <p className="text-muted-foreground">{s.peringatan}</p>
+              </div>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </Bagian>
   );
 }
 
@@ -153,7 +226,7 @@ function KeputusanCasemixForm({ recordId, laporan, onTersimpan }: { recordId: st
   );
 }
 
-export function AgenCasemixPanel({ recordId, onOpenPdf }: { recordId: string; onOpenPdf?: (page: number) => void }) {
+export function AgenCasemixPanel({ recordId, onOpenPdf, onEvaluasiTersimpan }: { recordId: string; onOpenPdf?: (page: number) => void; onEvaluasiTersimpan?: () => void }) {
   const [hasil, setHasil] = useState<{ recordId: string; data: Laporan | null; gagal: boolean } | null>(null);
   const [percobaan, setPercobaan] = useState(0);
   const [terbuka, setTerbuka] = useState(false);
@@ -208,6 +281,8 @@ export function AgenCasemixPanel({ recordId, onOpenPdf }: { recordId: string; on
 
   const jejak = data.jejak_kerja || { langkah: [], total_biaya_ai_idr: 0 };
   const jumlahTanya = data.pertanyaan_klarifikasi.length;
+  const skenario = data.alternatif_koding.alternatif.filter((a): a is SkenarioDiagnosis => a.jenis === 'diagnosis_alternatif');
+  const alternatifSah = data.alternatif_koding.alternatif.filter(a => a.jenis !== 'diagnosis_alternatif');
 
   return (
     <section aria-label="Agen casemix" className={cn('space-y-3 rounded-lg border p-4', WARNA_STATUS[data.status])}>
@@ -229,8 +304,24 @@ export function AgenCasemixPanel({ recordId, onOpenPdf }: { recordId: string; on
         </Button>
       </div>
 
+      {skenario.length > 0 && <KemungkinanDiagnosisLain skenario={skenario} dasar={data.alternatif_koding.dasar} onOpenPdf={onOpenPdf} />}
+
+      <Bagian judul="Evaluasi petugas casemix RS">
+        <EvaluasiCasemixForm key={recordId} recordId={recordId} evaluasi={data.evaluasi_casemix} onOpenPdf={onOpenPdf} onTersimpan={() => { setPercobaan(n => n + 1); onEvaluasiTersimpan?.(); }} />
+      </Bagian>
+
       {terbuka && (
         <div className="space-y-3">
+          {data.alignment_checklist && <Bagian judul="Casemix Alignment Checklist">
+            <p className="text-xs text-muted-foreground">{data.alignment_checklist.catatan}</p>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {data.alignment_checklist.komponen.map(k => <li key={k.id} className="rounded-md bg-background/60 p-3 text-sm">
+                <strong>{k.nama}</strong><span className="ml-2 text-xs">{({ lulus: 'Lulus', dukungan_ditemukan: 'Dukungan ditemukan', perlu_klarifikasi: 'Perlu klarifikasi', tidak_cukup_data: 'Tidak cukup data' } as Record<string, string>)[k.status] || k.status}</span>
+                <p className="mt-1 text-xs text-muted-foreground">{k.alasan}</p>
+                {k.bukti.map((b, i) => <div key={i} className="mt-1 text-xs"><span>{b.kutipan}</span> <Hal halaman={b.page_number} onOpenPdf={onOpenPdf} /></div>)}
+              </li>)}
+            </ul>
+          </Bagian>}
           <Bagian judul="Rekomendasi koding">
             <ul className="space-y-2">
               {data.rekomendasi_koding.map(r => (
@@ -296,10 +387,10 @@ export function AgenCasemixPanel({ recordId, onOpenPdf }: { recordId: string; on
             </Bagian>
           )}
 
-          {data.alternatif_koding.alternatif.length > 0 && (
+          {alternatifSah.length > 0 && (
             <Bagian judul="Alternatif koding yang sah">
               <ul className="space-y-1.5 text-sm">
-                {data.alternatif_koding.alternatif.map((a, i) => (
+                {alternatifSah.map((a, i) => (
                   <li key={i} className="rounded-md bg-background/60 p-2.5">
                     <p>{a.judul}</p>
                     <p className="text-xs text-muted-foreground">

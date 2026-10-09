@@ -22,7 +22,23 @@ export interface ItemAlasan {
   buka?: { bagian: BagianDetail; label: string };
 }
 
-const URUTAN: Record<Keparahan, number> = { berat: 0, sedang: 1, ringan: 2 };
+/**
+ * Poin terstruktur dari backend (angka, halaman, syarat) jadi judul + rincian.
+ * Poin "Alasan" menjadi judul; poin yang sama persis dengan bukti/tindakan
+ * tidak diulang karena kartu sudah menampilkannya sendiri.
+ */
+export function judulDanRincianAlasan(a: {
+  ringkas: string; bukti?: string | null; tindakan?: string | null; poin?: { label: string; isi: string }[];
+}): { judul: string; rincian: string[] } {
+  const poin = (a.poin || []).filter(p => p.isi);
+  const judul = poin.find(p => p.label === 'Alasan')?.isi || a.ringkas;
+  const rincian = poin
+    .filter(p => p.label !== 'Alasan' && p.isi !== a.bukti && p.isi !== a.tindakan)
+    .map(p => `${p.label}: ${p.isi}`);
+  return { judul, rincian };
+}
+
+const URUTAN: Record<Keparahan, number> ={ berat: 0, sedang: 1, ringan: 2 };
 const IKON: Record<Keparahan, { ikon: typeof AlertCircle; kelas: string; label: string }> = {
   berat: { ikon: CircleAlert, kelas: 'text-red-600 dark:text-red-400', label: 'Berat' },
   sedang: { ikon: AlertTriangle, kelas: 'text-amber-600 dark:text-amber-400', label: 'Perlu dicek' },

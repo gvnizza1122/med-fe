@@ -45,7 +45,7 @@ import { BilahAksiKlaim } from '@/components/hasil-validasi/BilahAksiKlaim';
 import { formatRupiah,InaCbgRingkasCard } from '@/components/hasil-validasi/InaCbgRingkasCard';
 import { KepalaPasienCard,type PeringatanKolom } from '@/components/hasil-validasi/KepalaPasienCard';
 import { adaBukti,cariBukti,KodeKlaimPanel,pecahKode,type BuktiKode } from '@/components/hasil-validasi/KodeKlaimPanel';
-import { AlasanPendingCard,type BagianDetail,type ItemAlasan,type Keparahan } from '@/components/hasil-validasi/AlasanPendingCard';
+import { AlasanPendingCard,judulDanRincianAlasan,type BagianDetail,type ItemAlasan,type Keparahan } from '@/components/hasil-validasi/AlasanPendingCard';
 import { DaftarPasienSebulan,type Filter as FilterDaftar,type PasienSebulan } from '@/components/hasil-validasi/DaftarPasienSebulan';
 import { AlertTriangle,BookOpen,CheckCircle2,ChevronDown,FileCode2,FileText,HeartPulse,Lightbulb,MessageSquare,Pencil,RotateCw,Sparkles,Table2,X,XCircle } from 'lucide-react';
 
@@ -2768,10 +2768,11 @@ export default function ResultsPage() {
       // Alasan dari aturan validasi sudah tampil dari daftar error di atas.
       if (a.sumber_pemeriksaan === 'Aturan validasi' && a.kode && ruleDariError.has(a.kode)) return;
       const teks = `${a.kode || ''} ${a.ringkas} ${a.sumber_pemeriksaan}`.toLowerCase();
+      const { judul, rincian } = judulDanRincianAlasan(a);
       alasan.push({
         id: `ai-${a.kode || 'x'}-${i}`,
-        judul: a.ringkas,
-        rincian: a.penjelasan ? toBulletPoints(a.penjelasan) : undefined,
+        judul,
+        rincian: rincian.length ? rincian : a.penjelasan ? toBulletPoints(a.penjelasan) : undefined,
         sumber: a.dari_rekap_pending ? `${a.sumber_pemeriksaan} · pernah jadi alasan penolakan BPJS` : a.sumber_pemeriksaan,
         keparahan: KEPARAHAN_AI[a.keparahan] || 'sedang',
         bukti: a.bukti,
@@ -3005,7 +3006,8 @@ export default function ResultsPage() {
         {bagianTerbuka.has('agen') && (
           <section id="bagian-agen" className="scroll-mt-4 space-y-3">
             {kepalaBagian('agen', 'Agen casemix')}
-            <AgenCasemixPanel recordId={String(selectedRecord.id)} onOpenPdf={onOpenPdf} />
+            <AgenCasemixPanel recordId={String(selectedRecord.id)} onOpenPdf={onOpenPdf}
+              onEvaluasiTersimpan={() => { void loadRecords(); void loadFileInfo(); }} />
           </section>
         )}
 
