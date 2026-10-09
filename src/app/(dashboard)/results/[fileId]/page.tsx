@@ -2802,10 +2802,9 @@ export default function ResultsPage() {
       const buka = { bagian: 'kode' as const, label: 'Buka kode dan tarif' };
       if (b?.dictionary_status === 'not_found') {
         alasan.push({ id: `kode-${jenis}-${kode}`, judul: `${nama} ${kode} tidak ada di kamus resmi`, sumber: 'Bukti kode', keparahan: 'berat', tindakan: 'Ganti dengan kode ICD yang sah.', buka });
-      } else if (b && (b.review_status === 'PENDING' || b.coding_review_status === 'PENDING')) {
+      } else if (b && adaBukti(b) && (b.review_status === 'PENDING' || b.coding_review_status === 'PENDING')) {
         alasan.push({ id: `kode-${jenis}-${kode}`, judul: `${nama} ${kode} perlu dicek`, sumber: 'Bukti kode', keparahan: 'sedang', halaman: b.page_number, buka });
-      } else if (aiReview && !adaBukti(b)) {
-        alasan.push({ id: `kode-${jenis}-${kode}`, judul: `${nama} ${kode} belum ada buktinya di dokumen`, sumber: 'Bukti kode', keparahan: 'ringan', tindakan: 'Cek resume medis, atau hapus kode bila memang tidak tertulis.', buka });
+
       }
     };
     kodeDiagnosis.forEach(k => periksaKode(k, 'diagnosis'));
