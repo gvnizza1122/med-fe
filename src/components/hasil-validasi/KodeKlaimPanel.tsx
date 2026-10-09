@@ -45,14 +45,14 @@ function statusKode(b?: BuktiKode): StatusKode {
   if (b?.dictionary_status === 'not_found') {
     return { teks: 'Di luar kamus', ikon: XCircle, kelas: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300' };
   }
-  if (b && (b.review_status === 'PENDING' || b.coding_review_status === 'PENDING')) {
+  if (adaBukti(b) && b && (b.review_status === 'PENDING' || b.coding_review_status === 'PENDING')) {
     return { teks: 'Perlu dicek', ikon: AlertTriangle, kelas: 'bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300' };
   }
   if (adaBukti(b)) {
     const dok = b?.document_type ? DOCUMENT_TYPE_LABELS[b.document_type] : null;
     return { teks: dok && b?.document_type !== 'lainnya' ? `Sesuai ${dok}` : 'Ada di dokumen', ikon: CheckCircle2, kelas: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' };
   }
-  return { teks: 'Bukti belum ditemukan', ikon: CircleHelp, kelas: 'bg-muted text-foreground/80' };
+  return { teks: 'Telaah casemix', ikon: CircleHelp, kelas: 'bg-muted text-foreground/80' };
 }
 
 function BarisKode({ kode, judul, bukti, utama, onOpenPdf }: {
