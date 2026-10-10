@@ -25,6 +25,7 @@ export interface AnalisisKritis {
   ringkas?: { potensi_rugi_rs: number; potensi_upcoding: number; total: number };
   kesimpulan: string;
   catatan_ai?: string | null;
+  catatan_klinis?: { jenis:string;pesan:string;halaman?:number;bukti?:{kutipan:string;page_number:number} }[];
   dinilai?: { dx: string[]; px: string[]; inacbg: string | null; tarif: number | null };
 }
 
@@ -99,6 +100,15 @@ export function AnalisisKritisCard({ analisis, onOpenPdf }: { analisis?: Analisi
           ))}
         </ul>
       )}
+      {!!analisis.catatan_klinis?.length && <details className="rounded-md border border-border bg-background/60 p-3 text-foreground">
+        <summary className="cursor-pointer text-sm font-medium">Konteks klinis untuk casemix</summary>
+        <p className="mt-2 text-xs text-muted-foreground">Nilai lab dipakai untuk menilai kondisi dan pilihan terapi. Catatan ini tidak dihitung sebagai diagnosis terlewat atau risiko tarif.</p>
+        <ul className="mt-2 list-disc space-y-2 pl-4 text-sm">{analisis.catatan_klinis.map((c,i)=><li key={i}>
+          {(c.jenis !== 'konteks_penunjang' || !c.bukti) && <p>{c.pesan}</p>}
+          {c.bukti && <p className="mt-1 break-words text-muted-foreground">{c.bukti.kutipan} (hal. {c.bukti.page_number})</p>}
+          {(c.bukti?.page_number || c.halaman) && onOpenPdf && <Button type="button" variant="outline" size="sm" className="mt-1 h-7 gap-1 px-2 text-xs" onClick={()=>onOpenPdf(c.bukti?.page_number || c.halaman!)}><FileText className="size-3.5"/>Lihat hal. {c.bukti?.page_number || c.halaman}</Button>}
+        </li>)}</ul>
+      </details>}
       <p className="text-xs text-muted-foreground">Pemeriksaan otomatis aplikasi untuk membantu koder; keputusan tetap pada koder.</p>
     </section>
   );
