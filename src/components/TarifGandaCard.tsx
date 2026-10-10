@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { rentangTarif, SkenarioSeverityTarif } from './SkenarioSeverityTarif';
 
 interface KodeIdrg {
   kode: string;
@@ -31,9 +32,10 @@ interface TarifGanda {
   jenis_klaim: string | null;
   inacbg: {
     resmi: { sumber: 'lembar_grouper_eklaim' | 'data_klaim'; kode: string; deskripsi: string | null; tarif: number | null; versi_eklaim: string | null; halaman: number | null; severity?: string } | null;
-    hitungan_medaudit: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null; alasan?: string | null } | null;
+    hitungan_medaudit: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null; alasan?: string | null; severity_estimasi?: boolean; skenario_severity?: {code:string;severity:string;amount:number|null}[] } | null;
     perkiraan_klaim?: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null; alasan?: string | null; severity_estimasi?: boolean; skenario_severity?: {code:string;severity:string;amount:number|null}[]; status: 'tersedia' | 'tarif_belum_tersedia'; label: string; keterangan: string } | null;
     cocok: boolean | null;
+    cocok_base?: boolean | null;
   };
   idrg: {
     status: 'tersedia' | 'belum_dapat_dihitung';
@@ -120,6 +122,8 @@ export function TarifGandaCard({ recordId }: { recordId: string }) {
   const { inacbg, idrg, koding_idrg: koding } = data;
   const semuaKode = [...koding.diagnosis, ...koding.prosedur];
   const perkiraan = inacbg.perkiraan_klaim ?? inacbg.hitungan_medaudit;
+  const estimasiSeverity = perkiraan && 'severity_estimasi' in perkiraan && perkiraan.severity_estimasi === true;
+  const skenario = perkiraan && 'skenario_severity' in perkiraan ? perkiraan.skenario_severity : undefined;
 
   return (
     <section aria-label="Tarif INA-CBG dan iDRG" className="space-y-4">
@@ -130,9 +134,11 @@ export function TarifGandaCard({ recordId }: { recordId: string }) {
           <p className="mt-1 text-xs text-muted-foreground">INA-CBG · Berdasarkan diagnosis dan prosedur kasus ini</p>
           {perkiraan ? (
             <>
-              <p className="mt-2 font-display text-2xl font-semibold">{'severity_estimasi' in perkiraan && perkiraan.severity_estimasi === true && <span className="mb-1 block text-xs font-normal text-muted-foreground">Skenario tarif tingkat I · severity belum ditetapkan</span>}{perkiraan.tarif == null ? 'Tarif belum dapat diperkirakan' : rupiah(perkiraan.tarif)}</p>
+              <p className="mt-2 font-display text-xl font-semibold">{estimasiSeverity ? rentangTarif(skenario) || 'Lihat skenario tarif' : perkiraan.tarif == null ? 'Tarif belum dapat diperkirakan' : rupiah(perkiraan.tarif)}</p>
+              {estimasiSeverity && <p className="mt-1 text-xs text-muted-foreground">Rentang skenario severity I–III</p>}
               <p className="mt-1 text-sm"><span className="font-mono-data font-semibold">{'severity_estimasi' in perkiraan && perkiraan.severity_estimasi === true ? perkiraan.kode.replace(/-I$/,'') : perkiraan.kode}</span>{perkiraan.deskripsi && <span className="text-muted-foreground"> · {perkiraan.deskripsi}</span>}</p>
-              {perkiraan.alasan && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Dasar perkiraan: {perkiraan.alasan}</p>}
+              {estimasiSeverity && <div className="mt-3"><SkenarioSeverityTarif skenario={skenario} kodePembanding={inacbg.resmi?.kode} /></div>}
+              {perkiraan.alasan && <details className="mt-3 text-xs text-muted-foreground"><summary className="cursor-pointer">Dasar pengelompokan</summary><p className="mt-1 leading-relaxed">{perkiraan.alasan}</p></details>}
               {perkiraan.catatan && <details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Rincian dasar tarif</summary><p className="mt-1 leading-relaxed">{perkiraan.catatan}</p></details>}
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{inacbg.perkiraan_klaim?.keterangan ?? 'Nilai ini merupakan perkiraan aplikasi dan perlu verifikasi dengan hasil E-Klaim.'}</p>
             </>
@@ -141,11 +147,14 @@ export function TarifGandaCard({ recordId }: { recordId: string }) {
           )}
           {inacbg.resmi ? (
             <div className="mt-3 border-t border-border pt-3 text-xs">
-              <p className="font-medium">Hasil E-Klaim sebagai pembanding · Severity {inacbg.resmi.severity || inacbg.resmi.kode.split('-').pop()}</p>
-              <p className="mt-1"><span className="font-mono-data">{inacbg.resmi.kode}</span> · {rupiah(inacbg.resmi.tarif)}</p>
+              <p className="font-medium">Hasil E-Klaim pada berkas · Severity {inacbg.resmi.severity || inacbg.resmi.kode.split('-').pop()}</p>
+              <p className="mt-1 font-mono-data text-lg font-semibold">{rupiah(inacbg.resmi.tarif)}</p>
+              <p className="mt-1 font-mono-data">{inacbg.resmi.kode}</p>
               <p className="mt-1 text-muted-foreground">Dokumen: {LABEL_SUMBER_INACBG[inacbg.resmi.sumber] ?? inacbg.resmi.sumber}{inacbg.resmi.halaman ? `, halaman ${inacbg.resmi.halaman}` : ''}{inacbg.resmi.versi_eklaim ? ` · E-Klaim ${inacbg.resmi.versi_eklaim}` : ''}</p>
               {inacbg.cocok === true && <p className="mt-1 text-emerald-700 dark:text-emerald-400">Kode perkiraan sama dengan hasil E-Klaim.</p>}
-              {inacbg.cocok === false && <p className="mt-1 text-amber-700 dark:text-amber-400">Kode perkiraan berbeda; tinjau diagnosis, prosedur dan aturan grouper.</p>}
+              {inacbg.cocok === false && (estimasiSeverity && inacbg.cocok_base === true
+                ? <p className="mt-1 text-emerald-700 dark:text-emerald-400">Kelompok perkiraan sesuai. E-Klaim menetapkan tingkat {inacbg.resmi.severity || inacbg.resmi.kode.split('-').pop()} untuk berkas ini.</p>
+                : <p className="mt-1 text-amber-700 dark:text-amber-400">Kelompok perkiraan berbeda; tinjau diagnosis utama, prosedur dan hasil pengelompokan.</p>)}
             </div>
           ) : perkiraan && (
             <p className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">Hasil E-Klaim untuk pembanding belum tersedia.</p>

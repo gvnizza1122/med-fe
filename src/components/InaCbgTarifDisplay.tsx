@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { rentangTarif, SkenarioSeverityTarif } from './SkenarioSeverityTarif';
 
 interface Evidence {
   quotation: string;
@@ -190,7 +191,7 @@ function TariffSection({
 
       <div className="shrink-0 text-right">
         <div className="font-mono text-base font-bold text-gray-100">
-          {hasTariff ? `${formatRupiah(Number(tariff_result.amount))}${inacbg_result.severity_estimasi ? ' · skenario I' : ''}` : 'Tidak ditemukan'}
+          {inacbg_result.severity_estimasi ? rentangTarif(tariff_result?.skenario_severity) || 'Lihat skenario tarif' : hasTariff ? formatRupiah(Number(tariff_result.amount)) : 'Tidak ditemukan'}
         </div>
         {hasTariff && (
           <div className="mt-0.5 text-[11px] text-gray-500">
@@ -207,9 +208,9 @@ function TariffSection({
       </div>
       {(inacbg_result.severity_estimasi || tariff_result?.perlu_verifikasi_grouper) && (
         <div className="w-full rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200">
-          <p className="font-semibold">{inacbg_result.severity_estimasi ? 'Severity aplikasi belum ditetapkan' : 'Perkiraan kelompok rawat jalan'}</p>
+          <p className="font-semibold">{inacbg_result.severity_estimasi ? 'Perkiraan tarif menurut severity' : 'Perkiraan kelompok rawat jalan'}</p>
           <p className="mt-1">{inacbg_result.severity_estimasi
-            ? 'Severity mengikuti hasil grouper E-Klaim sesuai kode dan episode. Perawatan ICU sendiri tidak menetapkan tingkat III; nilai I, II dan III di bawah adalah skenario tarif.'
+            ? 'Bandingkan ketiga skenario berikut. Tingkat final mengikuti pengelompokan E-Klaim untuk diagnosis dan prosedur pada episode ini.'
             : 'Tarif mengikuti tabel resmi untuk kelompok yang diperkirakan aplikasi. Kesesuaian kelompok perlu diverifikasi dengan mesin E-Klaim.'}</p>
           {inacbg_result.reasoning && <p className="mt-2 text-muted-foreground">{inacbg_result.reasoning}</p>}
           {inacbg_result.base_perlu_verifikasi && !!inacbg_result.kandidat_base?.length && (
@@ -222,9 +223,7 @@ function TariffSection({
               </ul>
             </div>
           )}
-          {!!tariff_result?.skenario_severity?.length && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            {tariff_result.skenario_severity.map(s => <span key={s.code}>Tingkat {s.severity}: {s.amount != null ? formatRupiah(s.amount) : 'tarif belum tersedia'}</span>)}
-          </div>}
+          <div className="mt-3"><SkenarioSeverityTarif skenario={tariff_result?.skenario_severity} /></div>
         </div>
       )}
     </div>

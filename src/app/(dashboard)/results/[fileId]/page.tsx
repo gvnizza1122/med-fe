@@ -23,6 +23,7 @@ import { SaranKodingPanel } from '@/components/SaranKodingPanel';
 import { SuratKlarifikasiModal } from '@/components/SuratKlarifikasiModal';
 import { SyaratPenunjangCard,type TemuanSyaratPenunjang } from '@/components/SyaratPenunjangCard';
 import { TarifGandaCard } from '@/components/TarifGandaCard';
+import { rentangTarif } from '@/components/SkenarioSeverityTarif';
 import type { SilangTindakan,TemuanTindakan } from '@/components/TemuanTindakanCard';
 import { ToastContainer,useToast } from '@/components/Toast';
 import { api } from '@/lib/api';
@@ -391,6 +392,7 @@ interface InaCbgResult {
 }
 
 interface TariffResult {
+  skenario_severity?: { code:string;severity:string;amount:number|null }[];
   // Disamakan dengan bentuk yang dikirim backend (aiReviewService.js:
   // tarifResult). Salinan tipe ini sempat berbeda dari komponennya dan
   // sama-sama salah menamai field-nya tariff_amount.
@@ -402,6 +404,7 @@ interface TariffResult {
 }
 
 interface AiReview {
+  lembar_grouper?: { inacbg: { kode:string;deskripsi?:string;tarif?:number }; total_tarif?:number;halaman?:number };
   laporan_operasi?: DataLaporanOperasi;
   anggaran_ai?: { profil: string; target_idr: number; batas_normal_idr?: number; batas_maksimum_idr?: number; tambahan_alasan?: string[]; gagal_idr?: number; batas_idr: number; terpakai_idr: number; dicadangkan_idr: number; belum_pasti_idr: number; sisa_idr: number; dasar: string };
   kelengkapan_analisis?: { status: 'lengkap' | 'sebagian' | 'gagal'; alasan: { kode: string; pesan: string }[] };
@@ -2829,18 +2832,21 @@ export default function ResultsPage() {
       aiReview?.dasar_diagnosis || (aiReview?.tindakan_belum_dikode?.length ?? 0) > 0, aiReview?.analisis_kritis,
     ].filter(Boolean).length;
 
-    const severityBelumDitetapkan = !selectedRecord.inacbg_code && !dataMentah.INACBG && aiReview?.inacbg_result?.severity_estimasi === true;
-    const kodeInacbgMentah = String(selectedRecord.inacbg_code || dataMentah.INACBG || aiReview?.inacbg_result?.code || '').trim();
+    const grouperBerkas = aiReview?.lembar_grouper;
+    const kodeResmi = grouperBerkas?.inacbg?.kode || selectedRecord.inacbg_code || dataMentah.INACBG;
+    const severityBelumDitetapkan = !kodeResmi && aiReview?.inacbg_result?.severity_estimasi === true;
+    const kodeInacbgMentah = String(kodeResmi || aiReview?.inacbg_result?.code || '').trim();
     const kodeInacbg = (severityBelumDitetapkan ? kodeInacbgMentah.replace(/-I$/,'') : kodeInacbgMentah) || null;
-    const deskripsiInacbgMentah = String(selectedRecord.deskripsi_inacbg || dataMentah.DESKRIPSI_INACBG || aiReview?.inacbg_result?.description || '').trim();
+    const deskripsiInacbgMentah = String(grouperBerkas?.inacbg?.deskripsi || selectedRecord.deskripsi_inacbg || dataMentah.DESKRIPSI_INACBG || aiReview?.inacbg_result?.description || '').trim();
     const deskripsiInacbg = (severityBelumDitetapkan ? deskripsiInacbgMentah.replace(/\s*\((?:RINGAN|SEDANG|BERAT)\)/ig,'')+' · severity belum ditetapkan' : deskripsiInacbgMentah) || null;
-    const tarifLembar = Number(dataMentah.TOTAL_TARIF || dataMentah.TARIF_INACBG || 0);
+    const tarifLembar = Number(grouperBerkas?.total_tarif ?? grouperBerkas?.inacbg?.tarif ?? (dataMentah.TOTAL_TARIF || dataMentah.TARIF_INACBG || 0));
     const tarifResult = aiReview?.tariff_result;
     const tarifInacbg = tarifLembar > 0 ? tarifLembar : (tarifResult?.amount ?? null);
     const sumberTarif = tarifLembar > 0
-      ? 'Lembar hasil grouper di berkas'
+      ? `Lembar hasil E-Klaim${grouperBerkas?.halaman ? ` · halaman ${grouperBerkas.halaman}` : ''}`
       : tarifResult ? [tarifResult.source, tarifResult.region, tarifResult.class && `kelas ${tarifResult.class}`].filter(Boolean).join(' · ') : null;
     const rupiah = formatRupiah(tarifInacbg);
+    const rentangPerkiraan = severityBelumDitetapkan ? rentangTarif(tarifResult?.skenario_severity) : null;
 
     const kolomBermasalah = [...new Map(errors.map(e => [e.field_name, e])).values()];
     const peringatan: PeringatanKolom[] = kolomBermasalah.slice(0, 3).map(e => ({
@@ -2975,6 +2981,8 @@ export default function ResultsPage() {
                 deskripsi={deskripsiInacbg}
                 tarif={tarifInacbg}
                 sumber={sumberTarif}
+                rentang={rentangPerkiraan}
+                labelTarif={tarifLembar > 0 ? 'Hasil E-Klaim pada berkas' : severityBelumDitetapkan ? 'Rentang skenario severity I–III' : 'Tarif INA-CBG'}
                 jenisLayanan={kategori?.label}
                 catatan={!tarifInacbg && tarifResult?.note ? tarifResult.note : null}
               />
@@ -3119,7 +3127,7 @@ export default function ResultsPage() {
           ringkasan={
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {kodeInacbg
-                ? <span className="font-mono-data font-semibold">{kodeInacbg}{rupiah && <span className="ml-1 font-normal text-muted-foreground">({rupiah})</span>}</span>
+                ? <span className="font-mono-data font-semibold">{kodeInacbg}{(rentangPerkiraan || rupiah) && <span className="ml-1 font-normal text-muted-foreground">({rentangPerkiraan || rupiah})</span>}</span>
                 : <span className="font-semibold">INA-CBG belum ada</span>}
               <span aria-hidden="true" className="text-muted-foreground">·</span>
               <span className={siapKirim ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-300'}>
