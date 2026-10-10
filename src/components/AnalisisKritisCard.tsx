@@ -56,8 +56,9 @@ export function AnalisisKritisCard({ analisis, onOpenPdf }: { analisis?: Analisi
           {ada ? <ShieldAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0" /> : <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0" />}
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pemeriksaan kritis</p>
-            <h4 className="font-semibold">Keyakinan {analisis.tingkat} · {analisis.skor_keyakinan}/100</h4>
+            <h4 className="font-semibold">Keyakinan kesesuaian kode: {analisis.tingkat} · {analisis.skor_keyakinan}/100</h4>
             <p className="mt-1 text-sm text-foreground/85">{analisis.kesimpulan}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Skor berdasarkan temuan pemeriksaan kode dan dokumentasi; bukan peluang klaim dibayar.</p>
           </div>
         </div>
         {ada && (
@@ -102,9 +103,9 @@ export function AnalisisKritisCard({ analisis, onOpenPdf }: { analisis?: Analisi
       )}
       {!!analisis.catatan_klinis?.length && <details className="rounded-md border border-border bg-background/60 p-3 text-foreground">
         <summary className="cursor-pointer text-sm font-medium">Konteks klinis untuk casemix</summary>
-        <p className="mt-2 text-xs text-muted-foreground">Nilai lab dipakai untuk menilai kondisi dan pilihan terapi. Catatan ini tidak dihitung sebagai diagnosis terlewat atau risiko tarif.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Hasil lab dan temuan klinis dibaca bersama diagnosis, tindakan, serta pilihan terapi. Catatan ini tidak mengurangi skor keyakinan atau otomatis menjadi diagnosis tambahan.</p>
         <ul className="mt-2 list-disc space-y-2 pl-4 text-sm">{analisis.catatan_klinis.map((c,i)=><li key={i}>
-          {(c.jenis !== 'konteks_penunjang' || !c.bukti) && <p>{c.pesan}</p>}
+          {(!['konteks_penunjang','konteks_klinis'].includes(c.jenis) || !c.bukti) && <p>{c.pesan}</p>}
           {c.bukti && <p className="mt-1 break-words text-muted-foreground">{c.bukti.kutipan} (hal. {c.bukti.page_number})</p>}
           {(c.bukti?.page_number || c.halaman) && onOpenPdf && <Button type="button" variant="outline" size="sm" className="mt-1 h-7 gap-1 px-2 text-xs" onClick={()=>onOpenPdf(c.bukti?.page_number || c.halaman!)}><FileText className="size-3.5"/>Lihat hal. {c.bukti?.page_number || c.halaman}</Button>}
         </li>)}</ul>
