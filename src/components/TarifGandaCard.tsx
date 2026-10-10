@@ -30,9 +30,9 @@ interface KodeIdrg {
 interface TarifGanda {
   jenis_klaim: string | null;
   inacbg: {
-    resmi: { sumber: 'lembar_grouper_eklaim' | 'data_klaim'; kode: string; deskripsi: string | null; tarif: number | null; versi_eklaim: string | null; halaman: number | null } | null;
+    resmi: { sumber: 'lembar_grouper_eklaim' | 'data_klaim'; kode: string; deskripsi: string | null; tarif: number | null; versi_eklaim: string | null; halaman: number | null; severity?: string } | null;
     hitungan_medaudit: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null; alasan?: string | null } | null;
-    perkiraan_klaim?: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null; alasan?: string | null; status: 'tersedia' | 'tarif_belum_tersedia'; label: string; keterangan: string } | null;
+    perkiraan_klaim?: { kode: string; deskripsi: string | null; tarif: number | null; catatan: string | null; alasan?: string | null; severity_estimasi?: boolean; skenario_severity?: {code:string;severity:string;amount:number|null}[]; status: 'tersedia' | 'tarif_belum_tersedia'; label: string; keterangan: string } | null;
     cocok: boolean | null;
   };
   idrg: {
@@ -130,8 +130,8 @@ export function TarifGandaCard({ recordId }: { recordId: string }) {
           <p className="mt-1 text-xs text-muted-foreground">INA-CBG · Berdasarkan diagnosis dan prosedur kasus ini</p>
           {perkiraan ? (
             <>
-              <p className="mt-2 font-display text-2xl font-semibold">{perkiraan.tarif == null ? 'Tarif belum dapat diperkirakan' : rupiah(perkiraan.tarif)}</p>
-              <p className="mt-1 text-sm"><span className="font-mono-data font-semibold">{perkiraan.kode}</span>{perkiraan.deskripsi && <span className="text-muted-foreground"> · {perkiraan.deskripsi}</span>}</p>
+              <p className="mt-2 font-display text-2xl font-semibold">{'severity_estimasi' in perkiraan && perkiraan.severity_estimasi === true && <span className="mb-1 block text-xs font-normal text-muted-foreground">Skenario tarif tingkat I · severity belum ditetapkan</span>}{perkiraan.tarif == null ? 'Tarif belum dapat diperkirakan' : rupiah(perkiraan.tarif)}</p>
+              <p className="mt-1 text-sm"><span className="font-mono-data font-semibold">{'severity_estimasi' in perkiraan && perkiraan.severity_estimasi === true ? perkiraan.kode.replace(/-I$/,'') : perkiraan.kode}</span>{perkiraan.deskripsi && <span className="text-muted-foreground"> · {perkiraan.deskripsi}</span>}</p>
               {perkiraan.alasan && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Dasar perkiraan: {perkiraan.alasan}</p>}
               {perkiraan.catatan && <details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Rincian dasar tarif</summary><p className="mt-1 leading-relaxed">{perkiraan.catatan}</p></details>}
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{inacbg.perkiraan_klaim?.keterangan ?? 'Nilai ini merupakan perkiraan aplikasi dan perlu verifikasi dengan hasil E-Klaim.'}</p>
@@ -141,9 +141,9 @@ export function TarifGandaCard({ recordId }: { recordId: string }) {
           )}
           {inacbg.resmi ? (
             <div className="mt-3 border-t border-border pt-3 text-xs">
-              <p className="font-medium">Hasil E-Klaim sebagai pembanding</p>
+              <p className="font-medium">Hasil E-Klaim sebagai pembanding · Severity {inacbg.resmi.severity || inacbg.resmi.kode.split('-').pop()}</p>
               <p className="mt-1"><span className="font-mono-data">{inacbg.resmi.kode}</span> · {rupiah(inacbg.resmi.tarif)}</p>
-              <p className="mt-1 text-muted-foreground">Sumber: {LABEL_SUMBER_INACBG[inacbg.resmi.sumber] ?? inacbg.resmi.sumber}{inacbg.resmi.halaman ? `, halaman ${inacbg.resmi.halaman}` : ''}{inacbg.resmi.versi_eklaim ? ` · E-Klaim ${inacbg.resmi.versi_eklaim}` : ''}</p>
+              <p className="mt-1 text-muted-foreground">Dokumen: {LABEL_SUMBER_INACBG[inacbg.resmi.sumber] ?? inacbg.resmi.sumber}{inacbg.resmi.halaman ? `, halaman ${inacbg.resmi.halaman}` : ''}{inacbg.resmi.versi_eklaim ? ` · E-Klaim ${inacbg.resmi.versi_eklaim}` : ''}</p>
               {inacbg.cocok === true && <p className="mt-1 text-emerald-700 dark:text-emerald-400">Kode perkiraan sama dengan hasil E-Klaim.</p>}
               {inacbg.cocok === false && <p className="mt-1 text-amber-700 dark:text-amber-400">Kode perkiraan berbeda; tinjau diagnosis, prosedur dan aturan grouper.</p>}
             </div>

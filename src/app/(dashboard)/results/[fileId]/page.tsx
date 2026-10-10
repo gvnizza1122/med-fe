@@ -383,6 +383,7 @@ interface DiagnosisConsistencyFlag {
 }
 
 interface InaCbgResult {
+  severity_estimasi?: boolean;
   code: string;
   description: string;
   confidence: number; // 0..1
@@ -2776,7 +2777,7 @@ export default function ResultsPage() {
         sumber: a.dari_rekap_pending ? `${a.sumber_pemeriksaan} · pernah jadi alasan penolakan BPJS` : a.sumber_pemeriksaan,
         keparahan: KEPARAHAN_AI[a.keparahan] || 'sedang',
         bukti: a.bukti,
-        halaman: halamanDariTeks(a.bukti),
+        halaman: /Referensi klaim BPJS|Telaah rekomendasi TKMKB|PNPK Kemenkes|BA kesepakatan/.test(a.sumber_pemeriksaan) ? null : halamanDariTeks(a.bukti),
         tindakan: a.tindakan,
         buka: adaFisik && /kegawat|triase|vital/.test(teks) ? { bagian: 'fisik', label: 'Buka pemeriksaan fisik' }
           : /kode|koding|kamus|icd|tarif|inacbg|ina-cbg/.test(teks) ? { bagian: 'kode', label: 'Buka kode dan tarif' }
@@ -2828,8 +2829,11 @@ export default function ResultsPage() {
       aiReview?.dasar_diagnosis || (aiReview?.tindakan_belum_dikode?.length ?? 0) > 0, aiReview?.analisis_kritis,
     ].filter(Boolean).length;
 
-    const kodeInacbg = String(selectedRecord.inacbg_code || dataMentah.INACBG || aiReview?.inacbg_result?.code || '').trim() || null;
-    const deskripsiInacbg = String(selectedRecord.deskripsi_inacbg || dataMentah.DESKRIPSI_INACBG || aiReview?.inacbg_result?.description || '').trim() || null;
+    const severityBelumDitetapkan = !selectedRecord.inacbg_code && !dataMentah.INACBG && aiReview?.inacbg_result?.severity_estimasi === true;
+    const kodeInacbgMentah = String(selectedRecord.inacbg_code || dataMentah.INACBG || aiReview?.inacbg_result?.code || '').trim();
+    const kodeInacbg = (severityBelumDitetapkan ? kodeInacbgMentah.replace(/-I$/,'') : kodeInacbgMentah) || null;
+    const deskripsiInacbgMentah = String(selectedRecord.deskripsi_inacbg || dataMentah.DESKRIPSI_INACBG || aiReview?.inacbg_result?.description || '').trim();
+    const deskripsiInacbg = (severityBelumDitetapkan ? deskripsiInacbgMentah.replace(/\s*\((?:RINGAN|SEDANG|BERAT)\)/ig,'')+' · severity belum ditetapkan' : deskripsiInacbgMentah) || null;
     const tarifLembar = Number(dataMentah.TOTAL_TARIF || dataMentah.TARIF_INACBG || 0);
     const tarifResult = aiReview?.tariff_result;
     const tarifInacbg = tarifLembar > 0 ? tarifLembar : (tarifResult?.amount ?? null);

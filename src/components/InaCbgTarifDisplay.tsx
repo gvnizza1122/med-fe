@@ -168,7 +168,7 @@ function TariffSection({
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-base font-bold text-purple-300">
-            {inacbg_result?.code || '—'}
+            {inacbg_result?.severity_estimasi ? inacbg_result.code.replace(/-I$/,'') : inacbg_result?.code || '—'}
           </span>
           {isHighConfidence && (
             <CheckCircle2
@@ -184,13 +184,13 @@ function TariffSection({
           )}
         </div>
         <div className="mt-0.5 truncate text-xs text-gray-400" title={inacbg_result?.description}>
-          {inacbg_result?.description || '—'}
+          {inacbg_result?.severity_estimasi ? inacbg_result.description.replace(/\s*\((?:RINGAN|SEDANG|BERAT)\)/ig,'') : inacbg_result?.description || '—'}
         </div>
       </div>
 
       <div className="shrink-0 text-right">
         <div className="font-mono text-base font-bold text-gray-100">
-          {hasTariff ? formatRupiah(Number(tariff_result.amount)) : 'Tidak ditemukan'}
+          {hasTariff ? `${formatRupiah(Number(tariff_result.amount))}${inacbg_result.severity_estimasi ? ' · skenario I' : ''}` : 'Tidak ditemukan'}
         </div>
         {hasTariff && (
           <div className="mt-0.5 text-[11px] text-gray-500">
@@ -207,9 +207,9 @@ function TariffSection({
       </div>
       {(inacbg_result.severity_estimasi || tariff_result?.perlu_verifikasi_grouper) && (
         <div className="w-full rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200">
-          <p className="font-semibold">{inacbg_result.severity_estimasi ? 'Perkiraan aplikasi · acuan tingkat I' : 'Perkiraan kelompok rawat jalan'}</p>
+          <p className="font-semibold">{inacbg_result.severity_estimasi ? 'Severity aplikasi belum ditetapkan' : 'Perkiraan kelompok rawat jalan'}</p>
           <p className="mt-1">{inacbg_result.severity_estimasi
-            ? 'Tingkat keparahan final perlu hasil grouper E-Klaim. Adanya diagnosis komplikasi tidak otomatis menentukan tingkat II atau III.'
+            ? 'Severity mengikuti hasil grouper E-Klaim sesuai kode dan episode. Perawatan ICU sendiri tidak menetapkan tingkat III; nilai I, II dan III di bawah adalah skenario tarif.'
             : 'Tarif mengikuti tabel resmi untuk kelompok yang diperkirakan aplikasi. Kesesuaian kelompok perlu diverifikasi dengan mesin E-Klaim.'}</p>
           {inacbg_result.reasoning && <p className="mt-2 text-muted-foreground">{inacbg_result.reasoning}</p>}
           {inacbg_result.base_perlu_verifikasi && !!inacbg_result.kandidat_base?.length && (

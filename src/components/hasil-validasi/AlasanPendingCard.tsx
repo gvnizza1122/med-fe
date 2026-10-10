@@ -76,7 +76,7 @@ export function AlasanPendingCard({
         <h2 className="flex items-center gap-2 text-base font-semibold text-foreground sm:text-lg">
           {bersih
             ? <><CheckCircle2 aria-hidden="true" className="size-5 text-emerald-600 dark:text-emerald-400" /> Tidak ditemukan alasan pending</>
-            : <><AlertTriangle aria-hidden="true" className={cn('size-5', jumlahBerat ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400')} /> {urut.length} alasan klaim ini bisa dipending</>}
+            : <><AlertTriangle aria-hidden="true" className={cn('size-5', jumlahBerat ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400')} /> {jumlahBerat ? `${urut.length} temuan risiko klaim` : `${urut.length} catatan untuk telaah casemix`}</>}
         </h2>
         {jumlahBerat > 0 && (
           <span className="rounded-md bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-500/15 dark:text-red-300">{jumlahBerat} berat</span>
@@ -126,7 +126,7 @@ export function AlasanPendingCard({
                     )}
                     <button type="button" aria-expanded={dasarTerbuka.has(item.id)} onClick={() => toggleDasar(item.id)}
                       className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
-                      {dasarTerbuka.has(item.id) ? 'Sembunyikan dasar' : 'Dasar & sumber'}
+                      {dasarTerbuka.has(item.id) ? 'Sembunyikan dasar' : 'Rincian pemeriksaan'}
                       <ChevronDown aria-hidden="true" className={cn('size-3.5 transition-transform', dasarTerbuka.has(item.id) && 'rotate-180')} />
                     </button>
                   </div>
