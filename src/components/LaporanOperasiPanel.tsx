@@ -31,10 +31,10 @@ export function LaporanOperasiIsi({data,onOpenPdf}:{data:DataLaporanOperasi;onOp
     {data.cakupan.analisis_berkas_berubah&&<p role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">Berkas berubah setelah analisis terakhir. Gunakan Baca Ulang untuk memperbarui analisis dari seluruh halaman terbaru.</p>}
     {!data.cakupan.analisis_berkas_berubah&&data.cakupan.telaah_lokal_tersedia&&data.cakupan.analisis_ai_sesuai_bukti!==true&&<p className="rounded-lg border border-border bg-muted/15 p-3 text-sm">Bukti operasi sudah ditelaah lokal. Analisis AI sebelumnya belum diperbarui dari telaah dokumen ini.</p>}
     {data.cakupan.halaman_belum_terbaca.length>0&&<p role="alert" className="text-sm text-amber-700 dark:text-amber-300">Halaman {data.cakupan.halaman_belum_terbaca.join(', ')} belum terbaca. Periksa PDF asli sebelum menyimpulkan bukti tidak ada.</p>}
-    {!data.laporan.length&&<p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">Laporan operasi belum teridentifikasi dari teks berkas. Periksa PDF asli atau tambahkan laporan pada berkas klaim dan baca ulang.</p>}
+    {!data.laporan.length&&<p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">Berkas ini tidak memuat laporan operasi yang teridentifikasi. Kebutuhan lampiran mengikuti tindakan yang dilakukan pada kasus.</p>}
     {data.laporan.map(r=><section key={r.page_number} className="space-y-3 rounded-xl border border-border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h4 className="text-base font-semibold">{r.status_ukuran==='halaman_pengesahan'?'Pengesahan laporan operasi':'Temuan pada laporan operasi'}</h4>{r.tindakan&&<p className="mt-1 text-sm">{r.tindakan}</p>}{r.tanggal&&<p className="mt-1 text-xs text-muted-foreground">Tanggal operasi: {r.tanggal}</p>}</div><Halaman nomor={r.page_number} onOpenPdf={onOpenPdf}/></div>
-      {r.ukuran.length?<DaftarUkuran ukuran={r.ukuran}/>:r.status_ukuran==='halaman_pengesahan'?<p className="text-sm text-muted-foreground">Halaman lanjutan/pengesahan; lihat temuan ukuran pada bagian laporan di atas.</p>:<p className="text-sm text-amber-700 dark:text-amber-300">Ukuran tumor belum terbaca. Periksa narasi/tulisan tangan pada laporan asli.</p>}
+      {r.ukuran.length?<DaftarUkuran ukuran={r.ukuran}/>:r.status_ukuran==='halaman_pengesahan'?<p className="text-sm text-muted-foreground">Halaman lanjutan/pengesahan; lihat temuan ukuran pada bagian laporan di atas.</p>:r.status_ukuran==='tidak_relevan'?<p className="text-sm text-muted-foreground">Rincian tindakan dapat dibaca pada teks laporan.</p>:<p className="text-sm text-amber-700 dark:text-amber-300">Ukuran tumor belum terbaca. Periksa narasi/tulisan tangan pada laporan asli.</p>}
       <details><summary className="cursor-pointer text-sm font-medium">Teks laporan operasi</summary><pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-muted-foreground">{r.teks}</pre></details>
     </section>)}
     {data.patologi.map(p=><section key={p.page_number} className="space-y-3 rounded-xl border border-border p-4">
@@ -43,7 +43,7 @@ export function LaporanOperasiIsi({data,onOpenPdf}:{data:DataLaporanOperasi;onOp
       {p.kesimpulan&&<p className="whitespace-pre-wrap text-sm leading-relaxed">{p.kesimpulan}</p>}
       {p.ukuran_spesimen.length?<DaftarUkuran ukuran={p.ukuran_spesimen}/>:<p className="text-sm text-muted-foreground">Ukuran spesimen belum terbaca.</p>}
     </section>)}
-    {!!data.laporan.length&&<section aria-label="Telaah kriteria tumor jaringan lunak" className="space-y-3"><h4 className="text-sm font-semibold">Telaah kriteria tumor jaringan lunak</h4>
+    {!!data.kriteria_stt.length&&<section aria-label="Telaah kriteria tumor jaringan lunak" className="space-y-3"><h4 className="text-sm font-semibold">Telaah kriteria tumor jaringan lunak</h4>
       <p className="text-sm text-muted-foreground">BA 2024 menggunakan salah satu kondisi berikut. Ukuran &gt;4 cm saja belum membuktikan perluasan ke struktur vital.</p>
       <ul className="space-y-3">{data.kriteria_stt.map(k=><li key={k.id} className="rounded-lg bg-muted/25 p-3"><div className="flex flex-wrap justify-between gap-2"><p className="text-sm font-medium">{k.nama}</p><span className="text-xs text-muted-foreground">{k.status==='bukti_pendukung'?'Bukti pendukung tercatat':'Perlu konfirmasi'}</span></div><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{k.catatan}</p>{k.bukti.map((b,i)=><blockquote key={i} className="mt-2 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">Hal. {b.page_number}: {b.kutipan}</blockquote>)}</li>)}</ul>
     </section>}
@@ -60,7 +60,7 @@ export function LaporanOperasiPanel({recordId,hashBukti,onOpenPdf}:{recordId:str
     return()=>{aktif=false;};
   },[recordId,hashBukti,percobaan]);
   const siap=hasil?.id===recordId&&hasil.hash===hashBukti;
-  return <div className="space-y-4 p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-base font-semibold">Laporan operasi dan ukuran tumor</h3><Button type="button" size="sm" variant="outline" onClick={()=>{setHasil(null);setPercobaan(n=>n+1);}}>Periksa bukti terbaru</Button></div>
+  return <div className="space-y-4 p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-base font-semibold">Laporan tindakan dan temuan operasi</h3><Button type="button" size="sm" variant="outline" onClick={()=>{setHasil(null);setPercobaan(n=>n+1);}}>Periksa bukti terbaru</Button></div>
     {!siap?<p role="status" className="text-sm text-muted-foreground">Membaca laporan dari seluruh halaman berkas…</p>:hasil.gagal||!hasil.data?<p role="alert" className="text-sm text-destructive">Laporan belum dapat dimuat. Tekan Periksa bukti terbaru untuk mencoba lagi.</p>:<LaporanOperasiIsi data={hasil.data} onOpenPdf={onOpenPdf}/>}
   </div>;
 }

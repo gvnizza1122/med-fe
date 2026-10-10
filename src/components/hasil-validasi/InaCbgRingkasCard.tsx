@@ -7,8 +7,9 @@ export function formatRupiah(nilai: number | null | undefined): string | null {
   return `Rp ${new Intl.NumberFormat('id-ID').format(nilai)}`;
 }
 
-export function InaCbgRingkasCard({ kode, deskripsi, tarif, sumber, jenisLayanan, catatan }: {
+export function InaCbgRingkasCard({ kode, deskripsi, tarif, sumber, jenisLayanan, catatan, rentang, labelTarif }: {
   kode?: string | null; deskripsi?: string | null; tarif?: number | null; sumber?: string | null; jenisLayanan?: string | null; catatan?: string | null;
+  rentang?: string | null; labelTarif?: string;
 }) {
   const rupiah = formatRupiah(tarif);
   return (
@@ -23,8 +24,8 @@ export function InaCbgRingkasCard({ kode, deskripsi, tarif, sumber, jenisLayanan
           {deskripsi && <p className="mt-1 text-sm text-slate-300">{deskripsi}</p>}
         </div>
         <div className="text-right">
-          <p className="text-xs font-medium text-slate-300">Tarif INA-CBG</p>
-          <p className="mt-1 font-mono-data text-2xl font-semibold text-emerald-300">{rupiah || '—'}</p>
+          <p className="text-xs font-medium text-slate-300">{labelTarif || 'Tarif INA-CBG'}</p>
+          <p className="mt-1 font-mono-data text-xl font-semibold text-emerald-300">{rentang || rupiah || '—'}</p>
         </div>
       </div>
       {(sumber || catatan || !kode) && (
